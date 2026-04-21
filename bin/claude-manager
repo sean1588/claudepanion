@@ -1,0 +1,126 @@
+#!/usr/bin/env node
+
+import fs from 'fs';
+import path from 'path';
+import { spawn } from 'child_process';
+import { fileURLToPath } from 'url';
+
+const __dirname = path.dirname(fileURLToPath(import.meta.url));
+const PLUGIN_DIR = path.resolve(__dirname, '..');
+const PLUGIN_KEY = 'claude-manager@local';
+
+const command = process.argv[2];
+const subcommand = process.argv[3];
+
+function findGitRoot() {
+  let dir = process.cwd();
+  while (dir !== path.dirname(dir)) {
+    if (fs.existsSync(path.join(dir, '.git'))) return dir;
+    dir = path.dirname(dir);
+  }
+  return null;
+}
+
+function settingsPathForGitRoot(gitRoot) {
+  return path.join(gitRoot, '.claude', 'settings.local.json');
+}
+
+function readSettings(settingsPath) {
+  if (!fs.existsSync(settingsPath)) return {};
+  try { return JSON.parse(fs.readFileSync(settingsPath, 'utf-8')); } catch { return {}; }
+}
+
+function isPluginInstalled() {
+  const gitRoot = findGitRoot();
+  if (!gitRoot) return false;
+  const settings = readSettings(settingsPathForGitRoot(gitRoot));
+  const plugins = settings.enabledPlugins || {};
+  return Object.prototype.hasOwnProperty.call(plugins, PLUGIN_KEY);
+}
+
+function serve() {
+  const serverEntry = path.join(PLUGIN_DIR, 'src', 'server.ts');
+  const tsxCli = path.join(PLUGIN_DIR, 'node_modules', 'tsx', 'dist', 'cli.mjs');
+
+  const child = spawn(process.execPath, [tsxCli, serverEntry], {
+    stdio: 'inherit',
+    env: process.env,
+    cwd: PLUGIN_DIR,
+  });
+
+  child.on('exit', (code) => process.exit(code ?? 0));
+
+  if (!isPluginInstalled()) {
+    console.log('\n⚠  Plugin not installed in Claude Code. To install, run:');
+    console.log('   claude-manager plugin install\n');
+  } else {
+    console.log('\n✓  Plugin installed in Claude Code for the current repo\n');
+  }
+}
+
+function pluginInstall() {
+  const gitRoot = findGitRoot();
+  if (!gitRoot) {
+    console.error('Error: not inside a git repository. cd into a repo and try again.');
+    process.exit(1);
+  }
+
+  const settingsPath = settingsPathForGitRoot(gitRoot);
+  const settings = readSettings(settingsPath);
+
+  settings.enabledPlugins ??= {};
+  settings.enabledPlugins[PLUGIN_KEY] = true;
+
+  settings.extraKnownMarketplaces ??= {};
+  settings.extraKnownMarketplaces.local = {
+    source: { source: 'directory', path: PLUGIN_DIR },
+  };
+
+  const dir = path.dirname(settingsPath);
+  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+
+  console.log('✓  Plugin installed in Claude Code');
+  console.log(`   Plugin directory: ${PLUGIN_DIR}`);
+  console.log(`   Settings:         ${settingsPath}`);
+  console.log('\n   Start a new Claude Code session for the plugin to load.');
+}
+
+function pluginUninstall() {
+  const gitRoot = findGitRoot();
+  if (!gitRoot) {
+    console.error('Error: not inside a git repository.');
+    process.exit(1);
+  }
+  const settingsPath = settingsPathForGitRoot(gitRoot);
+  if (!fs.existsSync(settingsPath)) {
+    console.log('Nothing to uninstall.');
+    return;
+  }
+  const settings = readSettings(settingsPath);
+  if (settings.enabledPlugins) delete settings.enabledPlugins[PLUGIN_KEY];
+  if (settings.extraKnownMarketplaces) delete settings.extraKnownMarketplaces.local;
+  fs.writeFileSync(settingsPath, `${JSON.stringify(settings, null, 2)}\n`);
+  console.log('✓  Plugin removed from Claude Code');
+}
+
+function usage() {
+  console.log(`
+Usage: claude-manager <command>
+
+Commands:
+  serve              Start the server (web UI + REST API + MCP)
+  plugin install     Register this project as a Claude Code plugin in the current repo
+  plugin uninstall   Remove the plugin registration from the current repo
+`);
+}
+
+if (command === 'serve') {
+  serve();
+} else if (command === 'plugin' && subcommand === 'install') {
+  pluginInstall();
+} else if (command === 'plugin' && subcommand === 'uninstall') {
+  pluginUninstall();
+} else {
+  usage();
+}
