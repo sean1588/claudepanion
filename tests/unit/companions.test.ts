@@ -65,4 +65,16 @@ describe('loadCompanions', () => {
     const companions = await loadCompanions(join(root, 'companions'));
     expect(companions).toEqual([]);
   });
+
+  it('surfaces syntax errors in ui.ts', async () => {
+    const root = mkdtempSync(join(tmpdir(), 'cp-cmp-'));
+    const dir = join(root, 'companions', 'brokenui');
+    mkdirSync(dir, { recursive: true });
+    writeFileSync(
+      join(dir, 'manifest.json'),
+      JSON.stringify({ slug: 'brokenui', name: 'x', description: 'x' }),
+    );
+    writeFileSync(join(dir, 'ui.ts'), 'export const renderPage = (;;;');
+    await expect(loadCompanions(join(root, 'companions'))).rejects.toThrow(/syntax|unexpected/i);
+  });
 });
