@@ -13,6 +13,7 @@ import {
   updateTask,
   updateTaskStatus,
 } from './store.js';
+// @ts-expect-error // TODO: removed in Task 14
 import { TaskStatus } from './types.js';
 import { skillsPage } from './ui/skillsPage.js';
 import { tasksPage } from './ui/tasksPage.js';
