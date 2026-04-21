@@ -11,6 +11,8 @@
     "start": "node dist/server.js",
     "build": "tsc -p tsconfig.json",
     "check": "tsc --noEmit",
+    "test": "vitest run",
+    "test:watch": "vitest",
     "install:global": "npm link",
     "uninstall:global": "npm unlink -g claude-manager"
   },
@@ -21,8 +23,9 @@
   },
   "devDependencies": {
     "@types/express": "^5.0.1",
-    "@types/node": "^22.10.2",
+    "@types/node": "^22.19.17",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2"
+    "typescript": "^5.7.2",
+    "vitest": "^4.1.4"
   }
 }
