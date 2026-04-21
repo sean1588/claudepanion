@@ -1,0 +1,6 @@
+{
+  "slug": "build",
+  "name": "Build",
+  "description": "Scaffold new claudepanion companions from a plain-English prompt. Claude Code picks up pending requests via MCP and writes companion files to disk.",
+  "icon": "✦"
+}
