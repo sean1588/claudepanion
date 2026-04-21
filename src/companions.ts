@@ -5,6 +5,15 @@ import type { Companion, CompanionManifest, McpToolDefinition } from './types.js
 
 const SLUG_RE = /^[a-z][a-z0-9-]*$/;
 
+/**
+ * Returns true when `err` indicates that the module/file simply doesn't exist.
+ * Node has emitted different codes across versions and for ESM vs CJS paths.
+ */
+function isModuleNotFound(err: unknown): boolean {
+  const code = (err as NodeJS.ErrnoException).code;
+  return code === 'ERR_MODULE_NOT_FOUND' || code === 'MODULE_NOT_FOUND' || code === 'ENOENT';
+}
+
 async function listDirs(path: string): Promise<string[]> {
   try {
     const entries = await fs.readdir(path, { withFileTypes: true });
@@ -65,9 +74,13 @@ export async function loadCompanions(companionsDir: string): Promise<Companion[]
 
     const tools = await loadToolsDir(join(dir, 'tools'), manifest.slug);
 
-    const uiMod = await import(pathToFileURL(join(dir, 'ui.ts')).href).catch(async () =>
-      import(pathToFileURL(join(dir, 'ui.js')).href),
-    );
+    let uiMod: Record<string, unknown>;
+    try {
+      uiMod = await import(pathToFileURL(join(dir, 'ui.ts')).href);
+    } catch (err) {
+      if (!isModuleNotFound(err)) throw err;
+      uiMod = await import(pathToFileURL(join(dir, 'ui.js')).href);
+    }
     const renderPage = uiMod.renderPage as Companion['renderPage'];
     if (typeof renderPage !== 'function') {
       throw new Error(`${dir}/ui.ts must export renderPage`);
@@ -75,11 +88,16 @@ export async function loadCompanions(companionsDir: string): Promise<Companion[]
 
     let router: Companion['router'] = null;
     try {
-      const routesMod = await import(pathToFileURL(join(dir, 'routes.ts')).href).catch(async () =>
-        import(pathToFileURL(join(dir, 'routes.js')).href),
-      );
+      let routesMod: Record<string, unknown>;
+      try {
+        routesMod = await import(pathToFileURL(join(dir, 'routes.ts')).href);
+      } catch (err) {
+        if (!isModuleNotFound(err)) throw err;
+        routesMod = await import(pathToFileURL(join(dir, 'routes.js')).href);
+      }
       router = (routesMod.default ?? null) as Companion['router'];
-    } catch {
+    } catch (err) {
+      if (!isModuleNotFound(err)) throw err;
       router = null;
     }
 
