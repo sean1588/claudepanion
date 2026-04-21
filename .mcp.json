@@ -1,6 +1,6 @@
 {
   "mcpServers": {
-    "claude-manager": {
+    "claudepanion": {
       "type": "http",
       "url": "http://localhost:3000/mcp"
     }

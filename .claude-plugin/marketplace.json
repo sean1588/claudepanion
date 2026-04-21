@@ -1,17 +1,17 @@
 {
   "name": "local",
-  "description": "Local marketplace for Claude Manager",
+  "description": "Local marketplace for claudepanion",
   "owner": {
-    "name": "Claude Manager"
+    "name": "claudepanion"
   },
   "plugins": [
     {
-      "name": "claude-manager",
-      "description": "Task and skills manager — web UI for creating and tracking tasks, MCP server for Claude to read/write tasks and load skills as behavioral instructions",
-      "version": "0.2.0",
+      "name": "claudepanion",
+      "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
+      "version": "0.3.0",
       "source": "./",
       "author": {
-        "name": "Claude Manager"
+        "name": "claudepanion"
       }
     }
   ]
