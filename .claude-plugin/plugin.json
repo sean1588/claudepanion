@@ -1,10 +1,8 @@
 {
-  "name": "claude-manager",
-  "description": "Task and skills manager — web UI for creating and tracking tasks, MCP server for Claude to read/write tasks and load skills as behavioral instructions",
-  "version": "0.2.0",
-  "author": {
-    "name": "Claude Manager"
-  },
-  "license": "UNLICENSED",
-  "keywords": ["tasks", "skills", "mcp", "claude", "manager"]
+  "name": "claudepanion",
+  "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
+  "version": "0.3.0",
+  "author": { "name": "claudepanion" },
+  "license": "MIT",
+  "keywords": ["mcp", "claude", "companion", "reference-architecture"]
 }

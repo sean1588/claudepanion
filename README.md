@@ -1,4 +1,4 @@
-# Claude Manager
+# claudepanion
 
 A localhost companion app for [Claude Code](https://claude.com/claude-code)
 that lets you manage tasks and skills from a small web UI, and exposes both
@@ -14,22 +14,22 @@ Claude how to use them.
 ## Quick start
 
 ```bash
-# 1. install deps and link the `claude-manager` CLI globally
+# 1. install deps and link the `claudepanion` CLI globally
 npm install
 npm run install:global
 
 # 2. from any git repo where you want to use it:
-claude-manager plugin install   # registers the plugin in .claude/settings.local.json
-claude-manager serve            # starts the server on http://localhost:3000
+claudepanion plugin install   # registers the plugin in .claude/settings.local.json
+claudepanion serve            # starts the server on http://localhost:3000
 ```
 
 Open the UI at <http://localhost:3000>. Start a new Claude Code session in
-the same repo and the `claude-manager` MCP tools + skill should load.
+the same repo and the `claudepanion` MCP tools + skill should load.
 
 To undo:
 
 ```bash
-claude-manager plugin uninstall
+claudepanion plugin uninstall
 npm run uninstall:global
 ```
 
@@ -51,7 +51,7 @@ contribute any combination of:
 
 A plugin is made discoverable by listing it in a **marketplace** —
 either the official one or a local `directory` marketplace pointing at
-the plugin folder on disk. That's what `claude-manager plugin install`
+the plugin folder on disk. That's what `claudepanion plugin install`
 wires up.
 
 ### Skill
@@ -63,7 +63,7 @@ selection, so it should describe the trigger ("use when …"). The body
 is the actual instructions.
 
 Plugin skills live at `skills/<skill-name>/SKILL.md` inside the plugin.
-This project bundles one: `skills/use-claude-manager-mcp/SKILL.md`,
+This project bundles one: `skills/use-claudepanion-mcp/SKILL.md`,
 which tells Claude to prefer the MCP tools for task tracking.
 
 User-authored skills — the ones you create in the UI or via the
@@ -121,14 +121,14 @@ update live without a poll.
 ### Project layout
 
 ```
-claude-manager/
+claudepanion/
 ├── .mcp.json                    MCP server declaration for the plugin
 ├── .claude-plugin/
 │   ├── plugin.json              Plugin metadata
 │   └── marketplace.json         Local marketplace manifest
-├── bin/claude-manager           CLI entry point (serve / plugin install)
+├── bin/claudepanion             CLI entry point (serve / plugin install)
 ├── skills/
-│   └── use-claude-manager-mcp/
+│   └── use-claudepanion-mcp/
 │       └── SKILL.md             Plugin-bundled skill
 ├── data/                        Runtime data (gitignored in practice)
 │   ├── tasks.json
@@ -155,7 +155,7 @@ claude-manager/
 ```json
 {
   "mcpServers": {
-    "claude-manager": {
+    "claudepanion": {
       "type": "http",
       "url": "http://localhost:3000/mcp"
     }
@@ -277,17 +277,17 @@ curl -X POST http://localhost:3000/mcp \
 
 ## How the plugin registration works
 
-`claude-manager plugin install` edits `.claude/settings.local.json`
+`claudepanion plugin install` edits `.claude/settings.local.json`
 in the current git repo to add two entries:
 
 ```json
 {
   "enabledPlugins": {
-    "claude-manager@local": true
+    "claudepanion@local": true
   },
   "extraKnownMarketplaces": {
     "local": {
-      "source": { "source": "directory", "path": "/abs/path/to/claude-manager" }
+      "source": { "source": "directory", "path": "/abs/path/to/claudepanion" }
     }
   }
 }
@@ -296,12 +296,12 @@ in the current git repo to add two entries:
 Claude Code reads these on session start:
 
 1. It finds the `local` marketplace and loads `.claude-plugin/marketplace.json`.
-2. That marketplace lists `claude-manager` with `"source": "./"`, so Claude loads the plugin from the same directory.
+2. That marketplace lists `claudepanion` with `"source": "./"`, so Claude loads the plugin from the same directory.
 3. From the plugin it reads `.claude-plugin/plugin.json`, `.mcp.json`, and `skills/*/SKILL.md`.
 4. It connects to the MCP server on `localhost:3000/mcp` and loads the skill.
 
 Next session, the tools are available as
-`mcp__claude-manager__tasks_list` and so on.
+`mcp__claudepanion__tasks_list` and so on.
 
 ---
 
