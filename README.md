@@ -70,4 +70,4 @@ See [`docs/companion-contract.md`](./docs/companion-contract.md) for the full sp
 
 ## License
 
-MIT
+Apache 2.0 — see [LICENSE](./LICENSE).
