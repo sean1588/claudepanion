@@ -3,6 +3,6 @@
   "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
   "version": "0.3.0",
   "author": { "name": "claudepanion" },
-  "license": "MIT",
+  "license": "Apache-2.0",
   "keywords": ["mcp", "claude", "companion", "reference-architecture"]
 }
