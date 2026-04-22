@@ -4,17 +4,17 @@
   "private": true,
   "type": "module",
   "bin": {
-    "claude-manager": "./bin/claude-manager"
+    "claudepanion": "bin/claudepanion"
   },
   "scripts": {
-    "dev": "tsx src/server.ts",
-    "start": "node dist/server.js",
-    "build": "tsc -p tsconfig.json",
-    "check": "tsc --noEmit",
+    "dev": "tsx watch src/server.ts",
+    "serve": "tsx src/server.ts",
     "test": "vitest run",
     "test:watch": "vitest",
+    "check": "tsc --noEmit",
+    "build": "tsc",
     "install:global": "npm link",
-    "uninstall:global": "npm unlink -g claude-manager"
+    "uninstall:global": "npm unlink"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
