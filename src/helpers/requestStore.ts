@@ -161,14 +161,14 @@ export function createRequestStore(slug: string): RequestStore {
         res.status(201).json({ request: created });
       });
       router.post('/requests/:id/reset', async (req: Request, res: Response) => {
-        await store.reset(req.params.id);
+        await store.reset(String(req.params.id));
         res.json({ ok: true });
       });
       router.get('/requests', async (_req: Request, res: Response) => {
         res.json({ requests: await store.list() });
       });
       router.get('/requests/:id', async (req: Request, res: Response) => {
-        const r = await store.get(req.params.id);
+        const r = await store.get(String(req.params.id));
         if (!r) {
           res.status(404).json({ error: 'request not found' });
           return;
