@@ -73,8 +73,7 @@ export async function renderPage(_ctx: CompanionContext): Promise<string> {
           const desc = document.getElementById('desc').value.trim();
           if (!desc) return;
           await api('POST', '/api/c/build/requests', { description: desc });
-          document.getElementById('desc').value = '';
-          showToast('Request submitted');
+          location.reload();
         });
         sse.addEventListener('build.request_created', () => location.reload());
         sse.addEventListener('build.request_updated', () => location.reload());
