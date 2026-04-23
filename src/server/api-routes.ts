@@ -23,7 +23,7 @@ export function mountApiRoutes(app: Express, { store, registry }: ApiDeps): void
   app.get("/api/entities/:id", async (req: Request, res: Response) => {
     const companion = String(req.query.companion ?? "");
     if (!companion) return res.status(400).json({ error: "companion query param required" });
-    const e = await store.get(companion, req.params.id);
+    const e = await store.get(companion, String(req.params.id));
     if (!e) return res.status(404).json({ error: "not found" });
     res.json(e);
   });
@@ -47,8 +47,8 @@ export function mountApiRoutes(app: Express, { store, registry }: ApiDeps): void
     if (typeof continuation !== "string" || !continuation.trim()) {
       return res.status(400).json({ error: "continuation text required" });
     }
-    await store.continueWith(companion, req.params.id, continuation);
-    const e = await store.get(companion, req.params.id);
+    await store.continueWith(companion, String(req.params.id), continuation);
+    const e = await store.get(companion, String(req.params.id));
     res.json(e);
   });
 }
