@@ -14,10 +14,10 @@ npm run install:global        # links the `claudepanion` CLI
 
 # in any repo where you want to use claudepanion:
 claudepanion plugin install
-claudepanion serve            # starts the server on http://localhost:3000
+claudepanion serve            # starts the server on http://localhost:3001
 ```
 
-Open <http://localhost:3000>. Start a new Claude Code session in the claudepanion repo (or any repo with the plugin installed) and the MCP tools plus skills will load.
+Open <http://localhost:3001>. Start a new Claude Code session in the claudepanion repo (or any repo with the plugin installed) and the MCP tools plus skills will load.
 
 To undo:
 ```bash

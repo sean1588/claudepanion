@@ -9,7 +9,7 @@
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
     "build": "tsc -p tsconfig.json && vite build",
-    "start": "node dist/server/index.js",
+    "start": "node dist/src/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit"

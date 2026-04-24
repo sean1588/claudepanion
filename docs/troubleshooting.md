@@ -17,9 +17,9 @@ Claude Code hasn't picked it up. Check:
 ## Server won't start: port in use
 
 ```bash
-PORT=3001 claudepanion serve
+PORT=3002 claudepanion serve
 ```
-Or find and stop the other process: `lsof -i :3000`.
+Or find and stop the other process: `lsof -i :3001`.
 
 ## "duplicate slug" error on boot
 

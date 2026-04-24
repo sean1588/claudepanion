@@ -1,6 +1,5 @@
 import express from "express";
-import { fileURLToPath } from "node:url";
-import { dirname, join, resolve } from "node:path";
+import { join, resolve } from "node:path";
 import { createEntityStore } from "./entity-store.js";
 import { createRegistry } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
@@ -10,10 +9,8 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 
-const PORT = Number(process.env.PORT ?? 3000);
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = dirname(__filename);
-const repoRoot = resolve(__dirname, "../..");
+const PORT = Number(process.env.PORT ?? 3001);
+const repoRoot = process.cwd();
 
 async function main() {
   const store = createEntityStore(resolve(repoRoot, "data"));
