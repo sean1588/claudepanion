@@ -84,7 +84,7 @@ function slashCommand(e: Entity): string {
 
 function PendingBody({ entity }: { entity: Entity }) {
   const note = entity.companion === "build"
-    ? "Heads-up: start your Claude Code session inside the claudepanion repo. Build needs to write files into companions/ and skills/ relative to Claude's working directory."
+    ? "Heads-up: start your Claude Code session inside the claudepanion repo, and make sure the plugin is installed (`claudepanion plugin install` in this repo, then restart Claude Code). Build scaffolds files into companions/ and skills/ relative to Claude's working directory."
     : undefined;
   return (
     <>

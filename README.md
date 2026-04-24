@@ -21,15 +21,17 @@ npm run install:global        # links the `claudepanion` CLI
 Then in **any repo** where you want to use claudepanion with Claude Code:
 
 ```bash
-claudepanion plugin install   # adds the claudepanion MCP entry to ./.mcp.json
+claudepanion plugin install   # registers claudepanion as a Claude Code plugin
 claudepanion serve            # runs the server on http://localhost:3001
 ```
 
-Open <http://localhost:3001>. Start a new Claude Code session in that repo and the MCP tools plus bundled skills will load at session start.
+`plugin install` writes to `<repo>/.claude/settings.local.json` so Claude Code loads both the MCP tools AND the bundled skills at session start. Start a **new** Claude Code session after installing — plugins are loaded at session start.
+
+Open <http://localhost:3001>. If `/build-companion` doesn't autocomplete in Claude Code, verify the plugin is listed via `/plugin` and restart the session.
 
 To undo:
 ```bash
-claudepanion plugin uninstall # removes the claudepanion entry from ./.mcp.json
+claudepanion plugin uninstall # removes claudepanion from the repo's .claude/settings.local.json
 npm run uninstall:global      # unlinks the CLI (from inside the claudepanion repo)
 ```
 

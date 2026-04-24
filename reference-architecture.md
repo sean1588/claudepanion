@@ -597,77 +597,24 @@ Side-by-side map:
 
 ---
 
-## 11. Migration plan for claudepanion
+## 11. Migration status — DONE
 
-To fix claudepanion's plugin story, mirror oncall-investigator exactly:
+The migration described in this section was executed. Current state of claudepanion:
 
-### 11a. Restructure skills directory
+- ✅ **Skill moved** to `skills/build-companion/SKILL.md` (nested, literal `SKILL.md`). Verified: the file exists at the correct path.
+- ✅ **CLI rewritten** in `bin/cli.js`. `plugin install` now edits `<repo>/.claude/settings.local.json` with three fields: `enabledPlugins["claudepanion@local"] = true`, `extraKnownMarketplaces.local = { source: { source: "directory", path: pkgRoot } }`, and `disabledMcpjsonServers` including `"claudepanion"` to suppress cwd-`.mcp.json` double-registration. Idempotent — re-install is safe. Uninstall removes all three in a matching pattern.
+- ✅ **`.claude/settings.local.json` gitignored** to keep per-machine state (absolute paths, permission grants) out of the repo.
+- ✅ **Docs updated** — README quickstart explains the real install semantics, troubleshooting has a dedicated entry for `/build-companion` not loading, and the Build pending-state note in the UI tells users to plugin-install + restart Claude Code.
+- ✅ **Gates green** — lint, typecheck, 95 tests, full build all pass.
 
-Move every `skills/<name>-companion.md` to `skills/<name>-companion/SKILL.md`. Two renames:
+### Verification protocol (run on every future change to the plugin story)
 
-- `skills/build-companion.md` → `skills/build-companion/SKILL.md`
-
-(We already removed `expense-tracker-companion.md` when we dropped the example companions.)
-
-### 11b. Rewrite `bin/cli.js plugin install`
-
-Replace the current `.mcp.json` merging with the `.claude/settings.local.json` pattern from oncall-investigator:
-
-```js
-function pluginInstall() {
-  const gitRoot = findGitRoot();
-  if (!gitRoot) die('Error: not inside a git repository');
-
-  const settingsPath = path.join(gitRoot, '.claude', 'settings.local.json');
-  let settings = {};
-  if (fs.existsSync(settingsPath)) settings = JSON.parse(fs.readFileSync(settingsPath, 'utf-8'));
-
-  settings.enabledPlugins ??= {};
-  settings.enabledPlugins['claudepanion@local'] = true;
-
-  settings.extraKnownMarketplaces ??= {};
-  settings.extraKnownMarketplaces.local = {
-    source: { source: 'directory', path: pkgRoot },
-  };
-
-  fs.mkdirSync(path.dirname(settingsPath), { recursive: true });
-  fs.writeFileSync(settingsPath, JSON.stringify(settings, null, 2) + '\n');
-
-  console.log('✓  Plugin installed in Claude Code');
-  console.log('   Start a new Claude Code session for the plugin to load.');
-}
-```
-
-And a matching `pluginUninstall` that removes the two entries.
-
-### 11c. Pre-disable the cwd `.mcp.json` when the plugin is used
-
-The claudepanion repo itself has `.mcp.json` committed. To avoid double-registration when developing inside the repo with the plugin installed, commit a `.claude/settings.local.json` (or guide the user to add it) with:
-
-```json
-{
-  "disabledMcpjsonServers": ["claudepanion"]
-}
-```
-
-Better: have the CLI add `disabledMcpjsonServers: ["claudepanion"]` alongside the `enabledPlugins` entry at install time, so the user never has to know.
-
-### 11d. Update all install docs
-
-- README's quickstart should explain that `claudepanion plugin install` registers the plugin with Claude Code (not just MCP).
-- The Build entity pending-state note should stop implying "just start Claude in the claudepanion repo" is enough. It should require plugin install first.
-- Troubleshooting: rewrite the `/build-companion skill not found` entry to mention running `plugin install` and restarting Claude Code.
-
-### 11e. Verify with a clean session
-
-After the changes:
-
-1. Clean the test machine: `rm -f target-repo/.claude/settings.local.json`.
-2. `cd target-repo && claudepanion plugin install` — should write `enabledPlugins` + `extraKnownMarketplaces` to `.claude/settings.local.json`.
+1. `rm -f <target-repo>/.claude/settings.local.json` to simulate a clean machine.
+2. `cd <target-repo> && claudepanion plugin install` — check that `.claude/settings.local.json` now contains the three fields above with an absolute path pointing at the claudepanion checkout.
 3. `claudepanion serve` in another terminal.
-4. Start a fresh Claude Code session in the target repo.
-5. `/plugin` in Claude Code — should list `claudepanion@local` as installed.
-6. `/build-companion` — should autocomplete. Type any valid entity ID and verify the skill body runs.
+4. Start a fresh Claude Code session in `<target-repo>`.
+5. `/plugin` in Claude Code — `claudepanion@local` should be listed as installed.
+6. `/build-companion` — should autocomplete with an argument hint. Typing a valid Build entity ID and hitting enter should invoke the skill body.
 
 ---
 
