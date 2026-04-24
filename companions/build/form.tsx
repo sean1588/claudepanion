@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
 import type { BuildInput } from "./types";
+import { buildExamples } from "./examples";
 import { useCompanions } from "../../src/client/hooks/useCompanions";
 
 interface Props {
@@ -12,17 +13,29 @@ const labelStyle = { display: "flex", flexDirection: "column" as const, gap: 4, 
 
 export default function BuildForm({ onSubmit }: Props) {
   const [params] = useSearchParams();
-  const [mode, setMode] = useState<"new-companion" | "iterate-companion">(
-    params.get("mode") === "iterate" ? "iterate-companion" : "new-companion"
+  const exampleSlug = params.get("example");
+  const example = exampleSlug ? buildExamples.find((e) => e.slug === exampleSlug) : undefined;
+
+  const [mode, setMode] = useState<"new-companion" | "iterate-companion">(() =>
+    example ? "new-companion" : params.get("mode") === "iterate" ? "iterate-companion" : "new-companion"
   );
-  const [name, setName] = useState("");
-  const [kind, setKind] = useState<"entity" | "tool">("entity");
-  const [description, setDescription] = useState("");
+  const [name, setName] = useState(example?.slug ?? "");
+  const [kind, setKind] = useState<"entity" | "tool">(example?.kind ?? "entity");
+  const [description, setDescription] = useState(example?.description ?? "");
   const [target, setTarget] = useState<string>(params.get("target") ?? "");
   const { companions } = useCompanions();
   const targets = companions.filter((c) => c.name !== "build");
 
   useEffect(() => {
+    const sl = params.get("example");
+    const ex = sl ? buildExamples.find((e) => e.slug === sl) : undefined;
+    if (ex) {
+      setMode("new-companion");
+      setName(ex.slug);
+      setKind(ex.kind);
+      setDescription(ex.description);
+      return;
+    }
     if (params.get("mode") === "iterate" && params.get("target")) {
       setMode("iterate-companion");
       setTarget(params.get("target")!);
