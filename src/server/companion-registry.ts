@@ -5,6 +5,8 @@ export const SUPPORTED_CONTRACT_VERSION = "1";
 export interface RegisteredCompanion {
   manifest: Manifest;
   tools: Record<string, ToolHandler>;
+  /** "local" = lives in companions/<slug>/; "installed" = npm package claudepanion-<slug>. */
+  source?: "local" | "installed";
 }
 
 export type ToolHandler = (args: unknown) => Promise<unknown> | unknown;

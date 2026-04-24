@@ -82,7 +82,14 @@ Extract `validator.ok` and `smoke.ok`.
 
 `build_append_log(id, "validator: <ok?>, smoke: <ok?>")`
 
-### Step 8 — Save artifact + complete
+### Step 8 — Commit
+
+```bash
+git add companions/<name> skills/<name>-companion.md companions/index.ts companions/client.ts
+git commit -m "companion: scaffold <name>"
+```
+
+### Step 9 — Save artifact + complete
 
 ```js
 build_save_artifact(id, {
@@ -139,7 +146,14 @@ Write the new version back to `manifest.ts`.
 
 The manifest change triggers the watcher → re-mount → fresh reliability snapshot. Fetch `/api/reliability/<target>` and extract `validator.ok` + `smoke.ok`.
 
-### Step 8 — Save artifact + complete
+### Step 8 — Commit
+
+```bash
+git add companions/<target>
+git commit -m "companion(<target>): <one-line summary>"
+```
+
+### Step 9 — Save artifact + complete
 
 ```js
 build_save_artifact(id, {

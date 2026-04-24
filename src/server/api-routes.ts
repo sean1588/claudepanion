@@ -7,6 +7,7 @@ import { getToolMeta, signatureString } from "./tool-meta.js";
 import { spawn } from "node:child_process";
 import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
+import { rewriteCompanionsIndex } from "./companions-index.js";
 
 export interface ApiDeps {
   store: EntityStore;
@@ -122,9 +123,15 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     }
 
     try {
-      registry.register(companion);
+      registry.register({ ...companion, source: "installed" });
     } catch (err) {
       return res.status(409).json({ ok: false, error: (err as Error).message });
+    }
+
+    try {
+      await rewriteCompanionsIndex(process.cwd(), registry);
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: `registered but failed to persist: ${(err as Error).message}` });
     }
 
     res.json({ ok: true, companion: companion.manifest });

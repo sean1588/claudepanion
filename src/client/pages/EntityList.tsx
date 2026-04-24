@@ -27,16 +27,29 @@ export default function EntityList() {
       <div className="page-title">
         <h1>{manifest.displayName}</h1>
         <div style={{ display: "flex", gap: 8 }}>
-          {companion !== "build" && (
-            <button
-              type="button"
-              className="btn-outline"
-              onClick={() => navigate(`/c/build/new?mode=iterate&target=${companion}`)}
-            >
-              🔨 Iterate with Build
-            </button>
+          {companion === "build" ? (
+            <>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => navigate(`/c/build/new?mode=iterate`)}
+              >
+                ⟳ Iterate on existing
+              </button>
+              <button className="btn" onClick={() => navigate(`/c/build/new`)}>+ New companion</button>
+            </>
+          ) : (
+            <>
+              <button
+                type="button"
+                className="btn-outline"
+                onClick={() => navigate(`/c/build/new?mode=iterate&target=${companion}`)}
+              >
+                🔨 Iterate with Build
+              </button>
+              <button className="btn" onClick={() => navigate(`/c/${companion}/new`)}>+ New</button>
+            </>
           )}
-          <button className="btn" onClick={() => navigate(`/c/${companion}/new`)}>+ New</button>
         </div>
       </div>
       <div className="panel entity-list">
