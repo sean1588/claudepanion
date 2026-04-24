@@ -102,4 +102,54 @@ If validator failed fatally: `build_fail(id, "validator: <issues>")`.
 
 ## Mode: iterate-companion
 
-Lands in **plan 5**. For now: `build_fail(id, "iterate mode not yet implemented (plan 5)")` and stop.
+### Step 2 — Load target
+
+`entity.input` has `target` (slug) and `description` (what to change). Verify:
+- `companions/<target>/` exists.
+- `<target>` is not `build` (self-iteration is disallowed — `build_fail(id, "cannot iterate on Build itself")` and stop).
+
+### Step 3 — Mark running
+
+`build_update_status(id, "running", "reading current source")`
+
+### Step 4 — Read current source
+
+Read all relevant files:
+- Always: `companions/<target>/manifest.ts`, `companions/<target>/server/tools.ts`.
+- For entity kind (check `manifest.kind`): also `types.ts`, `form.tsx`, `pages/List.tsx`, `pages/Detail.tsx`.
+
+### Step 5 — Apply the change
+
+`build_update_status(id, "running", "applying change")`
+
+This is the judgment step. Read the user's description in `entity.input.description` and make the requested modifications using the Edit tool. Keep changes focused on what was asked. If the description is ambiguous, make the smallest reasonable change and note what you did in the artifact summary.
+
+After each file change: `build_append_log(id, "modified <path>")`.
+
+### Step 6 — Bump version
+
+Read `companions/<target>/manifest.ts` current `version`. Bump it:
+- Patch (0.1.0 → 0.1.1) for wording/description like "fix", "typo", "wording".
+- Major (0.1.0 → 1.0.0) for explicit "breaking" language.
+- Minor (0.1.0 → 0.2.0) otherwise.
+
+Write the new version back to `manifest.ts`.
+
+### Step 7 — Wait for reliability
+
+The manifest change triggers the watcher → re-mount → fresh reliability snapshot. Fetch `/api/reliability/<target>` and extract `validator.ok` + `smoke.ok`.
+
+### Step 8 — Save artifact + complete
+
+```js
+build_save_artifact(id, {
+  filesCreated: [],
+  filesModified: ["companions/<target>/<each modified>", "companions/<target>/manifest.ts"],
+  summary: "<one or two sentences of what changed and why>",
+  validatorPassed: true/false,
+  smokeTestPassed: true/false
+})
+build_update_status(id, "completed")
+```
+
+On any error: `build_fail(id, errorMessage, errorStack?)`.

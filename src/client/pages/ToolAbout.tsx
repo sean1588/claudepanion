@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { useParams } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import type { Manifest } from "@shared/types";
 
 interface ToolParam {
@@ -24,6 +24,7 @@ interface AboutPayload {
 
 export default function ToolAbout() {
   const { companion } = useParams<{ companion: string }>();
+  const navigate = useNavigate();
   const [payload, setPayload] = useState<AboutPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -58,6 +59,13 @@ export default function ToolAbout() {
           </div>
           <p style={{ marginTop: 8, marginBottom: 0 }}>{manifest.description}</p>
         </div>
+        <button
+          type="button"
+          onClick={() => navigate(`/c/build/new?mode=iterate&target=${manifest.name}`)}
+          style={{ background: "white", border: "1px solid #cbd5e1", color: "#334155", padding: "6px 12px", borderRadius: 6, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+        >
+          🔨 Iterate with Build
+        </button>
       </header>
 
       <section>
