@@ -65,12 +65,14 @@ function pluginInstall() {
     source: { source: "directory", path: pkgRoot },
   };
 
-  // Pre-disable the cwd .mcp.json entry so it doesn't double-register with the
-  // plugin's own .mcp.json once the plugin is enabled. Harmless if the cwd
-  // doesn't actually have a claudepanion entry.
-  if (!Array.isArray(settings.disabledMcpjsonServers)) settings.disabledMcpjsonServers = [];
-  if (!settings.disabledMcpjsonServers.includes("claudepanion")) {
-    settings.disabledMcpjsonServers.push("claudepanion");
+  // Cleanup stale disabled entry from older CLI versions. If you are enabling
+  // the plugin, its MCP server should not also be in the disable list.
+  if (Array.isArray(settings.disabledMcpjsonServers)) {
+    const filtered = settings.disabledMcpjsonServers.filter((s) => s !== "claudepanion");
+    if (filtered.length !== settings.disabledMcpjsonServers.length) {
+      if (filtered.length === 0) delete settings.disabledMcpjsonServers;
+      else settings.disabledMcpjsonServers = filtered;
+    }
   }
 
   writeJson(settingsPath, settings);
@@ -90,10 +92,6 @@ function pluginUninstall() {
 
   if (settings.enabledPlugins) delete settings.enabledPlugins["claudepanion@local"];
   if (settings.extraKnownMarketplaces) delete settings.extraKnownMarketplaces.local;
-  if (Array.isArray(settings.disabledMcpjsonServers)) {
-    settings.disabledMcpjsonServers = settings.disabledMcpjsonServers.filter((s) => s !== "claudepanion");
-    if (settings.disabledMcpjsonServers.length === 0) delete settings.disabledMcpjsonServers;
-  }
 
   writeJson(settingsPath, settings);
   console.log(`✓  Plugin removed from Claude Code (${settingsPath})`);
