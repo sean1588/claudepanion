@@ -30,14 +30,17 @@ You submit a request in the browser (e.g., "scaffold a companion that reads a UR
 
 No server-side LLM calls. Claude Code is the agent.
 
-## Built-in companion: Build
+## Included companions
 
-The only companion that ships is **Build**. It's both:
+Three companions ship with the repo:
 
-- The first thing you interact with when you land on claudepanion — it scaffolds new companions from a plain-English description.
-- The reference implementation every companion should follow. Reading `companions/build/` teaches you the pattern.
+- **🔨 Build** (core) — scaffolds new companions from a plain-English description and iterates on existing ones. The reference implementation every companion should follow.
+- **💰 Expense Tracker** (entity, reference) — exercises the full entity lifecycle end-to-end. Reading `companions/expense-tracker/` teaches the `entity` kind pattern.
+- **💡 Homelab** (tool, reference) — demonstrates the `tool` kind with `defineTool`-annotated handlers and an auto-generated About page. Reading `companions/homelab/` teaches the `tool` kind pattern.
 
-Use Build to create your own companions: oncall investigators, research briefs, repetitive code reviews, anything where you want a browser UI in front of a Claude-mediated workflow.
+## Installing more companions
+
+Click **+ Install companion** in the sidebar, or visit <http://localhost:3001/install>. v1 accepts any npm package matching `claudepanion-<slug>`. The package must export a `RegisteredCompanion`; the host runs `npm install`, dynamically imports it, validates against the contract, and mounts it without a restart. The installed companion is persisted to `companions/index.ts` so it survives server restart.
 
 ## Companion anatomy
 
@@ -70,8 +73,9 @@ See the [design spec](./docs/superpowers/specs/2026-04-22-claudepanion-ux-redesi
 
 ## Documentation
 
-- [Architecture](./docs/architecture.md) — MCP lifecycle, transport, SSE, session mechanics
-- [Companion contract](./docs/companion-contract.md) — authoritative spec for building companions
+- [Concept](./docs/concept.md) — thesis, owned tensions, near-term unresolved questions
+- [Design spec](./docs/superpowers/specs/2026-04-22-claudepanion-ux-redesign-design.md) — authoritative architecture + companion contract
+- [Implementation plans](./docs/superpowers/plans/) — Plan 1 (host MVP) through Plan 7 (spec gaps), in build order
 - [Troubleshooting](./docs/troubleshooting.md) — common issues
 
 ## License
