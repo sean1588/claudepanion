@@ -49,11 +49,9 @@ No server-side LLM calls. Claude Code is the agent.
 
 ## Included companions
 
-Three companions ship with the repo:
+Only **🔨 Build** ships by default. Build scaffolds new companions from a plain-English description and iterates on existing ones. Everything else is something you scaffold or install.
 
-- **🔨 Build** (core) — scaffolds new companions from a plain-English description and iterates on existing ones. The reference implementation every companion should follow.
-- **💰 Expense Tracker** (entity, reference) — exercises the full entity lifecycle end-to-end. Reading `companions/expense-tracker/` teaches the `entity` kind pattern.
-- **💡 Homelab** (tool, reference) — demonstrates the `tool` kind with `defineTool`-annotated handlers and an auto-generated About page. Reading `companions/homelab/` teaches the `tool` kind pattern.
+The templates Build reads when scaffolding live at `companions/build/templates/{entity,tool}/` — reading those teaches the shape of each kind.
 
 ## Installing more companions
 
