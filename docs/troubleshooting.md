@@ -1,48 +1,48 @@
 # Troubleshooting
 
-## The UI shows a pending request forever
+## The UI shows a pending entity forever
 
-Claude Code hasn't picked it up. Check:
+Claude Code hasn't run the slash command yet. Check:
 
-1. Is Claude Code running in the claudepanion repo (or a repo with the plugin installed and activated)?
-2. Did Claude see the MCP tools? Ask it: *"What MCP tools do you have from claudepanion?"* Expect `build_list`, `build_claim`, `build_log`, `build_complete`.
-3. If you see tools but Claude isn't picking up requests, nudge it: *"Check `build_list` for pending work."*
+1. Is Claude Code running in the claudepanion repo (or a repo that has claudepanion installed as a plugin)?
+2. Did Claude see the MCP tools? Ask it: *"What MCP tools do you have from claudepanion?"* Expect the six generic entity tools per entity companion: `<companion>_get`, `_list`, `_update_status`, `_append_log`, `_save_artifact`, `_fail`, plus each companion's domain tools.
+3. Copy the slash command from the detail page's "HAND OFF TO CLAUDE" block and paste it into Claude Code.
 
-## Tools don't appear in Claude Code
+## MCP tools don't appear in Claude Code
 
-1. Did you run `claudepanion plugin install` in this repo? Check `.claude/settings.local.json`.
-2. Is `claudepanion serve` running?
-3. Did you restart your Claude Code session after installing the plugin? Plugins are loaded at session start.
+1. Is the server running? `lsof -i :3001` — you should see `node`. If not, run `claudepanion serve` (or `npm start` from the claudepanion repo).
+2. Does the repo you launched Claude Code in have a `.mcp.json` pointing at `http://localhost:3001/mcp`? Run `claudepanion plugin install` in that repo if not.
+3. Did you start a new Claude Code session after the server came up? MCP connections are made at session start.
+4. Still nothing? Try `/mcp` in Claude Code to see connection status, or check the server stderr.
 
 ## Server won't start: port in use
 
 ```bash
-PORT=3001 claudepanion serve
+PORT=3002 claudepanion serve
 ```
-Or find and stop the other process: `lsof -i :3000`.
 
-## "duplicate slug" error on boot
+Or find and stop the other process: `lsof -i :3001`. If you change the port, also update the target repo's `.mcp.json` and `vite.config.ts`'s proxy target.
 
-Two companions have the same `slug` in their `manifest.json`. Check `companions/*/manifest.json`. Slugs must be unique.
+## "duplicate slug" or "contractVersion" error on boot
 
-## "invalid slug" error on boot
+Two companions in `companions/index.ts` have the same `manifest.name`, or a companion declares a `contractVersion` the host doesn't support (currently `"1"`). Check the manifests — slugs must be unique and match `^[a-z][a-z0-9-]*$`.
 
-Slug must match `^[a-z][a-z0-9-]*$` — lowercase letters, digits, hyphens. No underscores, no uppercase, must start with a letter.
+## Scaffolded a companion but I don't see it in the sidebar
 
-## Build scaffolded a companion but I don't see it in the nav
+The sidebar polls `/api/companions` every 5s — give it a moment. If it still doesn't appear:
 
-You're not in dev mode. Restart the server: `Ctrl-C`, then `claudepanion serve`. Or run `claudepanion dev` next time to auto-reload.
+1. Does `companions/index.ts` include the new companion's import + export-array entry? (Build's skill rewrites this file; if it failed, the companion isn't mounted.)
+2. Did the build complete? The watcher imports compiled `dist/companions/<name>/index.js`. Run `npm run build` (or have `npm run dev` running so `tsc --watch` rebuilds automatically).
+3. Check the server stderr for `[watcher] could not re-import <name>` or validation-failure messages.
+4. Hit `/api/reliability/<name>` directly — if it returns 404, the companion isn't in the registry; if it returns a report with `validator.ok: false`, the fatal issues are listed.
 
-Also check: does the scaffolded companion have `manifest.json`, `ui.ts`, and at least `tools/*.ts`? Load failures skip the companion and log to stderr.
+## Install flow says "npm install failed"
 
-## Build fails with "path not under companions/ or skills/"
-
-The Build tool only writes to those two directories. Ensure the skill isn't trying to write elsewhere. This is a hard safety constraint — not bypassable.
+The full stderr from npm is rendered on the page. Common causes:
+- Package doesn't exist on the registry (404).
+- Package exists but the name doesn't start with `claudepanion-` (client-side validation blocks, but a hand-crafted request would hit server-side validation).
+- No network access.
 
 ## Tests failing with "module not found" for `.js` imports
 
-This project uses Node ESM with `"module": "NodeNext"`. Imports of local `.ts` files must use `.js` extension: `import { x } from './foo.js'`. TypeScript rewrites this correctly.
-
-## "No active Claude Code session detected" banner persists after I open Claude Code
-
-The banner triggers after 2 minutes of no claim. It's advisory, not authoritative. If you just started Claude Code, give it a moment and nudge it to check pending work.
+This project uses Node ESM. Imports of local `.ts` files must use `.js` extension: `import { x } from './foo.js'`. TypeScript rewrites this correctly. Templates under `companions/build/templates/` are excluded from `tsc` because they're source material, not compile inputs.

@@ -1,6 +1,7 @@
 node_modules
 dist
 .DS_Store
+.superpowers/
 
 # runtime data — contents gitignored, directory kept via .gitkeep
 data/*

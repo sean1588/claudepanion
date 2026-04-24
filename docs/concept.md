@@ -108,6 +108,41 @@ This is the **self-replicating primitive**. It makes the marginal cost of a new 
 
 If Build works — really works, reliably, for non-trivial companions — claudepanion isn't just an app framework. It's an on-ramp to personalized software.
 
+### How Build succeeds reliably
+
+Build's output quality is bounded by two things: the precision of the user's description, and the entropy of the contract. Description is the user's input; contract entropy is our problem. We keep it low through three layered mechanisms:
+
+1. **A narrow, strongly-typed contract.** TypeScript types document the shape Build's output must satisfy; mistakes surface at build time, not runtime. Types beat YAML for AI generation — Claude writes TypeScript at least as accurately, and gets real feedback from the toolchain.
+2. **A contract validator.** After Build generates a companion, a validator checks the structural pieces — manifest parses, skill has required frontmatter, exports match the expected shape, MCP tool signatures conform. Catches the 80% of oneshot errors that are structural.
+3. **A smoke test.** The host attempts to load the generated companion and render its pages headlessly. Anything that crashes fails the build loop; Build retries with the error in context.
+
+Together these keep the contract flexible (not schema-driven) while keeping oneshot reliability high. The slash-command architecture means Build also doesn't have to be *perfect* — the user watches the live log tail and can re-trigger with feedback. The bar is "close enough to iterate on," not "correct on first attempt."
+
+---
+
+## Sharing companions: npm as the registry
+
+A companion is a set of exports following a stable contract — a manifest, a form schema, React pages, MCP tools, a skill. The *source* of those exports is a routing detail. Claudepanion loads companions from two sources:
+
+- **Local companions** — `companions/<name>/`, created by Build or written by hand. Personal, private, never leave your machine unless you want them to.
+- **Published companions** — `node_modules/claudepanion-<name>/`, installed from npm. The prefix is the convention.
+
+That's the registry. npm is already globally replicated, versioned, permissioned, and familiar. We don't need to build one.
+
+A future `/install-companion <name>` skill wraps the install path: run `npm install claudepanion-<name>`, tell the host to rescan its companion sources (or restart), and the new companion's sidebar entry appears. Private and org-scoped companions already have a path (npm private packages, GitHub Packages, Verdaccio) without us doing anything. Discoverability comes from npmjs.com searching for the `claudepanion-` prefix — enough until it isn't.
+
+When it isn't, an **in-app companion browser** becomes a natural next affordance: a page inside claudepanion that queries npm for `claudepanion-*` packages, surfaces popular or curated entries (by downloads, stars, or a hand-picked list), and installs them with one click via the same `/install-companion` path. It's a UI layer on top of the registry, not a separate registry. Deferred until enough companions exist to make browsing meaningful — but calling it out now because it's the obvious UX a user will expect once the ecosystem has anything in it.
+
+### Three commitments keep this open
+
+Three decisions we make now to preserve the registry future without building any of it yet:
+
+1. **Define the companion contract as a set of exports**, not filesystem layout assumptions. A companion is whatever exports the manifest shape — folder or npm package, same contract.
+2. **Version the contract.** Each companion declares a `claudepanionContract` version in its manifest. The host refuses to load companions declaring a version it doesn't understand. Cheap forward-compatibility insurance.
+3. **Reserve the naming prefix socially.** Third-party companions published to npm should be named `claudepanion-<name>` (or scoped: `@claudepanion/<name>` for official ones, bare `claudepanion-<name>` for community). Document now even if we don't enforce or use it yet.
+
+The `/install-companion` skill, `node_modules/` scanning, and any discoverability UI are all deferred. The architectural commitment to supporting them is not.
+
 ---
 
 ## What makes this an *AI-native* framework
@@ -189,7 +224,6 @@ Things we're actively debating in the near-term design. Distinct from the tensio
 ## Open questions and future paths
 
 - **Monetization path.** A hosted claudepanion is one candidate. Org-wide companions (shared across a company's employees) are a natural upsell. Not a near-term decision.
-- **Companion marketplace.** If scaffolding companions becomes cheap, *sharing* them becomes the next question. A registry? A `plugin install` equivalent? Open.
 - **Non-Claude agents.** The architecture doesn't fundamentally require Claude — any MCP-speaking agent could in principle drive a companion. Whether to support that or stay Claude-exclusive is a positioning question, not a technical one. For now, Claude-native full stop.
 - **Run-as-daemon.** Currently `investigator serve` (or equivalent) is a foreground process. A long-running background daemon with auto-start on login would change the ambient-presence story.
 

@@ -8,21 +8,35 @@ Packaged as a Claude Code plugin — once installed in a repo, Claude automatica
 
 ## Quick start
 
-```bash
-npm install
-npm run install:global        # links the `claudepanion` CLI
+Clone the repo, build it, and link the CLI globally:
 
-# in any repo where you want to use claudepanion:
-claudepanion plugin install
-claudepanion serve            # starts the server on http://localhost:3000
+```bash
+git clone https://github.com/sean1588/claudepanion
+cd claudepanion
+npm install
+npm run build
+npm run install:global        # links the `claudepanion` CLI
 ```
 
-Open <http://localhost:3000>. Start a new Claude Code session in the claudepanion repo (or any repo with the plugin installed) and the MCP tools plus skills will load.
+Then in **any repo** where you want to use claudepanion with Claude Code:
+
+```bash
+claudepanion plugin install   # adds the claudepanion MCP entry to ./.mcp.json
+claudepanion serve            # runs the server on http://localhost:3001
+```
+
+Open <http://localhost:3001>. Start a new Claude Code session in that repo and the MCP tools plus bundled skills will load at session start.
 
 To undo:
 ```bash
-claudepanion plugin uninstall
-npm run uninstall:global
+claudepanion plugin uninstall # removes the claudepanion entry from ./.mcp.json
+npm run uninstall:global      # unlinks the CLI (from inside the claudepanion repo)
+```
+
+Dev mode (hot-reload on the claudepanion repo itself):
+
+```bash
+npm run dev                   # vite on :5173 + tsx-watch on :3001
 ```
 
 ---
@@ -33,28 +47,38 @@ You submit a request in the browser (e.g., "scaffold a companion that reads a UR
 
 No server-side LLM calls. Claude Code is the agent.
 
-## Built-in companion: Build
+## Included companions
 
-The only companion that ships is **Build**. It's both:
+Only **🔨 Build** ships by default. Build scaffolds new companions from a plain-English description and iterates on existing ones. Everything else is something you scaffold or install.
 
-- The first thing you interact with when you land on claudepanion — it scaffolds new companions from a plain-English description.
-- The reference implementation every companion should follow. Reading `companions/build/` teaches you the pattern.
+The templates Build reads when scaffolding live at `companions/build/templates/{entity,tool}/` — reading those teaches the shape of each kind.
 
-Use Build to create your own companions: oncall investigators, research briefs, repetitive code reviews, anything where you want a browser UI in front of a Claude-mediated workflow.
+## Installing more companions
+
+Click **+ Install companion** in the sidebar, or visit <http://localhost:3001/install>. v1 accepts any npm package matching `claudepanion-<slug>`. The package must export a `RegisteredCompanion`; the host runs `npm install`, dynamically imports it, validates against the contract, and mounts it without a restart. The installed companion is persisted to `companions/index.ts` so it survives server restart.
 
 ## Companion anatomy
 
-Every companion lives under `companions/<slug>/` with:
+Every companion lives under `companions/<slug>/`. Two kinds:
 
-- `manifest.json` — name, description, icon
-- `tools/*.ts` — MCP tool definitions (one per file), auto-namespaced with `<slug>_` prefix
-- `ui.ts` — server-rendered HTML for `/c/<slug>`
-- `store.ts` — companion-owned data access (typically one line: `createRequestStore(slug)`)
-- `routes.ts` — optional Express router for browser mutations
+**`entity` kind** (has lifecycle, form, artifacts):
+- `manifest.ts` — name, kind, displayName, icon, description, contractVersion, version
+- `index.ts` — re-exports a `RegisteredCompanion`
+- `types.ts` — `Input` and `Artifact` TypeScript interfaces
+- `form.tsx` — React form that submits an `Input`
+- `pages/List.tsx` — row renderer for the list page
+- `pages/Detail.tsx` — artifact body component
+- `server/tools.ts` — domain MCP tools (generic `_get`/`_list`/`_update_status`/`_append_log`/`_save_artifact`/`_fail` are auto-registered)
 
-Plus a skill at `skills/<slug>/SKILL.md` at the plugin root (not inside the companion dir — Claude Code's plugin discovery only scans the root `skills/` directory).
+**`tool` kind** (MCP tools only, auto-generated About page):
+- `manifest.ts`, `index.ts`
+- `server/tools.ts` — use `defineTool(handler, { description, params })` to surface metadata on the About page's Try-it panel
 
-See [`docs/companion-contract.md`](./docs/companion-contract.md) for the full spec.
+Plus a skill at `skills/<slug>-companion.md` in the repo root.
+
+Reference companions: `companions/build/` (entity), `companions/expense-tracker/` (entity), `companions/homelab/` (tool).
+
+See the [design spec](./docs/superpowers/specs/2026-04-22-claudepanion-ux-redesign-design.md) for the full contract.
 
 ## Philosophy
 
@@ -64,8 +88,9 @@ See [`docs/companion-contract.md`](./docs/companion-contract.md) for the full sp
 
 ## Documentation
 
-- [Architecture](./docs/architecture.md) — MCP lifecycle, transport, SSE, session mechanics
-- [Companion contract](./docs/companion-contract.md) — authoritative spec for building companions
+- [Concept](./docs/concept.md) — thesis, owned tensions, near-term unresolved questions
+- [Design spec](./docs/superpowers/specs/2026-04-22-claudepanion-ux-redesign-design.md) — authoritative architecture + companion contract
+- [Implementation plans](./docs/superpowers/plans/) — Plan 1 (host MVP) through Plan 7 (spec gaps), in build order
 - [Troubleshooting](./docs/troubleshooting.md) — common issues
 
 ## License
