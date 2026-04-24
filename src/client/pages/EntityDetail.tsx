@@ -83,9 +83,12 @@ function slashCommand(e: Entity): string {
 }
 
 function PendingBody({ entity }: { entity: Entity }) {
+  const note = entity.companion === "build"
+    ? "Heads-up: start your Claude Code session inside the claudepanion repo. Build needs to write files into companions/ and skills/ relative to Claude's working directory."
+    : undefined;
   return (
     <>
-      <SlashCommandBlock command={slashCommand(entity)} />
+      <SlashCommandBlock command={slashCommand(entity)} note={note} />
       <InputPanel entity={entity} />
       <LogsPanel logs={[]} waiting />
     </>

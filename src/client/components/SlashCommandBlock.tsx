@@ -1,6 +1,12 @@
 import { useState } from "react";
 
-export default function SlashCommandBlock({ command }: { command: string }) {
+interface Props {
+  command: string;
+  /** Optional note rendered below the command — useful for telling the user which repo to run Claude Code from. */
+  note?: string;
+}
+
+export default function SlashCommandBlock({ command, note }: Props) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
     await navigator.clipboard.writeText(command);
@@ -15,6 +21,7 @@ export default function SlashCommandBlock({ command }: { command: string }) {
         <div className="slash-command-code">{command}</div>
         <button className="slash-command-copy" onClick={copy}>{copied ? "✓ Copied" : "📋 Copy"}</button>
       </div>
+      {note && <div className="slash-command-note">{note}</div>}
     </div>
   );
 }
