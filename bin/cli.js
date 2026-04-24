@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-import { existsSync, readFileSync, writeFileSync, unlinkSync } from "node:fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, resolve, join } from "node:path";
 import { spawn } from "node:child_process";
@@ -11,17 +11,33 @@ const USAGE = `claudepanion — localhost companion host for Claude Code
 
 Usage:
   claudepanion serve                 start the server (default port 3001)
-  claudepanion plugin install        add claudepanion MCP config to CWD's .mcp.json
-  claudepanion plugin uninstall      remove claudepanion from CWD's .mcp.json
+  claudepanion plugin install        register claudepanion as a Claude Code plugin in this repo
+  claudepanion plugin uninstall      unregister the plugin from this repo
   claudepanion --help                show this help
 
 Options:
   PORT=<n>                           override server port (serve only)
+
+Notes:
+  - "plugin install" writes to <repo>/.claude/settings.local.json so Claude Code
+    loads both the MCP tools AND the bundled skills at session start. It does NOT
+    modify .mcp.json. Run this in every repo where you want claudepanion available.
+  - "serve" runs the HTTP server the plugin's MCP entry points at. Run it in a
+    long-lived terminal; plugin install only configures Claude Code, not the server.
 `;
 
 function die(msg, code = 1) {
   console.error(msg);
   process.exit(code);
+}
+
+function findGitRoot() {
+  let dir = process.cwd();
+  while (dir !== dirname(dir)) {
+    if (existsSync(join(dir, ".git"))) return dir;
+    dir = dirname(dir);
+  }
+  return null;
 }
 
 function readJson(path) {
@@ -30,42 +46,57 @@ function readJson(path) {
 }
 
 function writeJson(path, data) {
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf-8");
 }
 
-function mcpEntry() {
-  // Canonical entry the CLI installs into a target repo's .mcp.json.
-  return { type: "http", url: `http://localhost:${process.env.PORT ?? 3001}/mcp` };
-}
-
 function pluginInstall() {
-  const target = resolve(process.cwd(), ".mcp.json");
-  const existing = readJson(target) ?? { mcpServers: {} };
-  if (!existing.mcpServers || typeof existing.mcpServers !== "object") existing.mcpServers = {};
-  const before = JSON.stringify(existing.mcpServers.claudepanion);
-  existing.mcpServers.claudepanion = mcpEntry();
-  const after = JSON.stringify(existing.mcpServers.claudepanion);
-  writeJson(target, existing);
-  if (before === after) console.log(`claudepanion already present in ${target}`);
-  else if (before === undefined) console.log(`added claudepanion to ${target}`);
-  else console.log(`updated claudepanion entry in ${target}`);
+  const gitRoot = findGitRoot();
+  if (!gitRoot) die("Error: not inside a git repository");
+
+  const settingsPath = join(gitRoot, ".claude", "settings.local.json");
+  const settings = readJson(settingsPath) ?? {};
+
+  settings.enabledPlugins ??= {};
+  settings.enabledPlugins["claudepanion@local"] = true;
+
+  settings.extraKnownMarketplaces ??= {};
+  settings.extraKnownMarketplaces.local = {
+    source: { source: "directory", path: pkgRoot },
+  };
+
+  // Pre-disable the cwd .mcp.json entry so it doesn't double-register with the
+  // plugin's own .mcp.json once the plugin is enabled. Harmless if the cwd
+  // doesn't actually have a claudepanion entry.
+  if (!Array.isArray(settings.disabledMcpjsonServers)) settings.disabledMcpjsonServers = [];
+  if (!settings.disabledMcpjsonServers.includes("claudepanion")) {
+    settings.disabledMcpjsonServers.push("claudepanion");
+  }
+
+  writeJson(settingsPath, settings);
+  console.log("✓  Plugin installed in Claude Code");
+  console.log(`   Plugin directory: ${pkgRoot}`);
+  console.log(`   Settings: ${settingsPath}`);
+  console.log("\n   Start a new Claude Code session for the plugin to load.");
 }
 
 function pluginUninstall() {
-  const target = resolve(process.cwd(), ".mcp.json");
-  const existing = readJson(target);
-  if (!existing || !existing.mcpServers?.claudepanion) {
-    console.log(`no claudepanion entry found in ${target}`);
-    return;
+  const gitRoot = findGitRoot();
+  if (!gitRoot) die("Error: not inside a git repository");
+
+  const settingsPath = join(gitRoot, ".claude", "settings.local.json");
+  const settings = readJson(settingsPath);
+  if (!settings) { console.log("Nothing to uninstall."); return; }
+
+  if (settings.enabledPlugins) delete settings.enabledPlugins["claudepanion@local"];
+  if (settings.extraKnownMarketplaces) delete settings.extraKnownMarketplaces.local;
+  if (Array.isArray(settings.disabledMcpjsonServers)) {
+    settings.disabledMcpjsonServers = settings.disabledMcpjsonServers.filter((s) => s !== "claudepanion");
+    if (settings.disabledMcpjsonServers.length === 0) delete settings.disabledMcpjsonServers;
   }
-  delete existing.mcpServers.claudepanion;
-  if (Object.keys(existing.mcpServers).length === 0 && Object.keys(existing).length === 1) {
-    unlinkSync(target);
-    console.log(`removed claudepanion and deleted empty ${target}`);
-  } else {
-    writeJson(target, existing);
-    console.log(`removed claudepanion from ${target}`);
-  }
+
+  writeJson(settingsPath, settings);
+  console.log(`✓  Plugin removed from Claude Code (${settingsPath})`);
 }
 
 function serve() {
