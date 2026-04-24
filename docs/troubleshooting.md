@@ -10,18 +10,18 @@ Claude Code hasn't run the slash command yet. Check:
 
 ## MCP tools don't appear in Claude Code
 
-1. Is the server running? `lsof -i :3001` — you should see `node`.
-2. Does the repo you launched Claude Code in have a `.mcp.json` pointing at `http://localhost:3001/mcp`? (The claudepanion repo ships one.)
+1. Is the server running? `lsof -i :3001` — you should see `node`. If not, run `claudepanion serve` (or `npm start` from the claudepanion repo).
+2. Does the repo you launched Claude Code in have a `.mcp.json` pointing at `http://localhost:3001/mcp`? Run `claudepanion plugin install` in that repo if not.
 3. Did you start a new Claude Code session after the server came up? MCP connections are made at session start.
 4. Still nothing? Try `/mcp` in Claude Code to see connection status, or check the server stderr.
 
 ## Server won't start: port in use
 
 ```bash
-PORT=3002 npm start
+PORT=3002 claudepanion serve
 ```
 
-Or find and stop the other process: `lsof -i :3001`. If you change the port, also update `.mcp.json` and `vite.config.ts`'s proxy target.
+Or find and stop the other process: `lsof -i :3001`. If you change the port, also update the target repo's `.mcp.json` and `vite.config.ts`'s proxy target.
 
 ## "duplicate slug" or "contractVersion" error on boot
 

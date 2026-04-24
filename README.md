@@ -8,15 +8,32 @@ Packaged as a Claude Code plugin — once installed in a repo, Claude automatica
 
 ## Quick start
 
+Clone the repo, build it, and link the CLI globally:
+
 ```bash
+git clone https://github.com/sean1588/claudepanion
+cd claudepanion
 npm install
 npm run build
-npm start                     # serves http://localhost:3001
+npm run install:global        # links the `claudepanion` CLI
 ```
 
-Open <http://localhost:3001>. Start a new Claude Code session in the claudepanion repo and the MCP tools plus the bundled skills will load automatically (the repo ships a `.mcp.json` and a `.claude-plugin/plugin.json`).
+Then in **any repo** where you want to use claudepanion with Claude Code:
 
-Dev mode (hot-reload):
+```bash
+claudepanion plugin install   # adds the claudepanion MCP entry to ./.mcp.json
+claudepanion serve            # runs the server on http://localhost:3001
+```
+
+Open <http://localhost:3001>. Start a new Claude Code session in that repo and the MCP tools plus bundled skills will load at session start.
+
+To undo:
+```bash
+claudepanion plugin uninstall # removes the claudepanion entry from ./.mcp.json
+npm run uninstall:global      # unlinks the CLI (from inside the claudepanion repo)
+```
+
+Dev mode (hot-reload on the claudepanion repo itself):
 
 ```bash
 npm run dev                   # vite on :5173 + tsx-watch on :3001

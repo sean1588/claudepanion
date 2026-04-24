@@ -4,6 +4,9 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
+  "bin": {
+    "claudepanion": "./bin/cli.js"
+  },
   "scripts": {
     "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "tsx watch src/server/index.ts",
@@ -13,7 +16,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "check": "tsc -p tsconfig.json --noEmit && tsc -p tsconfig.client.json --noEmit",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "install:global": "npm link",
+    "uninstall:global": "npm unlink -g claudepanion"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
