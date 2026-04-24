@@ -46,7 +46,13 @@ For `kind: "entity"`, read each file under `companions/build/templates/entity/` 
 
 After each file write, call `build_append_log(id, "wrote <path>")`.
 
-For `kind: "tool"` — not yet supported. `build_fail(id, "tool kind lands in plan 4")` and stop.
+For `kind: "tool"`, read from `companions/build/templates/tool/` instead and write:
+
+- `companions/<name>/manifest.ts`
+- `companions/<name>/index.ts`
+- `companions/<name>/server/tools.ts`
+
+No form, pages, or types files — the About page is auto-generated from the manifest and the `defineTool` metadata attached to each handler.
 
 ### Step 5 — Regenerate companions/index.ts
 

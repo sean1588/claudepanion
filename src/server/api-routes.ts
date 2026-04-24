@@ -3,6 +3,7 @@ import type { EntityStore } from "./entity-store.js";
 import type { Registry } from "./companion-registry.js";
 import type { ReliabilitySnapshot } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
+import { getToolMeta, signatureString } from "./tool-meta.js";
 
 export interface ApiDeps {
   store: EntityStore;
@@ -49,6 +50,40 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     const id = generateEntityId(companion);
     const entity = await store.create({ id, companion, input: input ?? {} });
     res.status(201).json(entity);
+  });
+
+  app.get("/api/tools/:companion", (req: Request, res: Response) => {
+    const name = String(req.params.companion);
+    const c = registry.get(name);
+    if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
+    if (c.manifest.kind !== "tool") return res.status(400).json({ error: `${name} is not a tool-kind companion` });
+    const descriptors = Object.entries(c.tools).map(([toolName, fn]) => {
+      const meta = getToolMeta(fn);
+      return {
+        name: toolName,
+        description: meta?.description ?? "",
+        params: meta?.params ?? [],
+        signature: signatureString(toolName, meta),
+      };
+    });
+    res.json({ manifest: c.manifest, tools: descriptors });
+  });
+
+  app.post("/api/tools/:companion/:tool", async (req: Request, res: Response) => {
+    const name = String(req.params.companion);
+    const toolName = String(req.params.tool);
+    const c = registry.get(name);
+    if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
+    if (c.manifest.kind !== "tool") return res.status(400).json({ error: `${name} is not a tool-kind companion` });
+    const fn = c.tools[toolName];
+    if (!fn) return res.status(404).json({ error: `unknown tool: ${toolName}` });
+    try {
+      const result = await fn((req.body ?? {}).args ?? {});
+      res.json({ ok: true, result });
+    } catch (err: unknown) {
+      const e = err as Error;
+      res.json({ ok: false, error: e?.message ?? String(err) });
+    }
   });
 
   app.post("/api/entities/:id/continue", async (req: Request, res: Response) => {

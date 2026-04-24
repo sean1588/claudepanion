@@ -1,6 +1,6 @@
 import { Routes, Route, Navigate } from "react-router-dom";
 import Sidebar from "./components/Sidebar";
-import EntityList from "./pages/EntityList";
+import CompanionRoute from "./pages/CompanionRoute";
 import NewEntity from "./pages/NewEntity";
 import EntityDetail from "./pages/EntityDetail";
 
@@ -10,8 +10,8 @@ export default function App() {
       <Sidebar />
       <main className="app-main">
         <Routes>
-          <Route path="/" element={<Navigate to="/c/expense-tracker" replace />} />
-          <Route path="/c/:companion" element={<EntityList />} />
+          <Route path="/" element={<Navigate to="/c/build" replace />} />
+          <Route path="/c/:companion" element={<CompanionRoute />} />
           <Route path="/c/:companion/new" element={<NewEntity />} />
           <Route path="/c/:companion/:id" element={<EntityDetail />} />
         </Routes>
