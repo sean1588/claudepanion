@@ -3,7 +3,8 @@ import { useCompanions } from "../hooks/useCompanions";
 
 export default function Sidebar() {
   const { companions } = useCompanions();
-  const entities = companions.filter((c) => c.kind === "entity");
+  const build = companions.find((c) => c.name === "build");
+  const entities = companions.filter((c) => c.kind === "entity" && c.name !== "build");
   const tools = companions.filter((c) => c.kind === "tool");
 
   return (
@@ -13,7 +14,14 @@ export default function Sidebar() {
         <span>claudepanion</span>
       </div>
       <div className="sidebar-section-label">Core</div>
-      <div className="sidebar-link" aria-disabled>🔨 Build <span style={{ marginLeft: "auto", fontSize: 10, color: "#64748b" }}>soon</span></div>
+      {build ? (
+        <NavLink to={`/c/${build.name}`} className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}>
+          <span>{build.icon}</span>
+          <span>{build.displayName}</span>
+        </NavLink>
+      ) : (
+        <div className="sidebar-link" aria-disabled>🔨 Build <span style={{ marginLeft: "auto", fontSize: 10, color: "#64748b" }}>soon</span></div>
+      )}
       {entities.length > 0 && (
         <>
           <div className="sidebar-section-label">Companions</div>

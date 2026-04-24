@@ -14,5 +14,5 @@
     }
   },
   "include": ["src/client/**/*", "src/shared/**/*", "companions/**/*.tsx", "companions/**/*.ts"],
-  "exclude": ["node_modules", "dist", "src/server"]
+  "exclude": ["node_modules", "dist", "src/server", "companions/build/templates"]
 }
