@@ -1,7 +1,8 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { render, screen, waitFor, fireEvent } from "@testing-library/react";
 import { MemoryRouter, Routes, Route } from "react-router-dom";
 import BuildForm from "../../companions/build/form";
+import type { BuildInput } from "../../companions/build/types";
 
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
@@ -50,5 +51,39 @@ describe("BuildForm ?example= prefill", () => {
     renderAt("/c/build/new");
     const name = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
     expect(name.value).toBe("");
+  });
+
+  it("includes example slug in submitted input when URL has ?example=", async () => {
+    let submitted: BuildInput | null = null;
+    render(
+      <MemoryRouter initialEntries={["/c/build/new?example=pr-reviewer"]}>
+        <Routes>
+          <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const btn = await screen.findByRole("button", { name: /scaffold companion/i });
+    fireEvent.click(btn);
+    await waitFor(() => expect(submitted).not.toBeNull());
+    expect(submitted!).toMatchObject({ mode: "new-companion", name: "pr-reviewer", example: "pr-reviewer" });
+  });
+
+  it("omits example field in submitted input when URL has no ?example=", async () => {
+    let submitted: BuildInput | null = null;
+    render(
+      <MemoryRouter initialEntries={["/c/build/new"]}>
+        <Routes>
+          <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const nameInput = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
+    const descInput = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
+    fireEvent.change(nameInput, { target: { value: "handwritten" } });
+    fireEvent.change(descInput, { target: { value: "no example" } });
+    fireEvent.click(screen.getByRole("button", { name: /scaffold companion/i }));
+    await waitFor(() => expect(submitted).not.toBeNull());
+    expect(submitted!).toMatchObject({ mode: "new-companion", name: "handwritten" });
+    expect((submitted as { example?: string }).example).toBeUndefined();
   });
 });

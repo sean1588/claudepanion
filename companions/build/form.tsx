@@ -52,7 +52,8 @@ export default function BuildForm({ onSubmit }: Props) {
       if (!nm) { setError("Companion name is required."); return; }
       if (!/^[a-z][a-z0-9-]*$/.test(nm)) { setError("Name must be lowercase letters, digits, hyphens; starts with a letter."); return; }
       setError(null);
-      void onSubmit({ mode, name: nm, kind, description: desc });
+      const slug = params.get("example");
+      void onSubmit({ mode, name: nm, kind, description: desc, ...(slug ? { example: slug } : {}) });
     } else {
       if (!target) { setError("Pick a target companion."); return; }
       setError(null);
