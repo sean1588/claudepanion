@@ -4,6 +4,7 @@ import type { Entity, Manifest } from "@shared/types";
 import { fetchCompanions, fetchEntities } from "../api";
 import StatusPill from "../components/StatusPill";
 import Breadcrumb from "../components/Breadcrumb";
+import BuildEmptyState from "./BuildEmptyState";
 import { getListRow } from "../../../companions/client";
 
 export default function EntityList() {
@@ -52,24 +53,28 @@ export default function EntityList() {
           )}
         </div>
       </div>
-      <div className="panel entity-list">
-        <div className="panel-header entity-list-header">
-          <div>Status</div>
-          <div>Description</div>
-          <div className="entity-list-updated">Updated</div>
+      {companion === "build" && entities.length === 0 ? (
+        <BuildEmptyState />
+      ) : (
+        <div className="panel entity-list">
+          <div className="panel-header entity-list-header">
+            <div>Status</div>
+            <div>Description</div>
+            <div className="entity-list-updated">Updated</div>
+          </div>
+          {entities.length === 0 ? (
+            <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>No entries yet — click "+ New" to get started.</div>
+          ) : (
+            entities.map((e) => (
+              <Link key={e.id} to={`/c/${companion}/${e.id}`} className="entity-list-row">
+                <StatusPill status={e.status} />
+                {Row ? <Row entity={e} /> : <div>{(e.input as any).description || JSON.stringify(e.input).slice(0, 80)}</div>}
+                <div className="entity-list-updated" style={{ color: "var(--muted)" }}>{timeAgo(e.updatedAt)}</div>
+              </Link>
+            ))
+          )}
         </div>
-        {entities.length === 0 ? (
-          <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>No entries yet — click "+ New" to get started.</div>
-        ) : (
-          entities.map((e) => (
-            <Link key={e.id} to={`/c/${companion}/${e.id}`} className="entity-list-row">
-              <StatusPill status={e.status} />
-              {Row ? <Row entity={e} /> : <div>{(e.input as any).description || JSON.stringify(e.input).slice(0, 80)}</div>}
-              <div className="entity-list-updated" style={{ color: "var(--muted)" }}>{timeAgo(e.updatedAt)}</div>
-            </Link>
-          ))
-        )}
-      </div>
+      )}
     </>
   );
 }
