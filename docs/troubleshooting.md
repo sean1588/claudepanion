@@ -11,9 +11,15 @@ Claude Code hasn't run the slash command yet. Check:
 ## MCP tools don't appear in Claude Code
 
 1. Is the server running? `lsof -i :3001` — you should see `node`. If not, run `claudepanion serve` (or `npm start` from the claudepanion repo).
-2. Does the repo you launched Claude Code in have a `.mcp.json` pointing at `http://localhost:3001/mcp`? Run `claudepanion plugin install` in that repo if not.
-3. Did you start a new Claude Code session after the server came up? MCP connections are made at session start.
-4. Still nothing? Try `/mcp` in Claude Code to see connection status, or check the server stderr.
+2. Is the plugin installed in the repo you're running Claude Code from? `claudepanion plugin install` adds the right entries to `<repo>/.claude/settings.local.json`. You can check with `/plugin` in Claude Code — `claudepanion@local` should be listed.
+3. Did you start a new Claude Code session after installing? Plugins load at session start, not mid-session.
+4. Still nothing? Check `<repo>/.claude/settings.local.json` has `enabledPlugins["claudepanion@local"] = true` and an `extraKnownMarketplaces.local` entry pointing at your claudepanion checkout.
+
+## `/build-companion` skill isn't recognized
+
+The plugin is probably not registered (which also means MCP tools are likely working via a bare `.mcp.json` but skills aren't loading). Run `claudepanion plugin install` in the repo where Claude Code is running, then **start a new Claude Code session**. Verify with `/plugin` in Claude Code — if `claudepanion@local` doesn't appear, re-run install and check `.claude/settings.local.json`.
+
+Also verify the skill file is at `skills/build-companion/SKILL.md` in the claudepanion repo (nested directory, literal filename `SKILL.md`). A flat `skills/build-companion.md` will not be discovered by Claude Code's plugin loader.
 
 ## Server won't start: port in use
 

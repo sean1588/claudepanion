@@ -1,7 +1,7 @@
 import type { Entity } from "../../../src/shared/types";
-import type { __CAMEL__Input, __CAMEL__Artifact } from "../types";
+import type { __PASCAL__Input, __PASCAL__Artifact } from "../types";
 
-export default function __CAMEL__Detail({ entity }: { entity: Entity<__CAMEL__Input, __CAMEL__Artifact> }) {
+export default function __PASCAL__Detail({ entity }: { entity: Entity<__PASCAL__Input, __PASCAL__Artifact> }) {
   if (!entity.artifact) return null;
   return (
     <div>

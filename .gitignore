@@ -3,6 +3,9 @@ dist
 .DS_Store
 .superpowers/
 
+# per-machine Claude Code state — contains absolute paths + permission grants
+.claude/settings.local.json
+
 # runtime data — contents gitignored, directory kept via .gitkeep
 data/*
 !data/.gitkeep

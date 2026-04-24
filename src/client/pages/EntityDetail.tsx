@@ -55,7 +55,10 @@ export default function EntityDetail() {
 
 function describeEntity(e: Entity): string {
   const input = e.input as any;
-  return input?.title ?? input?.description ?? e.companion;
+  // Prefer short identifiers (title, slug name, iterate target) over raw description.
+  // Truncate long descriptions so the h1 doesn't become a paragraph.
+  const raw: string = input?.title ?? input?.name ?? input?.target ?? input?.description ?? e.companion;
+  return raw.length > 60 ? raw.slice(0, 57) + "…" : raw;
 }
 
 function subtitle(e: Entity): string {
@@ -83,9 +86,12 @@ function slashCommand(e: Entity): string {
 }
 
 function PendingBody({ entity }: { entity: Entity }) {
+  const note = entity.companion === "build"
+    ? "Heads-up: start your Claude Code session inside the claudepanion repo, and make sure the plugin is installed (`claudepanion plugin install` in this repo, then restart Claude Code). Build scaffolds files into companions/ and skills/ relative to Claude's working directory."
+    : undefined;
   return (
     <>
-      <SlashCommandBlock command={slashCommand(entity)} />
+      <SlashCommandBlock command={slashCommand(entity)} note={note} />
       <InputPanel entity={entity} />
       <LogsPanel logs={[]} waiting />
     </>

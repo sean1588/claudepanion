@@ -2,6 +2,20 @@
 
 A single place to keep known-gaps and deferred ideas so they don't get forgotten between sessions. Each item should be small enough that it could become its own focused change; bigger ones get their own plan doc in `docs/superpowers/plans/`.
 
+## Companion deletion
+
+No way for a user to delete a companion today. Manually requires deleting the companion directory, removing the import from `companions/index.ts`, removing 3 entries from `companions/client.ts`, deleting `skills/<name>-companion/`, and restarting the server. The watcher handles remount but the file cleanup is tedious and easy to get wrong.
+
+Since Build will generate companions users want to throw away, this needs a solution. Options to evaluate:
+
+- **CLI**: `claudepanion companion delete <slug>` — deletes files + cleans registrations atomically.
+- **UI button**: "🗑 Delete companion" on each companion's list/About page header. Could call a `DELETE /api/companions/:slug` endpoint that the server handles (delete files, regenerate index.ts, remount).
+- **Iterate-with-Build path**: ask Build to remove the companion (reads the files, undoes the registrations, commits the removal).
+
+The CLI option is the simplest to implement and least likely to have unintended side effects.
+
+---
+
 ## Onboarding / first-run UX
 
 When Plans 1–7 landed we stripped the pre-installed example companions (Expense Tracker, Homelab) because they were verification fixtures, not demos — Homelab was a mock that actively misled users. A default install is now just Build + Install. That's honest but bare.
