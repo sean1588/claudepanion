@@ -1,14 +1,24 @@
 import type { Express, Request, Response } from "express";
 import type { EntityStore } from "./entity-store.js";
 import type { Registry } from "./companion-registry.js";
+import type { ReliabilitySnapshot } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
 
 export interface ApiDeps {
   store: EntityStore;
   registry: Registry;
+  reliability?: Map<string, ReliabilitySnapshot>;
 }
 
-export function mountApiRoutes(app: Express, { store, registry }: ApiDeps): void {
+export function mountApiRoutes(app: Express, { store, registry, reliability }: ApiDeps): void {
+  app.get("/api/reliability/:companion", (req: Request, res: Response) => {
+    const name = String(req.params.companion);
+    if (!registry.get(name)) return res.status(404).json({ error: `unknown companion: ${name}` });
+    const snap = reliability?.get(name);
+    if (!snap) return res.status(503).json({ error: "reliability snapshot not yet computed" });
+    res.json(snap);
+  });
+
   app.get("/api/companions", (_req: Request, res: Response) => {
     res.json(registry.list().map((c) => c.manifest));
   });

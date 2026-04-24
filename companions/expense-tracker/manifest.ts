@@ -7,5 +7,5 @@ export const manifest: Manifest = {
   icon: "💰",
   description: "Log expenses with a description and amount; Claude tags each and summarizes.",
   contractVersion: "1",
-  version: "0.1.0",
+  version: "0.1.1",
 };
