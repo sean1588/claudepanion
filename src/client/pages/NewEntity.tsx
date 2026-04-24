@@ -22,7 +22,7 @@ export default function NewEntity() {
   return (
     <>
       <Breadcrumb manifest={manifest} trailing="New" />
-      <div className="page-title"><h1>New entry</h1></div>
+      <div className="page-title"><h1>{companion === "build" ? "New companion" : "New entry"}</h1></div>
       <Form onSubmit={async (input) => {
         const e = await createEntity(companion, input);
         navigate(`/c/${companion}/${e.id}`);

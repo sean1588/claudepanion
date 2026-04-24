@@ -55,7 +55,10 @@ export default function EntityDetail() {
 
 function describeEntity(e: Entity): string {
   const input = e.input as any;
-  return input?.title ?? input?.description ?? e.companion;
+  // Prefer short identifiers (title, slug name, iterate target) over raw description.
+  // Truncate long descriptions so the h1 doesn't become a paragraph.
+  const raw: string = input?.title ?? input?.name ?? input?.target ?? input?.description ?? e.companion;
+  return raw.length > 60 ? raw.slice(0, 57) + "…" : raw;
 }
 
 function subtitle(e: Entity): string {
