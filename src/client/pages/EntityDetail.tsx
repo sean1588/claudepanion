@@ -1,4 +1,5 @@
-import { useParams, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { useParams } from "react-router-dom";
 import { useEntity } from "../hooks/useEntity";
 import StatusPill from "../components/StatusPill";
 import SlashCommandBlock from "../components/SlashCommandBlock";
@@ -6,8 +7,9 @@ import StatusBar from "../components/StatusBar";
 import LogsPanel from "../components/LogsPanel";
 import ContinuationForm from "../components/ContinuationForm";
 import StaleBadge from "../components/StaleBadge";
-import { continueEntity } from "../api";
-import type { Entity } from "@shared/types";
+import Breadcrumb from "../components/Breadcrumb";
+import { continueEntity, fetchCompanions } from "../api";
+import type { Entity, Manifest } from "@shared/types";
 import { getArtifactRenderer } from "../../../companions/client";
 
 const STALE_MS = 10 * 60 * 1000;
@@ -15,6 +17,10 @@ const STALE_MS = 10 * 60 * 1000;
 export default function EntityDetail() {
   const { companion = "", id = "" } = useParams();
   const { entity, refetch } = useEntity(companion, id);
+  const [manifest, setManifest] = useState<Manifest | null>(null);
+  useEffect(() => {
+    void fetchCompanions().then((all) => setManifest(all.find((m) => m.name === companion) ?? null));
+  }, [companion]);
 
   if (!entity) {
     return <div style={{ color: "var(--muted)" }}>Loading…</div>;
@@ -22,12 +28,10 @@ export default function EntityDetail() {
 
   return (
     <>
-      <div className="breadcrumb">
-        <Link to={`/c/${companion}`}>{companion}</Link> / {entity.id}
-      </div>
+      {manifest && <Breadcrumb manifest={manifest} trailing={entity.id} />}
       <div className="page-title">
         <div>
-          <h3>{describeEntity(entity)}</h3>
+          <h1>{describeEntity(entity)}</h1>
           <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
             {subtitle(entity)} · ID <code>{entity.id}</code>
           </div>
@@ -153,20 +157,19 @@ function ErrorBody({ entity, onRetry }: { entity: Entity; onRetry: (hint: string
 }
 
 function InputPanel({ entity, collapsed }: { entity: Entity; collapsed?: boolean }) {
-  if (collapsed) {
-    return (
-      <div className="panel" style={{ padding: "10px 14px", display: "flex", gap: 12, fontSize: 13, color: "var(--muted)" }}>
-        <span>▸ Input</span>
-        <span style={{ fontSize: 12 }}>{JSON.stringify(entity.input).slice(0, 200)}</span>
-      </div>
-    );
-  }
   return (
-    <div className="panel">
-      <div className="panel-header">Input</div>
+    <details open={!collapsed} className="panel" style={{ padding: 0, overflow: "hidden" }}>
+      <summary className="panel-header" style={{ cursor: "pointer", listStyle: "revert" }}>
+        Input
+        {collapsed && (
+          <span style={{ marginLeft: 12, fontSize: 12, color: "var(--muted)", fontWeight: 400 }}>
+            {JSON.stringify(entity.input).slice(0, 120)}
+          </span>
+        )}
+      </summary>
       <div className="panel-body">
         <pre style={{ margin: 0, fontSize: 12 }}>{JSON.stringify(entity.input, null, 2)}</pre>
       </div>
-    </div>
+    </details>
   );
 }

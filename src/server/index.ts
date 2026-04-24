@@ -54,6 +54,10 @@ async function main() {
   await mcpServer.connect(transport);
   app.all("/mcp", (req, res) => transport.handleRequest(req, res, req.body));
 
+  app.get("/robots.txt", (_req, res) => {
+    res.type("text/plain").send("User-agent: *\nDisallow: /\n");
+  });
+
   const clientDir = join(repoRoot, "dist/client");
   app.use(express.static(clientDir));
   app.get("*", (_req, res) => res.sendFile(join(clientDir, "index.html")));

@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import type { Manifest } from "@shared/types";
+import Breadcrumb from "../components/Breadcrumb";
 
 interface ToolParam {
   name: string;
@@ -50,10 +51,11 @@ export default function ToolAbout() {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <header style={{ display: "flex", gap: 16, alignItems: "flex-start" }}>
-        <span style={{ fontSize: 40 }}>{manifest.icon}</span>
-        <div style={{ flex: 1 }}>
-          <h2 style={{ margin: 0 }}>{manifest.displayName}</h2>
+      <Breadcrumb manifest={manifest} />
+      <header style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <span style={{ fontSize: 40 }} aria-hidden="true">{manifest.icon}</span>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <h1 style={{ margin: 0 }}>{manifest.displayName}</h1>
           <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
             claudepanion-{manifest.name} · v{manifest.version}
           </div>
@@ -61,15 +63,16 @@ export default function ToolAbout() {
         </div>
         <button
           type="button"
+          className="btn-outline"
           onClick={() => navigate(`/c/build/new?mode=iterate&target=${manifest.name}`)}
-          style={{ background: "white", border: "1px solid #cbd5e1", color: "#334155", padding: "6px 12px", borderRadius: 6, fontSize: 13, cursor: "pointer", whiteSpace: "nowrap" }}
+          style={{ whiteSpace: "nowrap" }}
         >
           🔨 Iterate with Build
         </button>
       </header>
 
       <section>
-        <h3 style={{ marginTop: 0, marginBottom: 12 }}>MCP tools</h3>
+        <h2 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>MCP tools</h2>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {tools.map((t) => (
             <div key={t.name} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
@@ -120,7 +123,7 @@ function TryIt({ companion, tools }: { companion: string; tools: ToolDescriptor[
 
   return (
     <section>
-      <h3 style={{ marginTop: 0, marginBottom: 12 }}>Try it</h3>
+      <h2 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>Try it</h2>
       <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
         <select value={selected} onChange={(e) => { setSelected(e.target.value); setArgsState({}); setResult(null); }} style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }}>
           {tools.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}

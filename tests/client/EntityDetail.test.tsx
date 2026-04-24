@@ -5,14 +5,19 @@ import EntityDetail from "../../src/client/pages/EntityDetail";
 import type { Entity } from "@shared/types";
 
 function mockFetch(entity: Partial<Entity>) {
-  vi.stubGlobal("fetch", vi.fn(async () =>
-    new Response(JSON.stringify({
+  vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url.includes("/api/companions")) {
+      return new Response(JSON.stringify([
+        { name: "x", kind: "entity", displayName: "X", icon: "x", description: "x", contractVersion: "1", version: "0.1.0" },
+      ]), { status: 200 });
+    }
+    return new Response(JSON.stringify({
       id: "x-1", companion: "x", status: "pending", statusMessage: null,
       createdAt: new Date().toISOString(), updatedAt: new Date().toISOString(),
       input: {}, artifact: null, errorMessage: null, errorStack: null, logs: [],
       ...entity,
-    }), { status: 200 })
-  ));
+    }), { status: 200 });
+  }));
 }
 
 function renderAt(path: string) {

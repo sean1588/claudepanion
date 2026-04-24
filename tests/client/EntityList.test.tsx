@@ -27,7 +27,7 @@ describe("EntityList", () => {
         <Routes><Route path="/c/:companion" element={<EntityList />} /></Routes>
       </MemoryRouter>
     );
-    await waitFor(() => expect(screen.getByText("Xer")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Xer" })).toBeInTheDocument());
     expect(screen.getByText("thing one")).toBeInTheDocument();
     expect(screen.getByText("running")).toBeInTheDocument();
   });

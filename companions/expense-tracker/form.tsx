@@ -8,10 +8,13 @@ interface Props {
 export default function ExpenseForm({ onSubmit }: Props) {
   const [description, setDescription] = useState("");
   const [amount, setAmount] = useState("");
+  const [error, setError] = useState<string | null>(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!description.trim()) { setError("Description is required."); return; }
     const amt = Number(amount);
-    if (!description.trim() || !Number.isFinite(amt)) return;
+    if (!amount || !Number.isFinite(amt)) { setError("Amount must be a number."); return; }
+    setError(null);
     void onSubmit({ description: description.trim(), amount: amt });
   };
   return (
@@ -24,6 +27,7 @@ export default function ExpenseForm({ onSubmit }: Props) {
         Amount
         <input value={amount} onChange={(e) => setAmount(e.target.value)} type="number" step="0.01" style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }} />
       </label>
+      {error && <div className="form-error" role="alert">{error}</div>}
       <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>Create</button>
     </form>
   );

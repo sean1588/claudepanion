@@ -1,8 +1,9 @@
-import { useParams, useNavigate, Link } from "react-router-dom";
+import { useParams, useNavigate } from "react-router-dom";
 import { useEffect, useState } from "react";
 import type { Manifest } from "@shared/types";
 import { createEntity, fetchCompanions } from "../api";
 import { getForm } from "../../../companions/client";
+import Breadcrumb from "../components/Breadcrumb";
 
 export default function NewEntity() {
   const { companion = "" } = useParams();
@@ -20,8 +21,8 @@ export default function NewEntity() {
 
   return (
     <>
-      <div className="breadcrumb"><Link to={`/c/${companion}`}>{manifest.displayName}</Link> / New</div>
-      <div className="page-title"><h3>New {manifest.displayName}</h3></div>
+      <Breadcrumb manifest={manifest} trailing="New" />
+      <div className="page-title"><h1>New entry</h1></div>
       <Form onSubmit={async (input) => {
         const e = await createEntity(companion, input);
         navigate(`/c/${companion}/${e.id}`);

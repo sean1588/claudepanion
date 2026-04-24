@@ -38,9 +38,9 @@ export default function Install() {
 
   return (
     <>
-      <div className="breadcrumb">Install companion</div>
+      <div className="breadcrumb">Install</div>
       <div className="page-title">
-        <h3>Install companion from npm</h3>
+        <h1>Install companion from npm</h1>
       </div>
       <form onSubmit={submit} style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 12 }}>
         <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>

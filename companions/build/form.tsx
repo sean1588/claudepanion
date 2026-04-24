@@ -29,16 +29,20 @@ export default function BuildForm({ onSubmit }: Props) {
     }
   }, [params]);
 
+  const [error, setError] = useState<string | null>(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
     const desc = description.trim();
-    if (!desc) return;
+    if (!desc) { setError("Description is required."); return; }
     if (mode === "new-companion") {
       const nm = name.trim();
-      if (!nm || !/^[a-z][a-z0-9-]*$/.test(nm)) return;
+      if (!nm) { setError("Companion name is required."); return; }
+      if (!/^[a-z][a-z0-9-]*$/.test(nm)) { setError("Name must be lowercase letters, digits, hyphens; starts with a letter."); return; }
+      setError(null);
       void onSubmit({ mode, name: nm, kind, description: desc });
     } else {
-      if (!target) return;
+      if (!target) { setError("Pick a target companion."); return; }
+      setError(null);
       void onSubmit({ mode, target, description: desc });
     }
   };
@@ -115,6 +119,7 @@ export default function BuildForm({ onSubmit }: Props) {
         />
       </label>
 
+      {error && <div className="form-error" role="alert">{error}</div>}
       <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>
         {mode === "new-companion" ? "Scaffold companion" : "Iterate"}
       </button>

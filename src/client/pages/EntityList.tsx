@@ -3,6 +3,7 @@ import { useParams, Link, useNavigate } from "react-router-dom";
 import type { Entity, Manifest } from "@shared/types";
 import { fetchCompanions, fetchEntities } from "../api";
 import StatusPill from "../components/StatusPill";
+import Breadcrumb from "../components/Breadcrumb";
 import { getListRow } from "../../../companions/client";
 
 export default function EntityList() {
@@ -22,15 +23,15 @@ export default function EntityList() {
 
   return (
     <>
-      <div className="breadcrumb">Companions / {manifest.displayName}</div>
+      <Breadcrumb manifest={manifest} />
       <div className="page-title">
-        <h3>{manifest.displayName}</h3>
+        <h1>{manifest.displayName}</h1>
         <div style={{ display: "flex", gap: 8 }}>
           {companion !== "build" && (
             <button
               type="button"
+              className="btn-outline"
               onClick={() => navigate(`/c/build/new?mode=iterate&target=${companion}`)}
-              style={{ background: "white", border: "1px solid #cbd5e1", color: "#334155", padding: "6px 12px", borderRadius: 6, fontSize: 13, cursor: "pointer" }}
             >
               🔨 Iterate with Build
             </button>
@@ -38,20 +39,20 @@ export default function EntityList() {
           <button className="btn" onClick={() => navigate(`/c/${companion}/new`)}>+ New</button>
         </div>
       </div>
-      <div className="panel">
-        <div className="panel-header" style={{ display: "grid", gridTemplateColumns: "90px 1fr 120px", fontSize: 12, color: "var(--muted)", fontWeight: 400, background: "#f8fafc" }}>
+      <div className="panel entity-list">
+        <div className="panel-header entity-list-header">
           <div>Status</div>
           <div>Description</div>
-          <div>Updated</div>
+          <div className="entity-list-updated">Updated</div>
         </div>
         {entities.length === 0 ? (
           <div style={{ padding: 32, textAlign: "center", color: "var(--muted)" }}>No entries yet — click "+ New" to get started.</div>
         ) : (
           entities.map((e) => (
-            <Link key={e.id} to={`/c/${companion}/${e.id}`} style={{ display: "grid", gridTemplateColumns: "90px 1fr 120px", padding: "12px 14px", borderTop: "1px solid var(--border)", alignItems: "center", fontSize: 13, textDecoration: "none", color: "inherit" }}>
+            <Link key={e.id} to={`/c/${companion}/${e.id}`} className="entity-list-row">
               <StatusPill status={e.status} />
               {Row ? <Row entity={e} /> : <div>{(e.input as any).description || JSON.stringify(e.input).slice(0, 80)}</div>}
-              <div style={{ color: "var(--muted)" }}>{timeAgo(e.updatedAt)}</div>
+              <div className="entity-list-updated" style={{ color: "var(--muted)" }}>{timeAgo(e.updatedAt)}</div>
             </Link>
           ))
         )}
