@@ -1,109 +1,226 @@
 ---
 name: build-companion
-description: Invoked with `/build-companion <entity-id>`. Scaffolds a new companion from templates, or iterates on an existing one (plan 5). Runs validator + smoke and persists the result as the Build entity's artifact.
+description: Use when the user pastes "/build-companion <entity-id>" — scaffolds a new companion or iterates on an existing one for claudepanion.
 ---
 
 # /build-companion <entity-id>
 
-## Step 1 — Load
+Claudepanion's built-in companion that scaffolds or iterates on other companions.
 
-Call `build_get(id)`. Branch on `entity.input.mode`.
+> **CRITICAL — MCP tools ONLY:**
+> - ALL state changes (status, logs, artifact, failure) go through the tools prefixed `mcp__claudepanion__`.
+> - NEVER curl the REST API at `/api/entities/*` to mutate state.
+> - NEVER edit `data/build/<id>.json` directly.
+> - If an MCP tool returns an error, call `mcp__claudepanion__build_fail` with the error and stop. Do NOT fall back to HTTP.
+> - If MCP tools are unavailable in your session, STOP and tell the user: *"MCP tools from claudepanion are not loaded — verify `claudepanion plugin install` and that the server is running, then start a new Claude Code session."* Do not proceed.
+
+> **Server base URL is `http://localhost:3001`.** Reliability snapshots at `/api/reliability/<name>` are read-only — reading them via Bash curl is allowed as a last resort for verification. Writing anything over REST is NOT.
+
+## Step 1 — Load the Build entity
+
+```
+mcp__claudepanion__build_get({ id: "<entity-id>" })
+```
+
+Read `entity.input.mode`. Branch:
+
+- `"new-companion"` → go to **Mode: new-companion** below.
+- `"iterate-companion"` → go to **Mode: iterate-companion** below.
 
 ---
 
 ## Mode: new-companion
 
-### Step 2 — Validate input
+### Step 2 — Validate + resolve substitution tokens
 
-`entity.input` has `name`, `kind`, `description`. Reject if `name` doesn't match `^[a-z][a-z0-9-]*$`,
-if `kind` isn't `"entity"` or `"tool"`, or if a directory already exists at `companions/<name>/`.
-On any rejection: `build_fail(id, "<message>")` and stop.
+`entity.input` has `name`, `kind`, `description`, and optionally `example` (a chip slug). Reject if:
 
-Set up substitutions:
-- `__NAME__` = the slug (e.g., `oncall-investigator`)
-- `__CAMEL__` = camelCase name (e.g., `oncallInvestigator`) — strip hyphens and uppercase the next char
-- `__DISPLAY__` = a reasonable titleized name ("Oncall Investigator")
-- `__ICON__` = choose a single emoji that fits the description (e.g., 📣)
-- `__DESCRIPTION__` = the user's description, one line, no newlines
+- `name` doesn't match `/^[a-z][a-z0-9-]*$/`.
+- `kind` is not `"entity"` or `"tool"`.
+- `companions/<name>/` already exists on disk.
+
+On reject:
+
+```
+mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "<specific reason>" })
+```
+
+Compute substitution tokens. This is mechanical — apply exactly:
+
+| Token | Derivation | Example (`pr-reviewer`) |
+|---|---|---|
+| `__NAME__` | the slug | `pr-reviewer` |
+| `__CAMEL__` | camelCase — strip hyphens, uppercase the next letter | `prReviewer` |
+| `__PASCAL__` | first char of `__CAMEL__` uppercased | `PrReviewer` |
+| `__DISPLAY__` | titleized — split on hyphens, capitalize each word | `Pr Reviewer` |
+| `__ICON__` | one emoji that fits `description` | `🔎` |
+| `__DESCRIPTION__` | `entity.input.description` collapsed to one line | `Review a PR in this repo…` |
 
 ### Step 3 — Mark running
 
-`build_update_status(id, "running", "scaffolding files")`
+```
+mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "scaffolding files" })
+```
 
-### Step 4 — Scaffold files
+### Step 4 — Scaffold files from templates
 
-For `kind: "entity"`, read each file under `companions/build/templates/entity/` and write it to
-`companions/<name>/` with tokens substituted. Files to create (for entity kind):
+For `kind: "entity"`, read each source template, substitute tokens (every occurrence of `__NAME__`, `__CAMEL__`, `__PASCAL__`, `__DISPLAY__`, `__ICON__`, `__DESCRIPTION__`), and Write the result to the target path:
 
-- `companions/<name>/manifest.ts`
-- `companions/<name>/types.ts`
-- `companions/<name>/index.ts`
-- `companions/<name>/form.tsx`
-- `companions/<name>/pages/List.tsx`
-- `companions/<name>/pages/Detail.tsx`
-- `companions/<name>/server/tools.ts`
-- `skills/<name>-companion.md` (from `companions/build/templates/skill.md`)
+| Source template | Target file |
+|---|---|
+| `companions/build/templates/entity/manifest.ts` | `companions/__NAME__/manifest.ts` |
+| `companions/build/templates/entity/types.ts` | `companions/__NAME__/types.ts` |
+| `companions/build/templates/entity/index.ts` | `companions/__NAME__/index.ts` |
+| `companions/build/templates/entity/form.tsx` | `companions/__NAME__/form.tsx` |
+| `companions/build/templates/entity/pages/List.tsx` | `companions/__NAME__/pages/List.tsx` |
+| `companions/build/templates/entity/pages/Detail.tsx` | `companions/__NAME__/pages/Detail.tsx` |
+| `companions/build/templates/entity/server/tools.ts` | `companions/__NAME__/server/tools.ts` |
 
-After each file write, call `build_append_log(id, "wrote <path>")`.
+After each Write:
 
-For `kind: "tool"`, read from `companions/build/templates/tool/` instead and write:
+```
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "wrote <path>" })
+```
 
-- `companions/<name>/manifest.ts`
-- `companions/<name>/index.ts`
-- `companions/<name>/server/tools.ts`
+For the skill file:
 
-No form, pages, or types files — the About page is auto-generated from the manifest and the `defineTool` metadata attached to each handler.
+1. If `entity.input.example` is set: check for a matching domain playbook at `companions/build/templates/skill-examples/<entity.input.example>.md`. If it exists, use it.
+2. Otherwise: use the generic `companions/build/templates/skill.md`.
 
-### Step 5 — Regenerate companions/index.ts
+Substitute the same tokens. Write the result to `skills/__NAME__-companion/SKILL.md`. The directory `skills/__NAME__-companion/` must be created; Claude Code's plugin loader discovers skills at `skills/<name>/SKILL.md` (nested, literal filename).
 
-Rewrite `companions/index.ts` so it imports and re-exports the new companion alongside existing ones.
-Preserve alphabetical order by slug. Example:
+For `kind: "tool"`, use `companions/build/templates/tool/` — only `manifest.ts`, `index.ts`, `server/tools.ts`, plus the skill file via the same branch logic.
+
+### Step 5 — Register the companion in the host
+
+Two files need editing. Both are load-bearing — miss either and the companion won't work.
+
+#### Step 5a — `companions/index.ts`
+
+Read it first. Current shape:
 
 ```ts
 import type { RegisteredCompanion } from "../src/server/companion-registry.js";
 import { build } from "./build/index.js";
-import { newName } from "./<new-name>/index.js";
 // ...other existing imports, alphabetical by slug
 
-export const companions: RegisteredCompanion[] = [build, /* rest alphabetical */];
+export const companions: RegisteredCompanion[] = [build /*, ...alphabetical */];
 ```
 
-Also update `companions/client.ts` so the new companion's form/list/detail are registered.
+Add an import for the new companion's binding (remember: `__CAMEL__` is the exported binding in the companion's own `index.ts`):
 
-### Step 6 — Wait for watcher + reliability
+```ts
+import { __CAMEL__ } from "./__NAME__/index.js";
+```
 
-After writing `companions/index.ts`, the host watcher fires and re-mounts. Wait briefly (poll
-the reliability endpoint if you have http access; otherwise 1–2 seconds is enough in dev).
+Insert it in alphabetical slug order. Add `__CAMEL__` to the `companions` array, preserving alphabetical slug order.
 
-### Step 7 — Read reliability snapshot
+#### Step 5b — `companions/client.ts` (entity kind ONLY)
 
-Fetch `/api/reliability/<name>` (via your HTTP tool of choice, or have the user check it).
-Extract `validator.ok` and `smoke.ok`.
+Skip this sub-step for `kind: "tool"` — tool companions don't register forms/lists/details.
 
-`build_append_log(id, "validator: <ok?>, smoke: <ok?>")`
+For entity kind, read `companions/client.ts`. Current shape:
 
-### Step 8 — Commit
+```ts
+import type { Entity } from "../src/shared/types";
+import type { ComponentType } from "react";
+import BuildDetail from "./build/pages/Detail";
+import BuildListRow from "./build/pages/List";
+import BuildForm from "./build/form";
+// ...other existing imports
+
+type ArtifactRenderer = ComponentType<{ entity: Entity }>;
+type ListRow = ComponentType<{ entity: Entity }>;
+type CompanionForm = ComponentType<{ onSubmit: (input: unknown) => void | Promise<void> }>;
+
+const artifactRenderers: Record<string, ArtifactRenderer> = {
+  "build": BuildDetail as ArtifactRenderer,
+  // ...
+};
+const listRows: Record<string, ListRow> = {
+  "build": BuildListRow as ListRow,
+  // ...
+};
+const forms: Record<string, CompanionForm> = {
+  "build": BuildForm as CompanionForm,
+  // ...
+};
+
+export function getArtifactRenderer(name: string): ArtifactRenderer | undefined { return artifactRenderers[name]; }
+export function getListRow(name: string): ListRow | undefined { return listRows[name]; }
+export function getForm(name: string): CompanionForm | undefined { return forms[name]; }
+```
+
+Add three imports and three registry entries:
+
+```ts
+import __PASCAL__Detail from "./__NAME__/pages/Detail";
+import __PASCAL__ListRow from "./__NAME__/pages/List";
+import __PASCAL__Form from "./__NAME__/form";
+
+// artifactRenderers:
+  "__NAME__": __PASCAL__Detail as ArtifactRenderer,
+// listRows:
+  "__NAME__": __PASCAL__ListRow as ListRow,
+// forms:
+  "__NAME__": __PASCAL__Form as CompanionForm,
+```
+
+Log:
+
+```
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "registered __NAME__ in companions/index.ts and companions/client.ts" })
+```
+
+### Step 6 — Wait for watcher + read reliability snapshot
+
+```
+mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "validating" })
+```
+
+Wait 2 seconds for the host watcher to debounce + re-mount. Then read the snapshot (GET — read-only — is acceptable):
 
 ```bash
-git add companions/<name> skills/<name>-companion.md companions/index.ts companions/client.ts
-git commit -m "companion: scaffold <name>"
+curl -s http://localhost:3001/api/reliability/__NAME__
 ```
 
-### Step 9 — Save artifact + complete
+Parse `validator.ok` and `smoke.ok` from the response. Log:
 
-```js
-build_save_artifact(id, {
-  filesCreated: [...list of paths written],
-  filesModified: ["companions/index.ts", "companions/client.ts"],
-  summary: `Scaffolded ${name} (${kind}).`,
-  validatorPassed: true/false,
-  smokeTestPassed: true/false
+```
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "validator=<bool>, smoke=<bool>" })
+```
+
+### Step 7 — Commit
+
+```bash
+git add companions/__NAME__ skills/__NAME__-companion companions/index.ts companions/client.ts
+git commit -m "companion: scaffold __NAME__"
+```
+
+For `kind: "tool"`, omit `companions/client.ts` from `git add`.
+
+### Step 8 — Save artifact + complete
+
+```
+mcp__claudepanion__build_save_artifact({
+  id: "<entity-id>",
+  artifact: {
+    filesCreated: [<list of new file paths>],
+    filesModified: ["companions/index.ts", "companions/client.ts"],
+    summary: "Scaffolded __NAME__ (<kind>).",
+    validatorPassed: <bool>,
+    smokeTestPassed: <bool>
+  }
 })
 
-build_update_status(id, "completed")
+mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "completed" })
 ```
 
-If validator failed fatally: `build_fail(id, "validator: <issues>")`.
+If the validator reported fatal issues:
+
+```
+mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "validator: <joined issues>" })
+```
 
 ---
 
@@ -112,39 +229,47 @@ If validator failed fatally: `build_fail(id, "validator: <issues>")`.
 ### Step 2 — Load target
 
 `entity.input` has `target` (slug) and `description` (what to change). Verify:
-- `companions/<target>/` exists.
-- `<target>` is not `build` (self-iteration is disallowed — `build_fail(id, "cannot iterate on Build itself")` and stop).
+
+- `companions/<target>/` exists on disk.
+- `target !== "build"` — self-iteration is disallowed. On violation:
+
+```
+mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "cannot iterate on Build itself" })
+```
 
 ### Step 3 — Mark running
 
-`build_update_status(id, "running", "reading current source")`
+```
+mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "reading current source" })
+```
 
 ### Step 4 — Read current source
 
-Read all relevant files:
-- Always: `companions/<target>/manifest.ts`, `companions/<target>/server/tools.ts`.
-- For entity kind (check `manifest.kind`): also `types.ts`, `form.tsx`, `pages/List.tsx`, `pages/Detail.tsx`.
+Read every file under `companions/<target>/`. Note the manifest version.
 
 ### Step 5 — Apply the change
 
-`build_update_status(id, "running", "applying change")`
+```
+mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "applying change" })
+```
 
-This is the judgment step. Read the user's description in `entity.input.description` and make the requested modifications using the Edit tool. Keep changes focused on what was asked. If the description is ambiguous, make the smallest reasonable change and note what you did in the artifact summary.
+Judgment step. Read `entity.input.description` and make the requested modifications using Edit. Keep changes focused on what was asked. After each file change:
 
-After each file change: `build_append_log(id, "modified <path>")`.
+```
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "modified <path>" })
+```
 
 ### Step 6 — Bump version
 
-Read `companions/<target>/manifest.ts` current `version`. Bump it:
-- Patch (0.1.0 → 0.1.1) for wording/description like "fix", "typo", "wording".
-- Major (0.1.0 → 1.0.0) for explicit "breaking" language.
-- Minor (0.1.0 → 0.2.0) otherwise.
+Update `companions/<target>/manifest.ts` `version` field:
 
-Write the new version back to `manifest.ts`.
+- **Patch** (0.1.0 → 0.1.1) for wording like "fix", "typo", "wording".
+- **Major** (0.1.0 → 1.0.0) for explicit "breaking" language.
+- **Minor** (0.1.0 → 0.2.0) otherwise.
 
-### Step 7 — Wait for reliability
+### Step 7 — Validate via reliability snapshot
 
-The manifest change triggers the watcher → re-mount → fresh reliability snapshot. Fetch `/api/reliability/<target>` and extract `validator.ok` + `smoke.ok`.
+Same as new-companion Step 6, but for `<target>`.
 
 ### Step 8 — Commit
 
@@ -155,15 +280,45 @@ git commit -m "companion(<target>): <one-line summary>"
 
 ### Step 9 — Save artifact + complete
 
-```js
-build_save_artifact(id, {
-  filesCreated: [],
-  filesModified: ["companions/<target>/<each modified>", "companions/<target>/manifest.ts"],
-  summary: "<one or two sentences of what changed and why>",
-  validatorPassed: true/false,
-  smokeTestPassed: true/false
+```
+mcp__claudepanion__build_save_artifact({
+  id: "<entity-id>",
+  artifact: {
+    filesCreated: [],
+    filesModified: [<list of modified paths>],
+    summary: "<what changed and why, one or two sentences>",
+    validatorPassed: <bool>,
+    smokeTestPassed: <bool>
+  }
 })
-build_update_status(id, "completed")
+
+mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "completed" })
 ```
 
-On any error: `build_fail(id, errorMessage, errorStack?)`.
+---
+
+## Common mistakes
+
+Every row here caused a real failure in an earlier run. Don't repeat them.
+
+| Mistake | Fix |
+|---|---|
+| *"Let me curl the MCP endpoint since the tools aren't loaded."* | STOP. Tell the user MCP tools aren't loaded (see the CRITICAL block at the top). Do not fall back to HTTP. |
+| *"I'll PATCH /api/entities/<id> to update status."* | The REST API has no PATCH endpoint and shouldn't be used for mutations regardless. Use `mcp__claudepanion__build_update_status`. |
+| *"I'll write directly to data/build/<id>.json via a Node script."* | Never. State changes go through MCP tools. Direct file writes bypass logging, watchers, and session context. |
+| Skipping `companions/client.ts` registration. | The new companion's form/list/detail registry lives in `client.ts`. Miss it and the UI shows *"No form registered"*. Always edit BOTH `index.ts` and `client.ts` for entity kind. |
+| Writing `interface __CAMEL__Input` instead of `interface __PASCAL__Input`. | Type and component names are PascalCase. Variable bindings are camelCase. Verify you computed `__PASCAL__` and substituted it everywhere templates reference types. |
+| Using the generic skill stub when a chip example was clicked. | Check `entity.input.example`. If set, use `companions/build/templates/skill-examples/<example>.md` instead of the default. |
+| Committing without `git add companions/<name>` and `skills/<name>-companion`. | `git add` must include the new companion directory AND the skill directory AND the registration files. Miss any and next session's diff will be confusing. |
+| Writing the skill to `skills/<name>-companion.md` (flat). | Claude Code plugin loader expects nested. Path is `skills/<name>-companion/SKILL.md` with literal filename `SKILL.md`. |
+
+## Red flags — STOP and re-read this skill
+
+- About to write a curl command against `/api/entities`.
+- About to invent an MCP tool name not spelled `mcp__claudepanion__build_*` or `mcp__claudepanion__<new-slug>_*`.
+- About to edit `data/**/*.json` directly.
+- About to skip `companions/client.ts` "because the UI will figure it out."
+- About to substitute `__CAMEL__` where a type is declared.
+- About to place a skill file as `skills/<name>.md` instead of `skills/<name>/SKILL.md`.
+
+All of these mean: stop, re-read the skill, try again the correct way.
