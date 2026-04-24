@@ -8,9 +8,10 @@
     "claudepanion": "./bin/cli.js"
   },
   "scripts": {
-    "dev": "concurrently -n server,client -c blue,green \"npm:dev:server\" \"npm:dev:client\"",
+    "dev": "concurrently -n server,client,tsc -c blue,green,gray \"npm:dev:server\" \"npm:dev:client\" \"npm:dev:tsc\"",
     "dev:server": "tsx watch src/server/index.ts",
     "dev:client": "vite",
+    "dev:tsc": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "build": "tsc -p tsconfig.json && vite build",
     "start": "node dist/src/server/index.js",
     "test": "vitest run",
