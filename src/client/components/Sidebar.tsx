@@ -44,6 +44,12 @@ export default function Sidebar() {
           ))}
         </>
       )}
+      <div style={{ marginTop: "auto", paddingTop: 12, borderTop: "1px solid rgba(255,255,255,0.08)" }}>
+        <NavLink to="/install" className={({ isActive }) => `sidebar-link${isActive ? " active" : ""}`}>
+          <span>+</span>
+          <span>Install companion</span>
+        </NavLink>
+      </div>
     </aside>
   );
 }

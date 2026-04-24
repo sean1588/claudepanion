@@ -4,6 +4,9 @@ import type { Registry } from "./companion-registry.js";
 import type { ReliabilitySnapshot } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
 import { getToolMeta, signatureString } from "./tool-meta.js";
+import { spawn } from "node:child_process";
+import { validateCompanion } from "./reliability/validator.js";
+import type { RegisteredCompanion } from "./companion-registry.js";
 
 export interface ApiDeps {
   store: EntityStore;
@@ -84,6 +87,47 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
       const e = err as Error;
       res.json({ ok: false, error: e?.message ?? String(err) });
     }
+  });
+
+  app.post("/api/install", async (req: Request, res: Response) => {
+    const { packageName } = req.body ?? {};
+    if (typeof packageName !== "string" || !/^claudepanion-[a-z0-9-]+$/.test(packageName)) {
+      return res.status(400).json({ ok: false, error: "packageName must match claudepanion-<slug>" });
+    }
+
+    const npmResult = await new Promise<{ code: number; stderr: string }>((resolve) => {
+      const proc = spawn("npm", ["install", packageName], { cwd: process.cwd(), shell: false });
+      let stderr = "";
+      proc.stderr.on("data", (d) => { stderr += d.toString(); });
+      proc.on("close", (code) => resolve({ code: code ?? 1, stderr }));
+      proc.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+    });
+
+    if (npmResult.code !== 0) {
+      return res.status(500).json({ ok: false, error: `npm install failed: ${npmResult.stderr || "(no stderr)"}`.slice(0, 2000) });
+    }
+
+    let companion: RegisteredCompanion;
+    try {
+      const mod = await import(packageName);
+      companion = (mod.default ?? Object.values(mod).find((v: any) => v?.manifest)) as RegisteredCompanion;
+      if (!companion?.manifest) throw new Error("package did not export a RegisteredCompanion");
+    } catch (err) {
+      return res.status(500).json({ ok: false, error: `import failed: ${(err as Error).message}` });
+    }
+
+    const report = validateCompanion({ manifest: companion.manifest, module: companion, companionDir: null });
+    if (!report.ok) {
+      return res.status(400).json({ ok: false, error: `validation failed: ${report.issues.filter((i) => i.fatal).map((i) => i.message).join("; ")}` });
+    }
+
+    try {
+      registry.register(companion);
+    } catch (err) {
+      return res.status(409).json({ ok: false, error: (err as Error).message });
+    }
+
+    res.json({ ok: true, companion: companion.manifest });
   });
 
   app.post("/api/entities/:id/continue", async (req: Request, res: Response) => {

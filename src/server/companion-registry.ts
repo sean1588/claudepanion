@@ -13,6 +13,7 @@ export interface Registry {
   list(): RegisteredCompanion[];
   get(name: string): RegisteredCompanion | null;
   remount(companion: RegisteredCompanion): void;
+  register(companion: RegisteredCompanion): void;
   onChange(listener: (name: string) => void): () => void;
 }
 
@@ -34,6 +35,18 @@ export function createRegistry(companions: RegisteredCompanion[]): Registry {
         throw new Error(
           `companion ${c.manifest.name} declares contractVersion=${c.manifest.contractVersion}; host supports ${SUPPORTED_CONTRACT_VERSION}`
         );
+      }
+      byName.set(c.manifest.name, c);
+      for (const l of listeners) l(c.manifest.name);
+    },
+    register: (c) => {
+      if (c.manifest.contractVersion !== SUPPORTED_CONTRACT_VERSION) {
+        throw new Error(
+          `companion ${c.manifest.name} declares contractVersion=${c.manifest.contractVersion}; host supports ${SUPPORTED_CONTRACT_VERSION}`
+        );
+      }
+      if (byName.has(c.manifest.name)) {
+        throw new Error(`companion ${c.manifest.name} already registered; use remount to swap`);
       }
       byName.set(c.manifest.name, c);
       for (const l of listeners) l(c.manifest.name);
