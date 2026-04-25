@@ -30,7 +30,8 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
       schema: {
         id: z.string().describe(`${label} entity ID (e.g. ${n}-abc123)`),
       },
-      async handler({ id }: { id: string }) {
+      async handler(params) {
+        const { id } = params as { id: string };
         const e = await store.get(n, id);
         if (!e) return errorResult(`entity not found: ${n}/${id}`);
         return successResult(e);
@@ -42,7 +43,8 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
       schema: {
         status: STATUS_SCHEMA.optional().describe("filter by status — omit to list all"),
       },
-      async handler({ status }: { status?: string }) {
+      async handler(params) {
+        const { status } = params as { status?: string };
         const all = await store.list(n);
         return successResult(status ? all.filter((e) => e.status === status) : all);
       },
@@ -58,7 +60,8 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
           .optional()
           .describe('short note shown alongside the status pill, e.g. "querying CloudWatch"'),
       },
-      async handler({ id, status, statusMessage }: { id: string; status: string; statusMessage?: string }) {
+      async handler(params) {
+        const { id, status, statusMessage } = params as { id: string; status: string; statusMessage?: string };
         await store.updateStatus(n, id, status as any, statusMessage ?? null);
         return successResult({ ok: true });
       },
@@ -71,7 +74,8 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
         message: z.string().describe("log message to display"),
         level: LOG_LEVEL_SCHEMA.optional().describe("log level (default: info)"),
       },
-      async handler({ id, message, level }: { id: string; message: string; level?: string }) {
+      async handler(params) {
+        const { id, message, level } = params as { id: string; message: string; level?: string };
         await store.appendLog(n, id, message, (level as any) ?? "info");
         return successResult({ ok: true });
       },
@@ -81,9 +85,10 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
       description: `Save the completed artifact. The UI morphs from the log tail to the artifact view. The artifact shape is defined by the companion's Artifact type in companions/${n}/types.ts.`,
       schema: {
         id: z.string().describe(`${label} entity ID`),
-        artifact: z.record(z.unknown()).describe("artifact object — shape defined by the companion's Artifact type"),
+        artifact: z.record(z.string(), z.unknown()).describe("artifact object — shape defined by the companion's Artifact type"),
       },
-      async handler({ id, artifact }: { id: string; artifact: Record<string, unknown> }) {
+      async handler(params) {
+        const { id, artifact } = params as { id: string; artifact: Record<string, unknown> };
         await store.saveArtifact(n, id, artifact);
         return successResult({ ok: true });
       },
@@ -96,7 +101,8 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
         errorMessage: z.string().describe("short description of what went wrong"),
         errorStack: z.string().optional().describe("stack trace or additional context"),
       },
-      async handler({ id, errorMessage, errorStack }: { id: string; errorMessage: string; errorStack?: string }) {
+      async handler(params) {
+        const { id, errorMessage, errorStack } = params as { id: string; errorMessage: string; errorStack?: string };
         await store.fail(n, id, errorMessage, errorStack);
         return successResult({ ok: true });
       },

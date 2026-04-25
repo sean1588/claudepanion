@@ -40,6 +40,7 @@ export interface Manifest {
 export interface McpToolResult {
   content: Array<{ type: "text"; text: string }>;
   isError?: true;
+  [key: string]: unknown;
 }
 
 export function successResult(data: unknown): McpToolResult {

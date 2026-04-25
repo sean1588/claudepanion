@@ -66,7 +66,7 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
       description: def.description,
       params: Object.entries(def.schema).map(([key, schema]) => ({
         name: key,
-        required: !schema.isOptional(),
+        required: !(schema as any).isOptional?.(),
         description: (schema as any)._def?.description ?? "",
       })),
       signature: signatureFromDef(def),
@@ -152,7 +152,7 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
 
 function signatureFromDef(def: CompanionToolDefinition): string {
   const params = Object.entries(def.schema).map(([key, schema]) => {
-    return `${key}${schema.isOptional() ? "?" : ""}: …`;
+    return `${key}${(schema as any).isOptional?.() ? "?" : ""}: …`;
   });
   return params.length ? `${def.name}(${params.join(", ")})` : `${def.name}()`;
 }
