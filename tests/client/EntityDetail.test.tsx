@@ -89,8 +89,7 @@ describe("EntityDetail", () => {
       </MemoryRouter>
     );
     await waitFor(() => expect(screen.getByText("Notes during this run")).toBeInTheDocument());
-    const banners = screen.getAllByText("Scaffolded x.");
-    expect(banners.length).toBeGreaterThan(0);
+    expect(screen.getByText("Scaffolded x.")).toBeInTheDocument();
     expect(screen.getByText("minor warning")).toBeInTheDocument();
   });
 });
