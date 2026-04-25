@@ -14,14 +14,14 @@ const fakeManifest = (name: string): Manifest => ({
 
 describe("companion registry", () => {
   it("lists registered companions", () => {
-    const a: RegisteredCompanion = { manifest: fakeManifest("a"), tools: {} };
-    const b: RegisteredCompanion = { manifest: fakeManifest("b"), tools: {} };
+    const a: RegisteredCompanion = { manifest: fakeManifest("a"), tools: [] };
+    const b: RegisteredCompanion = { manifest: fakeManifest("b"), tools: [] };
     const r = createRegistry([a, b]);
     expect(r.list().map((c) => c.manifest.name)).toEqual(["a", "b"]);
   });
 
   it("looks up by name", () => {
-    const a: RegisteredCompanion = { manifest: fakeManifest("a"), tools: {} };
+    const a: RegisteredCompanion = { manifest: fakeManifest("a"), tools: [] };
     const r = createRegistry([a]);
     expect(r.get("a")?.manifest.displayName).toBe("a");
     expect(r.get("missing")).toBeNull();
@@ -30,7 +30,7 @@ describe("companion registry", () => {
   it("refuses unknown contractVersion", () => {
     const bad: RegisteredCompanion = {
       manifest: { ...fakeManifest("x"), contractVersion: "99" },
-      tools: {},
+      tools: [],
     };
     expect(() => createRegistry([bad])).toThrow(/contractVersion/);
   });

@@ -3,7 +3,7 @@ import type { EntityStore } from "./entity-store.js";
 import type { Registry } from "./companion-registry.js";
 import type { ReliabilitySnapshot } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
-import { getToolMeta, signatureString } from "./tool-meta.js";
+import type { CompanionToolDefinition } from "../shared/types.js";
 import { spawn } from "node:child_process";
 import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
@@ -61,15 +61,16 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     const c = registry.get(name);
     if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
     if (c.manifest.kind !== "tool") return res.status(400).json({ error: `${name} is not a tool-kind companion` });
-    const descriptors = Object.entries(c.tools).map(([toolName, fn]) => {
-      const meta = getToolMeta(fn);
-      return {
-        name: toolName,
-        description: meta?.description ?? "",
-        params: meta?.params ?? [],
-        signature: signatureString(toolName, meta),
-      };
-    });
+    const descriptors = c.tools.map((def) => ({
+      name: def.name,
+      description: def.description,
+      params: Object.entries(def.schema).map(([key, schema]) => ({
+        name: key,
+        required: !schema.isOptional(),
+        description: (schema as any)._def?.description ?? "",
+      })),
+      signature: signatureFromDef(def),
+    }));
     res.json({ manifest: c.manifest, tools: descriptors });
   });
 
@@ -79,10 +80,10 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     const c = registry.get(name);
     if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
     if (c.manifest.kind !== "tool") return res.status(400).json({ error: `${name} is not a tool-kind companion` });
-    const fn = c.tools[toolName];
-    if (!fn) return res.status(404).json({ error: `unknown tool: ${toolName}` });
+    const def = c.tools.find((t) => t.name === toolName);
+    if (!def) return res.status(404).json({ error: `unknown tool: ${toolName}` });
     try {
-      const result = await fn((req.body ?? {}).args ?? {});
+      const result = await def.handler((req.body ?? {}).args ?? {});
       res.json({ ok: true, result });
     } catch (err: unknown) {
       const e = err as Error;
@@ -147,4 +148,11 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     const e = await store.get(companion, String(req.params.id));
     res.json(e);
   });
+}
+
+function signatureFromDef(def: CompanionToolDefinition): string {
+  const params = Object.entries(def.schema).map(([key, schema]) => {
+    return `${key}${schema.isOptional() ? "?" : ""}: …`;
+  });
+  return params.length ? `${def.name}(${params.join(", ")})` : `${def.name}()`;
 }

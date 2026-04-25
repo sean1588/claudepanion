@@ -15,17 +15,17 @@ const CODE_LEVEL_ERRORS = new Set(["TypeError", "ReferenceError", "SyntaxError"]
 
 export async function smokeCompanion(companion: RegisteredCompanion): Promise<SmokeReport> {
   const results: SmokeResult[] = [];
-  for (const [name, handler] of Object.entries(companion.tools ?? {})) {
+  for (const def of companion.tools ?? []) {
     try {
-      await handler({});
-      results.push({ tool: name, ok: true });
+      await def.handler({} as any);
+      results.push({ tool: def.name, ok: true });
     } catch (err: unknown) {
       const e = err as { name?: string; message?: string };
       const codeLevel = typeof e?.name === "string" && CODE_LEVEL_ERRORS.has(e.name);
       if (codeLevel) {
-        results.push({ tool: name, ok: false, error: `${e.name}: ${e.message ?? ""}` });
+        results.push({ tool: def.name, ok: false, error: `${e.name}: ${e.message ?? ""}` });
       } else {
-        results.push({ tool: name, ok: true, error: e?.message ?? String(err) });
+        results.push({ tool: def.name, ok: true, error: e?.message ?? String(err) });
       }
     }
   }

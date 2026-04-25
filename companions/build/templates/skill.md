@@ -32,7 +32,26 @@ mcp__claudepanion__`__NAME___update_status`({ id: "<entity-id>", status: "runnin
 
 __DESCRIPTION__
 
-Use Claude's built-in Read, Grep, Bash, and Edit tools for file or shell work. Stream progress via:
+### 3a — Call domain proxy tools for external system access
+
+If this companion has domain proxy tools (defined in `companions/__NAME__/server/tools.ts`),
+call them to access external systems. These are your primary data source.
+
+```
+mcp__claudepanion__`__NAME___<verb>`({ id: "<entity-id>", ... })
+```
+
+After each proxy tool call, log what you received:
+
+```
+mcp__claudepanion__`__NAME___append_log`({ id: "<entity-id>", message: "fetched 47 records from <source>" })
+```
+
+### 3b — Use Claude's built-in tools for local work (if needed)
+
+Use Read, Grep, Bash, and Edit for local file or repository access.
+
+Stream progress after each meaningful step:
 
 ```
 mcp__claudepanion__`__NAME___append_log`({ id: "<entity-id>", message: "<what you just did>" })

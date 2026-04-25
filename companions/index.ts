@@ -1,5 +1,4 @@
 import type { RegisteredCompanion } from "../src/server/companion-registry.js";
 import { build } from "./build/index.js";
-import { grounding } from "./grounding/index.js";
 
-export const companions: RegisteredCompanion[] = [build, grounding];
+export const companions: RegisteredCompanion[] = [build];

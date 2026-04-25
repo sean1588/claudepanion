@@ -25,7 +25,7 @@ let tmp: string;
 beforeEach(() => {
   tmp = mkdtempSync(join(tmpdir(), "claudepanion-api-"));
   const store = createEntityStore(tmp);
-  const registry = createRegistry([{ manifest: manifest("x"), tools: {} }]);
+  const registry = createRegistry([{ manifest: manifest("x"), tools: [] }]);
   app = express();
   app.use(express.json());
   mountApiRoutes(app, { store, registry });
