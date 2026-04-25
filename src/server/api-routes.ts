@@ -28,6 +28,17 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     res.json(registry.list().map((c) => c.manifest));
   });
 
+  app.get("/api/companions/:name/preflight", (req: Request, res: Response) => {
+    const name = String(req.params.name);
+    const c = registry.get(name);
+    if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
+    const requiredEnv = c.manifest.requiredEnv ?? [];
+    const optionalEnv = c.manifest.optionalEnv ?? [];
+    const missingRequired = requiredEnv.filter((v) => !process.env[v]);
+    const missingOptional = optionalEnv.filter((v) => !process.env[v]);
+    res.json({ ok: missingRequired.length === 0, missingRequired, missingOptional });
+  });
+
   app.get("/api/entities", async (req: Request, res: Response) => {
     const companion = String(req.query.companion ?? "");
     if (!companion) return res.status(400).json({ error: "companion query param required" });
@@ -70,6 +81,7 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
         description: (schema as any)._def?.description ?? "",
       })),
       signature: signatureFromDef(def),
+      sideEffect: def.sideEffect ?? "read",
     }));
     res.json({ manifest: c.manifest, tools: descriptors });
   });

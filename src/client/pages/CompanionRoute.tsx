@@ -1,6 +1,6 @@
 import { useParams } from "react-router-dom";
 import { useCompanions } from "../hooks/useCompanions";
-import EntityList from "./EntityList";
+import CompanionAbout from "./CompanionAbout";
 import ToolAbout from "./ToolAbout";
 
 export default function CompanionRoute() {
@@ -9,5 +9,5 @@ export default function CompanionRoute() {
   if (loading) return <div style={{ color: "var(--muted)" }}>Loading…</div>;
   const manifest = companions.find((c) => c.name === companion);
   if (!manifest) return <div style={{ color: "#dc2626" }}>Unknown companion: {companion}</div>;
-  return manifest.kind === "tool" ? <ToolAbout /> : <EntityList />;
+  return manifest.kind === "tool" ? <ToolAbout /> : <CompanionAbout />;
 }

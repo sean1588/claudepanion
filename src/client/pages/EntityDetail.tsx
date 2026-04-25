@@ -8,6 +8,7 @@ import LogsPanel from "../components/LogsPanel";
 import ContinuationForm from "../components/ContinuationForm";
 import StaleBadge from "../components/StaleBadge";
 import Breadcrumb from "../components/Breadcrumb";
+import BaseArtifactPanel from "../components/BaseArtifactPanel";
 import { continueEntity, fetchCompanions } from "../api";
 import type { Entity, Manifest } from "@shared/types";
 import { getArtifactRenderer } from "../../../companions/client";
@@ -124,7 +125,9 @@ function CompletedBody({ entity, onContinue }: { entity: Entity; onContinue: (te
           <div className="artifact-hero-title">Completed</div>
         </div>
         <div className="artifact-hero-body">
-          {Renderer ? <Renderer entity={entity} /> : <pre>{JSON.stringify(entity.artifact, null, 2)}</pre>}
+          <BaseArtifactPanel entity={entity}>
+            {Renderer ? <Renderer entity={entity} /> : <pre>{JSON.stringify(entity.artifact, null, 2)}</pre>}
+          </BaseArtifactPanel>
         </div>
       </div>
       <ContinuationForm

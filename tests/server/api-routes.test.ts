@@ -8,6 +8,8 @@ import { createEntityStore } from "../../src/server/entity-store";
 import { createRegistry } from "../../src/server/companion-registry";
 import { mountApiRoutes } from "../../src/server/api-routes";
 import type { Manifest } from "@shared/types";
+import { successResult } from "../../src/shared/types";
+import type { CompanionToolDefinition } from "../../src/shared/types";
 
 const manifest = (name: string): Manifest => ({
   name,
@@ -87,5 +89,114 @@ describe("api routes", () => {
     expect(res.status).toBe(200);
     expect(res.body.status).toBe("pending");
     expect(res.body.input.continuation).toBe("try again");
+  });
+
+  it("GET /api/companions/:name/preflight returns ok:true for companion with no env declared", async () => {
+    const res = await request(app).get("/api/companions/x/preflight");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, missingRequired: [], missingOptional: [] });
+  });
+
+  it("GET /api/companions/:name/preflight 404s for unknown companion", async () => {
+    const res = await request(app).get("/api/companions/nope/preflight");
+    expect(res.status).toBe(404);
+  });
+});
+
+describe("preflight with required env", () => {
+  let envBackup: string | undefined;
+
+  beforeEach(() => {
+    envBackup = process.env.X_TOKEN;
+    delete process.env.X_TOKEN;
+  });
+
+  afterEach(() => {
+    if (envBackup !== undefined) process.env.X_TOKEN = envBackup;
+    else delete process.env.X_TOKEN;
+  });
+
+  function setupAppWithEnv(reqEnv: string[], optEnv: string[] = []) {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-pf-"));
+    const store = createEntityStore(tmp2);
+    const m: Manifest = { ...manifest("env-test"), requiredEnv: reqEnv, optionalEnv: optEnv };
+    const registry = createRegistry([{ manifest: m, tools: [] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+    return app2;
+  }
+
+  it("preflight reports missingRequired when env not set", async () => {
+    const a = setupAppWithEnv(["X_TOKEN"]);
+    const res = await request(a).get("/api/companions/env-test/preflight");
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(false);
+    expect(res.body.missingRequired).toEqual(["X_TOKEN"]);
+  });
+
+  it("preflight returns ok:true when required env is set", async () => {
+    process.env.X_TOKEN = "value";
+    const a = setupAppWithEnv(["X_TOKEN"]);
+    const res = await request(a).get("/api/companions/env-test/preflight");
+    expect(res.body.ok).toBe(true);
+    expect(res.body.missingRequired).toEqual([]);
+  });
+
+  it("preflight reports missingOptional but ok:true when only optional is missing", async () => {
+    const a = setupAppWithEnv([], ["OPT_TOKEN"]);
+    const res = await request(a).get("/api/companions/env-test/preflight");
+    expect(res.body.ok).toBe(true);
+    expect(res.body.missingOptional).toEqual(["OPT_TOKEN"]);
+  });
+});
+
+describe("tools endpoint sideEffect", () => {
+  it("returns sideEffect on each tool descriptor", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-tools-"));
+    const store = createEntityStore(tmp2);
+    const toolReadOnly: CompanionToolDefinition = {
+      name: "tk_read",
+      description: "read",
+      schema: {},
+      sideEffect: "read",
+      async handler() { return successResult({}); },
+    };
+    const toolWrite: CompanionToolDefinition = {
+      name: "tk_write",
+      description: "write",
+      schema: {},
+      sideEffect: "write",
+      async handler() { return successResult({}); },
+    };
+    const m: Manifest = { ...manifest("tk"), kind: "tool" };
+    const registry = createRegistry([{ manifest: m, tools: [toolReadOnly, toolWrite] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+
+    const res = await request(app2).get("/api/tools/tk");
+    expect(res.status).toBe(200);
+    const tools = res.body.tools as Array<{ name: string; sideEffect?: string }>;
+    expect(tools.find((t) => t.name === "tk_read")?.sideEffect).toBe("read");
+    expect(tools.find((t) => t.name === "tk_write")?.sideEffect).toBe("write");
+  });
+
+  it("defaults sideEffect to 'read' when not specified", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-tools-"));
+    const store = createEntityStore(tmp2);
+    const toolNoFlag: CompanionToolDefinition = {
+      name: "tk_default",
+      description: "no flag",
+      schema: {},
+      async handler() { return successResult({}); },
+    };
+    const m: Manifest = { ...manifest("tk"), kind: "tool" };
+    const registry = createRegistry([{ manifest: m, tools: [toolNoFlag] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+    const res = await request(app2).get("/api/tools/tk");
+    expect(res.body.tools[0].sideEffect).toBe("read");
   });
 });

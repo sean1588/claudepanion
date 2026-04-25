@@ -44,6 +44,33 @@ Each of these is a named gap from comparing the shipped state to `docs/concept.m
 
 5. **Smoke runs tool callability, not headless render.** Vision's Build reliability section #3 wanted "load the companion and render its pages headlessly." Spec pivoted to tool-smoke; both defensible. If rendering-smoke lands later it becomes a separate check alongside the current one.
 
+## Handoff UX — making the Claude Code step feel like summoning a companion
+
+The slash command handoff (form → pending state → paste into Claude Code) is load-bearing and intentional — it's the moment the user delegates to Claude with permission and context. But it currently reads like a technical instruction rather than an invitation. The framing should match the name: you're calling on a companion, not running a job.
+
+**Why the handoff is the right model (don't remove it):**
+- It's the permission grant — the user chooses when and where Claude operates.
+- Interactive mid-run — Claude can ask clarifying questions; headless API calls can't.
+- Local tool access — Read/Write/Bash/Edit only exist in a Claude Code session.
+- The name "claudepanion" only makes sense if Claude is present. A background process isn't a companion.
+
+**Improvements to the pending state:**
+- Replace generic copy with a one-line summary of what Claude is about to do based on the form input. e.g. *"Claude will review PR #142 in myorg/myrepo, read the diff, and post a structured review."*
+- Add a short "what to expect" note: *"Claude will update this page as it works. Follow along here or interact with it in your terminal."*
+- Frame the slash command as an invitation, not a command: *"Your companion is ready. Open Claude Code in this repo and paste:"*
+
+**During the run:**
+- The live log tail is Claude narrating its work in real time — lean into that. "Claude is working…" not "running…".
+- Log messages from `_append_log` calls should read like a collaborator giving updates, not a system printing status codes.
+
+**The Continue flow:**
+- "Continue with Claude" after completion is a natural re-engagement point that already exists. Make it feel like picking the conversation back up, not re-submitting a form.
+
+**Future consideration — pure-proxy headless mode:**
+- A companion that only calls external API proxy tools (no Read/Write/Bash/Edit) could theoretically run headlessly via the Anthropic API without a Claude Code session. Worth exploring for a specific class of companions, but introduces a two-tier capability model. Don't pursue until there's a concrete use case that can't be served by the current flow.
+
+---
+
 ## Smaller polish items
 
 - Pulsing indicator on the running status pill.

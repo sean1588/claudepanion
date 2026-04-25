@@ -74,6 +74,17 @@ export function validateCompanion(args: {
     }
   }
 
+  for (const field of ["requiredEnv", "optionalEnv"] as const) {
+    const v = (m as any)[field];
+    if (v !== undefined && (!Array.isArray(v) || v.some((x) => typeof x !== "string"))) {
+      issues.push({
+        code: `manifest.${field}.invalid`,
+        message: `${field} must be a string[] when present`,
+        fatal: false,
+      });
+    }
+  }
+
   if (m.kind === "entity" && args.module?.tools) {
     const prefix = `${m.name}_`;
     for (const def of args.module.tools) {

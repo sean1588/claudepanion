@@ -1,3 +1,5 @@
+import type { BaseArtifact } from "../../src/shared/types.js";
+
 export type BuildInput =
   | {
       mode: "new-companion";
@@ -13,9 +15,10 @@ export type BuildInput =
       description: string;
     };
 
-export interface BuildArtifact {
+export interface BuildArtifact extends BaseArtifact {
   filesCreated: string[];
   filesModified: string[];
+  /** Required for Build runs (overrides BaseArtifact's optional summary). */
   summary: string;
   validatorPassed: boolean;
   smokeTestPassed: boolean;

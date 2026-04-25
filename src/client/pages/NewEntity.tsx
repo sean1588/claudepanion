@@ -4,11 +4,13 @@ import type { Manifest } from "@shared/types";
 import { createEntity, fetchCompanions } from "../api";
 import { getForm } from "../../../companions/client";
 import Breadcrumb from "../components/Breadcrumb";
+import PreflightBanner from "../components/PreflightBanner";
 
 export default function NewEntity() {
   const { companion = "" } = useParams();
   const navigate = useNavigate();
   const [manifest, setManifest] = useState<Manifest | null>(null);
+  const [blocked, setBlocked] = useState(false);
 
   useEffect(() => {
     void fetchCompanions().then((all) => setManifest(all.find((m) => m.name === companion) ?? null));
@@ -23,10 +25,14 @@ export default function NewEntity() {
     <>
       <Breadcrumb manifest={manifest} trailing="New" />
       <div className="page-title"><h1>{companion === "build" ? "New companion" : "New entry"}</h1></div>
-      <Form onSubmit={async (input) => {
-        const e = await createEntity(companion, input);
-        navigate(`/c/${companion}/${e.id}`);
-      }} />
+      <PreflightBanner companion={companion} onStatus={(s) => setBlocked(s.blocked)} />
+      <fieldset disabled={blocked} style={{ border: "none", padding: 0, margin: 0 }}>
+        <Form onSubmit={async (input) => {
+          if (blocked) return;
+          const e = await createEntity(companion, input);
+          navigate(`/c/${companion}/${e.id}`);
+        }} />
+      </fieldset>
     </>
   );
 }

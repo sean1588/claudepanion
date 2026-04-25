@@ -19,7 +19,6 @@ export default function BuildDetail({ entity }: { entity: Entity<BuildInput, Bui
           {check(a.smokeTestPassed)} <span style={{ fontSize: 13 }}>smoke test</span>
         </div>
       </div>
-      {a.summary && <p style={{ fontSize: 14, margin: 0 }}>{a.summary}</p>}
       {a.filesCreated.length > 0 && (
         <div>
           <div style={{ fontSize: 12, color: "var(--muted)", marginBottom: 4 }}>Files created</div>
