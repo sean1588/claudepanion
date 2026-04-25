@@ -8,6 +8,8 @@ import { createEntityStore } from "../../src/server/entity-store";
 import { createRegistry } from "../../src/server/companion-registry";
 import { mountApiRoutes } from "../../src/server/api-routes";
 import type { Manifest } from "@shared/types";
+import { successResult } from "../../src/shared/types";
+import type { CompanionToolDefinition } from "../../src/shared/types";
 
 const manifest = (name: string): Manifest => ({
   name,
@@ -146,5 +148,55 @@ describe("preflight with required env", () => {
     const res = await request(a).get("/api/companions/env-test/preflight");
     expect(res.body.ok).toBe(true);
     expect(res.body.missingOptional).toEqual(["OPT_TOKEN"]);
+  });
+});
+
+describe("tools endpoint sideEffect", () => {
+  it("returns sideEffect on each tool descriptor", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-tools-"));
+    const store = createEntityStore(tmp2);
+    const toolReadOnly: CompanionToolDefinition = {
+      name: "tk_read",
+      description: "read",
+      schema: {},
+      sideEffect: "read",
+      async handler() { return successResult({}); },
+    };
+    const toolWrite: CompanionToolDefinition = {
+      name: "tk_write",
+      description: "write",
+      schema: {},
+      sideEffect: "write",
+      async handler() { return successResult({}); },
+    };
+    const m: Manifest = { ...manifest("tk"), kind: "tool" };
+    const registry = createRegistry([{ manifest: m, tools: [toolReadOnly, toolWrite] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+
+    const res = await request(app2).get("/api/tools/tk");
+    expect(res.status).toBe(200);
+    const tools = res.body.tools as Array<{ name: string; sideEffect?: string }>;
+    expect(tools.find((t) => t.name === "tk_read")?.sideEffect).toBe("read");
+    expect(tools.find((t) => t.name === "tk_write")?.sideEffect).toBe("write");
+  });
+
+  it("defaults sideEffect to 'read' when not specified", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-tools-"));
+    const store = createEntityStore(tmp2);
+    const toolNoFlag: CompanionToolDefinition = {
+      name: "tk_default",
+      description: "no flag",
+      schema: {},
+      async handler() { return successResult({}); },
+    };
+    const m: Manifest = { ...manifest("tk"), kind: "tool" };
+    const registry = createRegistry([{ manifest: m, tools: [toolNoFlag] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+    const res = await request(app2).get("/api/tools/tk");
+    expect(res.body.tools[0].sideEffect).toBe("read");
   });
 });

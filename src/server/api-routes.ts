@@ -81,6 +81,7 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
         description: (schema as any)._def?.description ?? "",
       })),
       signature: signatureFromDef(def),
+      sideEffect: def.sideEffect ?? "read",
     }));
     res.json({ manifest: c.manifest, tools: descriptors });
   });
