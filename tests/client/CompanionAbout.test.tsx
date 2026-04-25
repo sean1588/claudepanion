@@ -56,7 +56,7 @@ describe("CompanionAbout", () => {
       </MemoryRouter>
     );
     await waitFor(() => expect(screen.getByText("demo_get_thing")).toBeInTheDocument());
-    expect(screen.getByText("demo_post_thing")).toBeInTheDocument();
+    expect(screen.getAllByText("demo_post_thing").length).toBeGreaterThanOrEqual(2);
     // write warning visible
     expect(screen.getByText(/writes to external systems/i)).toBeInTheDocument();
   });

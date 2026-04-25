@@ -97,7 +97,7 @@ export default function CompanionAbout() {
           <ul style={{ margin: "8px 0 0 20px", fontSize: 13 }}>
             {writeTools.map((t) => (
               <li key={t.name}>
-                Tool {t.name} — {t.description}
+                <code>{t.name}</code> — {t.description}
               </li>
             ))}
           </ul>
