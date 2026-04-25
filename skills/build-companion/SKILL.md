@@ -56,6 +56,38 @@ Compute substitution tokens. This is mechanical — apply exactly:
 | `__ICON__` | one emoji that fits `description` | `🔎` |
 | `__DESCRIPTION__` | `entity.input.description` collapsed to one line | `Review a PR in this repo…` |
 
+### Step 2.5 — Interpret the user's request: read-only by default
+
+Read `entity.input.description` and decide what proxy tools to scaffold. Apply this rule:
+
+> **Default to read-only proxy tools unless the user explicitly requests write actions.**
+
+| User wrote… | Action |
+|---|---|
+| "review PRs", "investigate logs", "check Linear", "summarize Slack" | Scaffold READ-only tools |
+| "post a review", "update a ticket", "send a message", "create an alarm" | Scaffold READ tools + the explicitly-requested WRITE tools |
+| Vague description ("PR helper", "incident tool") | Default to READ-only |
+
+When you scaffold write tools, set `sideEffect: "write"` on them. The host's About page will surface a warning, and the entity skill template's Step 4c will require user permission before each call.
+
+When you scaffold read-only tools, omit `sideEffect` (defaults to `"read"`).
+
+If the description mentions an external system (GitHub, AWS, Linear, Slack, etc.), add the relevant env var to the manifest's `requiredEnv`:
+
+| Service | Env var |
+|---|---|
+| GitHub API | `GITHUB_TOKEN` |
+| AWS SDK | (none — uses `~/.aws/credentials`; profile passed as tool arg) |
+| Linear API | `LINEAR_API_KEY` |
+| Slack API | `SLACK_BOT_TOKEN` |
+| OpenAI API | `OPENAI_API_KEY` |
+
+Log:
+
+```
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "interpreted as <read-only|with-write> companion using <external-system>" })
+```
+
 ### Step 3 — Mark running
 
 ```
