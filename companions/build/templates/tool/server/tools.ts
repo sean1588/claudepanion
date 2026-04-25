@@ -1,12 +1,18 @@
-import type { ToolHandler } from "../../../src/server/companion-registry.js";
-import { defineTool } from "../../../src/server/tool-meta.js";
+import { z } from "zod";
+import type { CompanionToolDefinition } from "../../../src/shared/types.js";
+import { successResult } from "../../../src/shared/types.js";
 
-// Domain tools for __NAME__. Each must be namespaced "__NAME___<verb>".
-// Use defineTool(handler, { description, params }) to surface metadata
-// on the auto-generated About page.
-export const tools: Record<string, ToolHandler> = {
-  __NAME___ping: defineTool(
-    async () => ({ pong: true }),
-    { description: "Liveness check — returns { pong: true }.", params: [] }
-  ),
-};
+// MCP tools for __NAME__ (kind: "tool").
+// These are exposed directly as slash-command-callable MCP tools — no entity lifecycle.
+// Each tool name must be prefixed "__NAME___".
+
+export const tools: CompanionToolDefinition[] = [
+  {
+    name: "__NAME___ping",
+    description: "Liveness check — returns { pong: true }.",
+    schema: {},
+    async handler() {
+      return successResult({ pong: true });
+    },
+  },
+];

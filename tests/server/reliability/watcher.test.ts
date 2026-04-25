@@ -17,7 +17,7 @@ function mkCompanion(name: string, version: string): RegisteredCompanion {
       contractVersion: "1",
       version,
     },
-    tools: {},
+    tools: [],
   };
 }
 
@@ -58,7 +58,7 @@ describe("watcher.triggerRemount", () => {
     const reg = createRegistry([mkCompanion("foo", "0.1.0")]);
     const bad: RegisteredCompanion = {
       manifest: { ...mkCompanion("foo", "0.2.0").manifest, contractVersion: "99" as any },
-      tools: {},
+      tools: [],
     };
     const w = createWatcher({
       registry: reg,

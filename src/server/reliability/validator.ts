@@ -76,11 +76,11 @@ export function validateCompanion(args: {
 
   if (m.kind === "entity" && args.module?.tools) {
     const prefix = `${m.name}_`;
-    for (const toolName of Object.keys(args.module.tools)) {
-      if (!toolName.startsWith(prefix)) {
+    for (const def of args.module.tools) {
+      if (!def.name.startsWith(prefix)) {
         issues.push({
           code: "tool.name.namespace",
-          message: `tool ${toolName} must be prefixed with ${prefix}`,
+          message: `tool ${def.name} must be prefixed with ${prefix}`,
           fatal: false,
         });
       }

@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
+import { z } from "zod";
 import { validateCompanion } from "../../../src/server/reliability/validator";
+import type { CompanionToolDefinition } from "../../../src/shared/types";
+import { successResult } from "../../../src/shared/types";
 
 const baseManifest = {
   name: "expense-tracker",
@@ -11,9 +14,20 @@ const baseManifest = {
   version: "0.1.0",
 };
 
+const makeTool = (name: string): CompanionToolDefinition => ({
+  name,
+  description: "test tool",
+  schema: { id: z.string() },
+  async handler() { return successResult({ ok: true }); },
+});
+
 describe("validateCompanion", () => {
   it("accepts a well-formed entity manifest", () => {
-    const r = validateCompanion({ manifest: baseManifest, module: { tools: { "expense-tracker_classify": async () => ({}) } }, companionDir: null });
+    const r = validateCompanion({
+      manifest: baseManifest,
+      module: { tools: [makeTool("expense-tracker_classify")] },
+      companionDir: null,
+    });
     expect(r.ok).toBe(true);
     expect(r.issues).toEqual([]);
   });
@@ -51,7 +65,7 @@ describe("validateCompanion", () => {
   it("flags mis-namespaced tools", () => {
     const r = validateCompanion({
       manifest: baseManifest,
-      module: { tools: { "wrong_prefix_do": async () => ({}) } },
+      module: { tools: [makeTool("wrong_prefix_do")] },
       companionDir: null,
     });
     expect(r.ok).toBe(true);

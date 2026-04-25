@@ -31,23 +31,24 @@ async function main() {
 
   const mcpServer = new McpServer({ name: "claudepanion", version: "0.2.0" });
   const registeredTools = new Set<string>();
-  const registerTool = (name: string) => {
+  const registerToolDef = (name: string) => {
     if (registeredTools.has(name)) return;
     registeredTools.add(name);
+    const def = mcp.toolDefs.get(name)!;
     mcpServer.registerTool(
       name,
-      { description: `auto-registered handler for ${name}`, inputSchema: z.any() },
-      async (args: unknown) => {
-        const fn = mcp.handlers[name];
-        if (!fn) throw new Error(`unknown tool: ${name}`);
-        const result = await fn(args);
-        return { content: [{ type: "text" as const, text: JSON.stringify(result) }] };
+      { description: def.description, inputSchema: z.object(def.schema) },
+      async (args) => {
+        // Look up current def so handler updates survive a companion hot-reload.
+        const current = mcp.toolDefs.get(name);
+        if (!current) throw new Error(`tool ${name} no longer registered`);
+        return await current.handler(args as any);
       }
     );
   };
-  for (const name of Object.keys(mcp.handlers)) registerTool(name);
+  for (const name of mcp.toolDefs.keys()) registerToolDef(name);
   registry.onChange(() => {
-    for (const name of Object.keys(mcp.handlers)) registerTool(name);
+    for (const name of mcp.toolDefs.keys()) registerToolDef(name);
   });
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });

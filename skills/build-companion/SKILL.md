@@ -91,6 +91,14 @@ Substitute the same tokens. Write the result to `skills/__NAME__-companion/SKILL
 
 For `kind: "tool"`, use `companions/build/templates/tool/` — only `manifest.ts`, `index.ts`, `server/tools.ts`, plus the skill file via the same branch logic.
 
+**After writing `companions/__NAME__/server/tools.ts`**, note the structure it establishes:
+
+- It exports `tools: CompanionToolDefinition[]` — the contract every proxy tool must satisfy.
+- Each `CompanionToolDefinition` has: `name` (prefixed `__NAME___`), `description`, `schema` (Zod raw shape), and `handler` returning `McpToolResult`.
+- Use `successResult(data)` to return data to Claude; use `errorResult(message)` on failure.
+- The host auto-registers the six generic entity tools alongside whatever is in this array. The companion only declares its own domain tools here.
+- Proxy tools should call external APIs using locally-stored credentials (AWS SDK, GitHub API client, etc.) — not curl, not Claude's built-in tools.
+
 ### Step 5 — Register the companion in the host
 
 Two files need editing. Both are load-bearing — miss either and the companion won't work.

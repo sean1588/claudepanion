@@ -1,15 +1,15 @@
-import type { Manifest } from "../shared/types.js";
+import type { Manifest, CompanionToolDefinition } from "../shared/types.js";
 
 export const SUPPORTED_CONTRACT_VERSION = "1";
 
 export interface RegisteredCompanion {
   manifest: Manifest;
-  tools: Record<string, ToolHandler>;
+  /** Domain proxy tools defined by the companion. Generic entity tools (_get, _update_status,
+   *  _append_log, _save_artifact, _fail) are auto-registered by the host — don't include them here. */
+  tools: CompanionToolDefinition[];
   /** "local" = lives in companions/<slug>/; "installed" = npm package claudepanion-<slug>. */
   source?: "local" | "installed";
 }
-
-export type ToolHandler = (args: unknown) => Promise<unknown> | unknown;
 
 export interface Registry {
   list(): RegisteredCompanion[];
