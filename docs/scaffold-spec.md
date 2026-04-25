@@ -599,6 +599,23 @@ Conventions:
 - Optional `errors?: string[]` per §10d.
 - Should be JSON-serializable (no functions, no Dates — use ISO strings).
 
+### 11.5. The `BaseArtifact` interface
+
+Every companion's artifact type should extend `BaseArtifact`:
+
+```ts
+export interface BaseArtifact {
+  /** Short one-liner describing the run's outcome. Shown in List row + Detail header. */
+  summary?: string;
+  /** Recoverable issues during the run. Rendered as "Notes during this run" by the host. */
+  errors?: string[];
+}
+```
+
+The host wraps every Detail page renderer in `<BaseArtifactPanel>` which automatically renders `summary` (top banner) and `errors[]` (bottom section). Companion authors only render their domain-specific middle content.
+
+Companions can make `summary` required by overriding the type in the extended interface (e.g., `BuildArtifact.summary: string`).
+
 ### 11b. Detail rendering
 
 ```ts
@@ -811,34 +828,29 @@ This spec describes the target. Current state vs. spec:
 |---|---|
 | 2. Lifecycle | ✅ Shipped |
 | 3. Manifest (existing fields) | ✅ Shipped |
-| 3. Manifest `requiredEnv`/`optionalEnv` | 🎯 Not yet |
-| 4. Configuration & preflight | 🎯 Not yet |
-| 5. Form contract | ✅ Shipped (form mostly), 🎯 preflight banner |
+| 3. Manifest `requiredEnv`/`optionalEnv` | ✅ Shipped |
+| 4. Configuration & preflight | ✅ Shipped (endpoint + banner) |
+| 5. Form contract | ✅ Shipped (form + preflight banner integration) |
 | 6. Entity | ✅ Shipped |
-| 7. Skill template | ✅ Shipped (existing template), 🎯 preflight + error sections |
-| 7d. Continuation contract | ✅ Endpoint shipped, 🎯 skill template stanza |
+| 7. Skill template | ✅ Shipped (continuation + preflight + error handling + write-permission stanzas) |
+| 7d. Continuation contract | ✅ Shipped (skill template stanza) |
 | 8. Generic entity tools | ✅ Shipped (with proper Zod schemas after recent refactor) |
 | 9. `CompanionToolDefinition` | ✅ Shipped |
-| 9e. Write-action safety | 🎯 Not yet (conventions only, no helpers needed) |
-| 10. Error handling helpers | 🎯 Not yet (`configErrorResult`, `inputErrorResult`, `transientErrorResult`) |
-| 10. Skill error pattern | 🎯 Not yet (template additions) |
-| 10. Artifact `errors[]` convention | 🎯 Not yet (convention, no code change needed but docs to write) |
-| 11. Artifact rendering | ✅ Shipped |
+| 9e. Write-action safety | ✅ Shipped (sideEffect flag + skill pattern + About warning) |
+| 10. Error handling helpers | ✅ Shipped (configErrorResult/inputErrorResult/transientErrorResult) |
+| 10. Skill error pattern | ✅ Shipped (template additions) |
+| 10. Artifact `errors[]` convention | ✅ Shipped (BaseArtifact + BaseArtifactPanel) |
+| 11. Artifact rendering | ✅ Shipped (BaseArtifactPanel wrapper) |
+| 11.5. BaseArtifact interface | ✅ Shipped |
 | 12. List & Detail pages | ✅ Shipped |
-| 12c. About page (entity kind) | 🎯 Not yet — auto-generated `<CompanionAbout>` component |
+| 12c. About page (entity kind) | ✅ Shipped (CompanionAbout) |
 | 13. Registration | ✅ Shipped |
 | 13d. External dependencies | ✅ Convention documented (top-level for local, own pkg.json for installed) |
 | 14. Validator / smoke / watcher | ✅ Shipped (validator may need `requiredEnv` rule) |
 
-**Foundation work to land before chip examples:**
+**Foundation shipped:** Phase 1–4 of `docs/superpowers/plans/2026-04-25-scaffold-foundation.md` complete.
 
-1. Manifest `requiredEnv` / `optionalEnv` fields
-2. `GET /api/companions/:name/preflight` endpoint
-3. `<PreflightBanner />` form component + form integration
-4. Error helpers in `shared/types.ts`
-5. Skill template — preflight section + error handling section + continuation detection stanza
-6. `<CompanionAbout>` component (read-only / write-warning treatment)
-7. Build skill template — explicit read-only bias when interpreting vague descriptions
-8. Doc note on artifact `errors[]` convention
+**Remaining for chip examples:**
 
-That's a tight, focused PR before the first chip example lands.
+1. Build's first read-only proxy companion (e.g., GitHub PR reviewer) using the new primitives
+2. End-to-end verification — scaffold a companion with `requiredEnv`, run preflight check, verify About page rendering, simulate a run with a recoverable error
