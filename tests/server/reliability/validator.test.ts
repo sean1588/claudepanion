@@ -83,4 +83,32 @@ describe("validateCompanion", () => {
     expect(r.ok).toBe(true);
     expect(r.issues.some((i) => i.code === "file.missing")).toBe(true);
   });
+
+  it("accepts manifest with requiredEnv and optionalEnv", () => {
+    const r = validateCompanion({
+      manifest: { ...baseManifest, requiredEnv: ["GITHUB_TOKEN"], optionalEnv: ["SLACK_TOKEN"] },
+      module: null,
+      companionDir: null,
+    });
+    expect(r.ok).toBe(true);
+    expect(r.issues.filter((i) => i.fatal)).toEqual([]);
+  });
+
+  it("accepts manifest with requiredEnv that is empty array", () => {
+    const r = validateCompanion({
+      manifest: { ...baseManifest, requiredEnv: [] },
+      module: null,
+      companionDir: null,
+    });
+    expect(r.ok).toBe(true);
+  });
+
+  it("flags non-array requiredEnv as non-fatal", () => {
+    const r = validateCompanion({
+      manifest: { ...baseManifest, requiredEnv: "GITHUB_TOKEN" as any },
+      module: null,
+      companionDir: null,
+    });
+    expect(r.issues.some((i) => i.code === "manifest.requiredEnv.invalid")).toBe(true);
+  });
 });
