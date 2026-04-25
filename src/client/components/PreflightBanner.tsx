@@ -1,4 +1,4 @@
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 import { usePreflight } from "../hooks/usePreflight";
 
 export interface PreflightBannerProps {
@@ -9,15 +9,17 @@ export interface PreflightBannerProps {
 
 export default function PreflightBanner({ companion, onStatus }: PreflightBannerProps) {
   const status = usePreflight(companion);
+  const onStatusRef = useRef(onStatus);
+  onStatusRef.current = onStatus;
 
   useEffect(() => {
     if (status.loading) return;
-    onStatus?.({
+    onStatusRef.current?.({
       blocked: !status.ok,
       missingRequired: status.missingRequired,
       missingOptional: status.missingOptional,
     });
-  }, [status.loading, status.ok, status.missingRequired, status.missingOptional, onStatus]);
+  }, [status.loading, status.ok, status.missingRequired, status.missingOptional]);
 
   if (status.loading) return null;
   if (status.ok && status.missingOptional.length === 0) return null;
