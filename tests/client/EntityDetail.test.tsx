@@ -65,4 +65,32 @@ describe("EntityDetail", () => {
     expect(screen.getByText(/at foo/)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
   });
+
+  it("renders summary banner from artifact", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url === "/api/companions") return new Response(JSON.stringify([
+        { name: "build", kind: "entity", displayName: "Build", icon: "🔨", description: "", contractVersion: "1", version: "0.1.0" },
+      ]), { status: 200 });
+      if (url.startsWith("/api/entities/build-abc")) return new Response(JSON.stringify({
+        id: "build-abc", companion: "build", status: "completed",
+        statusMessage: null, createdAt: "2026-04-25T00:00:00Z", updatedAt: "2026-04-25T00:00:01Z",
+        input: { mode: "new-companion", name: "x", kind: "entity", description: "" },
+        artifact: { summary: "Scaffolded x.", errors: ["minor warning"], filesCreated: [], filesModified: [], validatorPassed: true, smokeTestPassed: true },
+        errorMessage: null, errorStack: null, logs: [],
+      }), { status: 200 });
+      throw new Error("unexpected");
+    }));
+
+    render(
+      <MemoryRouter initialEntries={["/c/build/build-abc"]}>
+        <Routes>
+          <Route path="/c/:companion/:id" element={<EntityDetail />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    await waitFor(() => expect(screen.getByText("Notes during this run")).toBeInTheDocument());
+    const banners = screen.getAllByText("Scaffolded x.");
+    expect(banners.length).toBeGreaterThan(0);
+    expect(screen.getByText("minor warning")).toBeInTheDocument();
+  });
 });
