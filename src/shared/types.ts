@@ -22,6 +22,17 @@ export interface Entity<Input = unknown, Artifact = unknown> {
   logs: LogEntry[];
 }
 
+/**
+ * Common fields every artifact may carry. Companions should extend this
+ * interface for their specific Artifact type.
+ */
+export interface BaseArtifact {
+  /** Short one-liner describing the run's outcome. Shown in the List row and Detail header. */
+  summary?: string;
+  /** Recoverable issues encountered during the run. Rendered as a "Notes during this run" section by the host. */
+  errors?: string[];
+}
+
 export type CompanionKind = "entity" | "tool";
 
 export interface Manifest {
@@ -32,6 +43,10 @@ export interface Manifest {
   description: string;
   contractVersion: string;
   version: string;
+  /** Env vars the companion requires. Preflight surfaces missing values; form blocks submission. */
+  requiredEnv?: string[];
+  /** Env vars that enable extra features but aren't required. Preflight surfaces as soft warning. */
+  optionalEnv?: string[];
 }
 
 // ─── MCP tool contract ───────────────────────────────────────────────────────
@@ -51,6 +66,18 @@ export function successResult(data: unknown): McpToolResult {
 
 export function errorResult(message: string): McpToolResult {
   return { content: [{ type: "text", text: message }], isError: true };
+}
+
+export function configErrorResult(envVar: string, hint?: string): McpToolResult {
+  return errorResult(`[config] ${envVar} is not set${hint ? ` — ${hint}` : ""}`);
+}
+
+export function inputErrorResult(message: string): McpToolResult {
+  return errorResult(`[input] ${message}`);
+}
+
+export function transientErrorResult(message: string): McpToolResult {
+  return errorResult(`[transient] ${message}`);
 }
 
 /**
@@ -79,5 +106,8 @@ export interface CompanionToolDefinition<
   description: string;
   /** Zod raw shape — passed to z.object() for MCP schema registration. */
   schema: z.ZodRawShape;
+  /** Defaults to "read". Set to "write" for tools that change state in external systems —
+   *  triggers permission-prompt flow in the skill and a warning badge on the About page. */
+  sideEffect?: "read" | "write";
   handler: (params: TParams) => Promise<McpToolResult>;
 }

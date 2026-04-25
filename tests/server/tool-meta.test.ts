@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import { z } from "zod";
 import type { CompanionToolDefinition } from "../../src/shared/types";
 import { successResult, errorResult } from "../../src/shared/types";
+import { configErrorResult, inputErrorResult, transientErrorResult } from "../../src/shared/types";
 
 describe("CompanionToolDefinition", () => {
   it("handler receives typed params and returns McpToolResult", async () => {
@@ -32,5 +33,30 @@ describe("CompanionToolDefinition", () => {
   it("successResult passes strings through as-is", () => {
     const r = successResult("hello");
     expect(r.content[0].text).toBe("hello");
+  });
+});
+
+describe("error class helpers", () => {
+  it("configErrorResult prefixes [config] and includes envVar", () => {
+    const r = configErrorResult("GITHUB_TOKEN");
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toBe("[config] GITHUB_TOKEN is not set");
+  });
+
+  it("configErrorResult includes hint when provided", () => {
+    const r = configErrorResult("GITHUB_TOKEN", "create a token with repo scope");
+    expect(r.content[0].text).toBe("[config] GITHUB_TOKEN is not set — create a token with repo scope");
+  });
+
+  it("inputErrorResult prefixes [input]", () => {
+    const r = inputErrorResult("PR not found");
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toBe("[input] PR not found");
+  });
+
+  it("transientErrorResult prefixes [transient]", () => {
+    const r = transientErrorResult("rate limited");
+    expect(r.isError).toBe(true);
+    expect(r.content[0].text).toBe("[transient] rate limited");
   });
 });
