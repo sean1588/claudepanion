@@ -80,18 +80,30 @@ describe("validateCompanion", () => {
 
   it("flags missing companion files when dir given", () => {
     const r = validateCompanion({ manifest: baseManifest, module: null, companionDir: "/tmp/nonexistent-companion-dir-xyz" });
+    // file.missing is non-fatal; skill.missing is gated on manifest.ts existing,
+    // so it doesn't fire for a fully-synthetic dir (no manifest.ts).
     expect(r.ok).toBe(true);
     expect(r.issues.some((i) => i.code === "file.missing")).toBe(true);
   });
 
-  it("accepts manifest with requiredEnv and optionalEnv", () => {
+  it("accepts manifest with requiredEnv and optionalEnv when tools are present", () => {
     const r = validateCompanion({
       manifest: { ...baseManifest, requiredEnv: ["GITHUB_TOKEN"], optionalEnv: ["SLACK_TOKEN"] },
-      module: null,
+      module: { tools: [makeTool("expense-tracker_classify")] },
       companionDir: null,
     });
     expect(r.ok).toBe(true);
     expect(r.issues.filter((i) => i.fatal)).toEqual([]);
+  });
+
+  it("flags requiredEnv with no tools as fatal (§16f.1)", () => {
+    const r = validateCompanion({
+      manifest: { ...baseManifest, requiredEnv: ["GITHUB_TOKEN"] },
+      module: { tools: [] },
+      companionDir: null,
+    });
+    expect(r.ok).toBe(false);
+    expect(r.issues.some((i) => i.code === "tools.empty_with_requiredEnv" && i.fatal)).toBe(true);
   });
 
   it("accepts manifest with requiredEnv that is empty array", () => {
