@@ -14,7 +14,7 @@ Claudepanion's built-in companion that scaffolds or iterates on other companions
 > - If an MCP tool returns an error, call `mcp__claudepanion__build_fail` with the error and stop. Do NOT fall back to HTTP.
 > - If MCP tools are unavailable in your session, STOP and tell the user: *"MCP tools from claudepanion are not loaded — verify `claudepanion plugin install` and that the server is running, then start a new Claude Code session."* Do not proceed.
 
-> **Server base URL is `http://localhost:3001`.** Reliability snapshots at `/api/reliability/<name>` are read-only — reading via Bash curl is acceptable for verification. Writing anything over REST is NOT.
+> **All validation goes through MCP.** Use `mcp__claudepanion__build_self_check` (Step 6) to verify a just-scaffolded companion — no curl, no sleep, no REST. Reading entity state via REST is allowed for verification but NEVER for mutation.
 
 > **Your job (per scaffold-spec §16):** produce a *complete, working companion*, not a token-substituted skeleton. The templates ship as honest TODO scaffolds; you fill them in. If you only do Step 4 (scaffold) and skip Step 4.5 (author real implementations), the user gets an empty UI with no backend. That's a build failure.
 
@@ -231,7 +231,7 @@ export const tools: CompanionToolDefinition[] = [
 
 For **write tools**: set `sideEffect: "write"` and write the description to make the side-effect explicit (per §9e.i). Bad: `"Post a comment to GitHub"`. Good: `"Post a structured review comment to the PR. Visible to all collaborators on the repo and cannot be unsent. Requires GITHUB_TOKEN with 'repo' scope."`
 
-**EMPTY ARRAY = BUILD FAILURE when the description names an external system** (verified by Step 6.5 self-check).
+**EMPTY ARRAY = BUILD FAILURE when the description names an external system** (verified by Step 6 self-check).
 
 #### 4.5e — Author the skill body's "Step 4 — Do the work"
 
@@ -336,46 +336,49 @@ Log:
 mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "registered __NAME__ in companions/index.ts and companions/client.ts" })
 ```
 
-### Step 6 — Wait for watcher + read reliability snapshot
+### Step 6 — Self-check (§16f)
+
+Run a single synchronous validation:
 
 ```
 mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "validating" })
+mcp__claudepanion__build_self_check({ companion: "__NAME__" })
 ```
 
-Wait 2 seconds for the watcher to debounce + remount. Then read the snapshot (GET — read-only — acceptable):
+`build_self_check` runs the full §16f validator + smoke synchronously and returns:
 
-```bash
-curl -s http://localhost:3001/api/reliability/__NAME__
+```json
+{
+  "ok": <boolean>,
+  "validator": { "ok": <boolean>, "issues": [{ "code", "message", "fatal" }] },
+  "smoke":     { "ok": <boolean>, "results": [{ "tool", "ok" }] },
+  "ranAt":     "<ISO timestamp>"
+}
 ```
 
-Parse `validator.ok` and `smoke.ok`. Log:
+The validator already enforces the §16f rules from the spec:
+
+- `tools.empty_with_requiredEnv` — `requiredEnv` declared but `server/tools.ts` is empty (§16f.1, fatal)
+- `env.referenced_not_declared` / `env.declared_not_used` — env vars in handlers must match `requiredEnv` (§16f.2, warn)
+- `tool.name.namespace` — every tool prefixed with the slug (hyphens→underscores)
+- `skill.missing` / `skill.frontmatter.*` — skill file exists with required frontmatter
+- `index.export.missing` — companion's `index.ts` exports the camelCase binding
+- `file.missing` — required companion files present
+
+Plus smoke: every domain tool runs (or fails the right way) when called with empty args.
+
+#### Branch on the result
+
+If `result.ok === true`:
 
 ```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "validator=<bool>, smoke=<bool>" })
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Self-check passed: validator + smoke green" })
 ```
 
-### Step 6.5 — Self-check before commit (§16f)
-
-Verify ALL four checks. If any fails, call `build_fail` with a specific message naming the gap and stop.
-
-**1. server/tools.ts non-empty.** If Step 2.5 named an external system, `companions/__NAME__/server/tools.ts` must export at least one tool. Empty array = the user gets a UI with no real backend.
-
-**2. requiredEnv matches handlers.** Cross-check env vars referenced via `process.env.*` in `companions/__NAME__/server/tools.ts` against `manifest.requiredEnv`. Every referenced var must be declared. Every declared var should be used by at least one handler.
-
-**3. Tool names prefixed correctly.** Every tool's `name` starts with `<slug-with-underscores>_` (e.g. `pr_reviewer_*`). Hyphens in the slug become underscores in the tool name.
-
-**4. Reliability snapshot green.** From Step 6: both `validator.ok === true` and `smoke.ok === true`.
-
-If all four pass, log:
+If `result.ok === false`, gather the fatal issue messages (`validator.issues.filter(i => i.fatal)`) and any failed smoke results, and call:
 
 ```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Self-check passed: <N> proxy tools, requiredEnv aligned, validator + smoke green" })
-```
-
-If any fails:
-
-```
-mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "[input] self-check failed: <which check, what's missing>" })
+mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "[input] self-check failed: <joined issue messages>" })
 ```
 
 The `[input]` prefix means the user can re-trigger Build with feedback (e.g. "the description was vague — be more specific about what data the companion needs"). Do not commit a half-built companion.
@@ -416,7 +419,7 @@ Then complete:
 mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "completed" })
 ```
 
-If Step 6.5 self-check or Step 6 validator reported fatal issues, call `build_fail` instead.
+If Step 6 self-check reported fatal issues, call `build_fail` instead.
 
 ---
 
@@ -475,7 +478,7 @@ Update `companions/<target>/manifest.ts` `version`:
 
 ### Step 7 — Validate
 
-Same as new-companion Step 6 + 6.5 (reliability snapshot + self-check), but for `<target>`.
+Same as new-companion Step 6 (build_self_check), but for `<target>`.
 
 ### Step 8 — Commit
 
@@ -513,10 +516,10 @@ Every row caused a real failure. Don't repeat them.
 | *"I'll PATCH /api/entities/<id> to update status."* | The REST API has no PATCH endpoint and shouldn't be used for mutations regardless. Use `mcp__claudepanion__build_update_status`. |
 | *"I'll write directly to data/build/<id>.json via a Node script."* | Never. State changes go through MCP tools. Direct writes bypass logging, watchers, and session context. |
 | **Skipping Step 4.5 entirely** — running templates and stopping. | Step 4 alone produces a UI with no backend. Step 4.5 is the load-bearing authoring step. |
-| **Empty `server/tools.ts` when the description named an external system.** | §16f.1: Step 6.5 self-check fails the build. Add real `CompanionToolDefinition` entries using the SDK from §16c. |
+| **Empty `server/tools.ts` when the description named an external system.** | §16f.1: Step 6 self-check fails the build. Add real `CompanionToolDefinition` entries using the SDK from §16c. |
 | **Leaving `__DESCRIPTION__` or the TODO comment in the skill body's Step 4.** | Step 4.5e replaces the TODO comment with a sequenced playbook of proxy-tool calls. |
 | **Skipping `npm install` after editing `package.json`.** | Step 4.6: the import won't resolve until the package is installed. Watcher can't compile against missing dependencies. |
-| **Skipping `requiredEnv` declaration after adding a tool that reads `process.env.X`.** | §16f.2: Step 6.5 self-check fails. Update the manifest. |
+| **Skipping `requiredEnv` declaration after adding a tool that reads `process.env.X`.** | §16f.2: Step 6 self-check fails. Update the manifest. |
 | **Writing the skill to `skills/<name>-companion.md` (flat).** | Claude Code expects nested. Path is `skills/<name>-companion/SKILL.md`, literal filename `SKILL.md`. |
 | **Writing `interface __CAMEL__Input`** (camelCase). | Type names are PascalCase: `interface __PASCAL__Input`. Variable bindings are camelCase. |
 | Skipping `companions/client.ts` registration for entity kind. | UI shows *"No form registered"*. Always edit BOTH `index.ts` and `client.ts`. |
@@ -531,7 +534,7 @@ Every row caused a real failure. Don't repeat them.
 - About to skip `companions/client.ts` "because the UI will figure it out."
 - About to commit a companion whose `server/tools.ts` is still the empty TODO array.
 - About to leave `__DESCRIPTION__` or any `__TOKEN__` in the final skill body.
-- About to call `build_update_status({ status: "completed" })` without having run the Step 6.5 self-check.
+- About to call `build_update_status({ status: "completed" })` without having run the Step 6 self-check.
 - About to substitute `__CAMEL__` where a type is declared.
 - About to place a skill file as `skills/<name>.md` instead of `skills/<name>/SKILL.md`.
 
