@@ -25,7 +25,7 @@ describe("validateCompanion", () => {
   it("accepts a well-formed entity manifest", () => {
     const r = validateCompanion({
       manifest: baseManifest,
-      module: { tools: [makeTool("expense-tracker_classify")] },
+      module: { tools: [makeTool("expense_tracker_classify")] },
       companionDir: null,
     });
     expect(r.ok).toBe(true);
@@ -89,7 +89,7 @@ describe("validateCompanion", () => {
   it("accepts manifest with requiredEnv and optionalEnv when tools are present", () => {
     const r = validateCompanion({
       manifest: { ...baseManifest, requiredEnv: ["GITHUB_TOKEN"], optionalEnv: ["SLACK_TOKEN"] },
-      module: { tools: [makeTool("expense-tracker_classify")] },
+      module: { tools: [makeTool("expense_tracker_classify")] },
       companionDir: null,
     });
     expect(r.ok).toBe(true);

@@ -89,8 +89,10 @@ export function validateCompanion(args: {
     }
   }
 
-  if (m.kind === "entity" && args.module?.tools) {
-    const prefix = `${m.name}_`;
+  if (m.kind === "entity" && args.module?.tools && typeof m.name === "string") {
+    // Tool names can't contain hyphens, so the slug's hyphens become underscores.
+    // §15a: prefix = slug-with-underscores + "_"
+    const prefix = `${m.name.replace(/-/g, "_")}_`;
     for (const def of args.module.tools) {
       if (!def.name.startsWith(prefix)) {
         issues.push({

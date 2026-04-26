@@ -779,7 +779,7 @@ Smoke runs at register and on every reload. Used to catch typos and broken impor
 - **Slug** (`name`): `kebab-case`, regex `/^[a-z][a-z0-9-]*$/`. Examples: `pr-reviewer`, `cloudwatch-investigator`.
 - **Camel binding** (used in code imports): `prReviewer`, `cloudwatchInvestigator`.
 - **Pascal type** (used in interface/component names): `PrReviewerInput`, `CloudwatchInvestigatorArtifact`.
-- **Tool prefix**: always `<slug>_`. e.g. `pr_reviewer_get_diff` (note: hyphens in the slug become underscores when used as a tool prefix because tool names can't contain hyphens — actually, double-check with the validator... see TODO).
+- **Tool prefix**: hyphens in the slug become underscores. So `pr-reviewer` → tools prefixed `pr_reviewer_*` (e.g. `pr_reviewer_get_diff`). Validator enforces this.
 
 ### 15b. Error message format
 
