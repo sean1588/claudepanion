@@ -56,7 +56,21 @@ mcp__claudepanion__`__NAME___update_status`({ id: "<entity-id>", status: "runnin
 
 ## Step 4 — Do the work
 
-__DESCRIPTION__
+<!--
+TODO(build): replace this comment with a sequenced playbook for THIS companion.
+
+The user's original description was:
+
+  __DESCRIPTION__
+
+Author the sequence based on the proxy tools in companions/__NAME__/server/tools.ts.
+Each step calls one of those tools, logs progress with __NAME___append_log,
+and updates statusMessage with __NAME___update_status.
+
+See scaffold-spec §16d ("skills/<name>-companion/SKILL.md") for the contract.
+
+DO NOT leave this comment or the `__DESCRIPTION__` token in the final file.
+-->
 
 ### 4a — Call domain proxy tools for external system access
 
