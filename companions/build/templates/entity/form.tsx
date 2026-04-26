@@ -1,31 +1,24 @@
-import { useState } from "react";
 import type { __PASCAL__Input } from "./types";
+
+// TODO(build): replace this placeholder form with real WHERE/WHICH inputs per
+// scaffold-spec §16d (form.tsx). One input element per field defined in
+// __PASCAL__Input, with appropriate type (text, number, select), client-side
+// validation, and a typed onSubmit payload. NOT a "paste your text here" textarea.
 
 interface Props {
   onSubmit: (input: __PASCAL__Input) => void | Promise<void>;
 }
 
 export default function __PASCAL__Form({ onSubmit }: Props) {
-  const [description, setDescription] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!description.trim()) { setError("Description is required."); return; }
-    setError(null);
-    void onSubmit({ description: description.trim() });
+    void onSubmit({} as __PASCAL__Input);
   };
   return (
     <form onSubmit={submit} style={{ maxWidth: 480, display: "flex", flexDirection: "column", gap: 12 }}>
-      <label style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-        Description
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6, resize: "vertical" as const }}
-        />
-      </label>
-      {error && <div className="form-error" role="alert">{error}</div>}
+      <p style={{ color: "var(--muted)", fontSize: 13, margin: 0 }}>
+        TODO(build): replace this placeholder form with real input fields per scaffold-spec §16d.
+      </p>
       <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>Create</button>
     </form>
   );

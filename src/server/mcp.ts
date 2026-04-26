@@ -1,12 +1,16 @@
 import { z } from "zod";
+import { resolve } from "node:path";
 import type { EntityStore } from "./entity-store.js";
 import type { Registry, RegisteredCompanion } from "./companion-registry.js";
 import type { CompanionToolDefinition, McpToolResult } from "../shared/types.js";
 import { successResult, errorResult } from "../shared/types.js";
+import { refreshReliability, type ReliabilitySnapshot } from "./reliability/watcher.js";
 
 export interface McpDeps {
   store: EntityStore;
   registry: Registry;
+  companionsDir: string;
+  snapshots: Map<string, ReliabilitySnapshot>;
 }
 
 export interface McpHandle {
@@ -110,20 +114,52 @@ function buildEntityTools(store: EntityStore, c: RegisteredCompanion): Companion
   ];
 }
 
-function buildAllToolDefs(store: EntityStore, c: RegisteredCompanion): CompanionToolDefinition[] {
+function buildSelfCheckTool(deps: McpDeps): CompanionToolDefinition {
+  return {
+    name: "build_self_check",
+    description:
+      "Synchronously re-run validator + smoke for a target companion and return the structured result. Used by Build's skill to verify a just-scaffolded companion is ready before commit. Replaces the curl-against-/api/reliability + manual checks pattern. Returns { ok, validator: { ok, issues[] }, smoke: { ok, results[] }, ranAt }.",
+    schema: {
+      companion: z
+        .string()
+        .describe('slug of the companion to validate (e.g. "pr-reviewer")'),
+    },
+    async handler(params) {
+      const { companion } = params as { companion: string };
+      const c = deps.registry.get(companion);
+      if (!c) return errorResult(`[input] companion not registered: ${companion}`);
+      const companionDir = resolve(deps.companionsDir, companion);
+      const snap = await refreshReliability(c, companionDir);
+      deps.snapshots.set(companion, snap);
+      const ok = snap.validator.ok && snap.smoke.ok;
+      return successResult({
+        ok,
+        validator: snap.validator,
+        smoke: snap.smoke,
+        ranAt: snap.ranAt,
+      });
+    },
+  };
+}
+
+function buildAllToolDefs(deps: McpDeps, c: RegisteredCompanion): CompanionToolDefinition[] {
   const defs: CompanionToolDefinition[] = [];
   if (c.manifest.kind === "entity") {
-    defs.push(...buildEntityTools(store, c));
+    defs.push(...buildEntityTools(deps.store, c));
+  }
+  if (c.manifest.name === "build") {
+    defs.push(buildSelfCheckTool(deps));
   }
   defs.push(...c.tools);
   return defs;
 }
 
-export function buildMcpServer({ store, registry }: McpDeps): McpHandle {
+export function buildMcpServer(deps: McpDeps): McpHandle {
+  const { registry } = deps;
   const toolDefs = new Map<string, CompanionToolDefinition>();
 
   const loadCompanion = (c: RegisteredCompanion) => {
-    for (const def of buildAllToolDefs(store, c)) {
+    for (const def of buildAllToolDefs(deps, c)) {
       toolDefs.set(def.name, def);
     }
   };
