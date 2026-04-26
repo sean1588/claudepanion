@@ -16,7 +16,7 @@ Claudepanion's built-in companion that scaffolds or iterates on other companions
 
 > **All validation goes through MCP.** Use `mcp__claudepanion__build_self_check` (Step 6) to verify a just-scaffolded companion — no curl, no sleep, no REST. Reading entity state via REST is allowed for verification but NEVER for mutation.
 
-> **Your job (per scaffold-spec §16):** produce a *complete, working companion*, not a token-substituted skeleton. The templates ship as honest TODO scaffolds; you fill them in. If you only do Step 4 (scaffold) and skip Step 4.5 (author real implementations), the user gets an empty UI with no backend. That's a build failure.
+> **Your job (per scaffold-spec §16):** produce a *complete, working companion*, not a token-substituted skeleton. The templates exist as a starting reference for boilerplate, but Step 4 authors **real domain content** for every file — types, form, list, detail, server/tools.ts (real proxy tool handlers), and the skill body. Empty server/tools.ts when an external system was named is a build failure.
 
 ## Step 1 — Load the Build entity
 
@@ -121,7 +121,7 @@ mcp__claudepanion__build_append_log({
 })
 ```
 
-Then briefly pause (1–2 seconds) so the user has a window to interrupt with `Ctrl-C` and re-trigger Build with feedback if any of the above is wrong. Carry these decisions forward to Step 4 (scaffold), Step 4.5 (author), Step 4.6 (package.json).
+Then briefly pause (1–2 seconds) so the user has a window to interrupt with `Ctrl-C` and re-trigger Build with feedback if any of the above is wrong. Carry these decisions forward to Step 4 (author files) and Step 4.6 (package.json).
 
 ### Step 3 — Mark running
 
@@ -135,81 +135,28 @@ mcp__claudepanion__build_update_status({
 })
 ```
 
-### Step 4 — Scaffold files from templates
+### Step 4 — Author each companion file (§16d — the load-bearing step)
 
-Mechanical step: read each source template, substitute tokens, Write the result. The templates ship as honest TODO scaffolds — they compile but do nothing useful. Step 4.5 fills them in.
+Write each of the files below with **real domain content** based on the Step 2.5 interpretation. The templates under `companions/build/templates/` exist as a starting reference — particularly for boilerplate (imports, JSX scaffolding, error helpers) — but you do not do a "tokenize-substitute-then-replace" pass. Author the real content directly.
 
-For `kind: "entity"`:
+This is the load-bearing step. If the description named an external system but `server/tools.ts` ends up an empty array, you have produced a UI with no backend. Step 6 self-check will fail the build.
 
-| Source template | Target file |
+For `kind: "entity"`, create `companions/__NAME__/` with these files. For `kind: "tool"`, only the `manifest.ts`, `index.ts`, and `server/tools.ts` files apply.
+
+| File | What to author |
 |---|---|
-| `companions/build/templates/entity/manifest.ts` | `companions/__NAME__/manifest.ts` |
-| `companions/build/templates/entity/types.ts` | `companions/__NAME__/types.ts` |
-| `companions/build/templates/entity/index.ts` | `companions/__NAME__/index.ts` |
-| `companions/build/templates/entity/form.tsx` | `companions/__NAME__/form.tsx` |
-| `companions/build/templates/entity/pages/List.tsx` | `companions/__NAME__/pages/List.tsx` |
-| `companions/build/templates/entity/pages/Detail.tsx` | `companions/__NAME__/pages/Detail.tsx` |
-| `companions/build/templates/entity/server/tools.ts` | `companions/__NAME__/server/tools.ts` |
+| `manifest.ts` | Complete manifest — `name: "__NAME__"`, `kind`, `displayName: "__DISPLAY__"`, `icon: "__ICON__"` (one emoji), `description` (one user-facing sentence), `contractVersion: "1"`, `version: "0.1.0"`, **`requiredEnv`** per Step 2.5's SDK lookup. |
+| `types.ts` | Real `__PASCAL__Input` (fields from Step 2.5.3, capturing WHERE/WHICH) and `__PASCAL__Artifact extends BaseArtifact` (fields from Step 2.5.4, the domain output). Both JSON-serializable. |
+| `index.ts` | `export const __CAMEL__: RegisteredCompanion = { manifest, tools };` — wires the manifest + tools together. |
+| `form.tsx` | One input element per `__PASCAL__Input` field — strings → `<input type="text">` (or `<select>` for finite sets), numbers → `<input type="number">`. Required fields have client-side validation; optional fields pass `undefined` if blank. Call `onSubmit` with a fully-shaped `__PASCAL__Input`. (entity kind only) |
+| `pages/List.tsx` | Render a meaningful row from `entity.input` + `entity.artifact` fields. e.g. PR reviewer → `<repo>#<prNumber> — <recommendation>`. (entity kind only) |
+| `pages/Detail.tsx` | Render the artifact's domain fields. Host wraps in `<BaseArtifactPanel>` automatically (handles `summary` + `errors[]`) — render only the domain middle. (entity kind only) |
+| `server/tools.ts` | Real `CompanionToolDefinition[]` — one tool per Step 2.5.5 entry. **THE MOST IMPORTANT FILE.** Empty array = build failure when an external system was named. See pattern below. |
+| `skills/__NAME__-companion/SKILL.md` | Full skill body. Frontmatter, the standard CRITICAL block, Steps 1–6 + error handling. **Step 4 ("Do the work") must be a sequenced playbook of proxy-tool calls** for the tools you authored — not a pasted `__DESCRIPTION__`. The directory `skills/__NAME__-companion/` must exist (nested layout, literal filename `SKILL.md`). |
 
-For the skill body: read `companions/build/templates/skill.md`, substitute tokens, write to `skills/__NAME__-companion/SKILL.md`. The directory `skills/__NAME__-companion/` must be created — Claude Code's plugin loader expects nested layout (`skills/<name>/SKILL.md`, literal filename `SKILL.md`).
+#### `server/tools.ts` — the §9d pattern
 
-For `kind: "tool"`, use `companions/build/templates/tool/` instead — only `manifest.ts`, `index.ts`, `server/tools.ts`, plus the skill file.
-
-After each Write:
-
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "wrote <path>" })
-```
-
-Also: edit the manifest you just wrote — set `requiredEnv` per Step 2.5's SDK lookup, set `description` to one user-facing sentence, set `icon` to one emoji.
-
-### Step 4.5 — Author domain implementations (§16d — the load-bearing authoring step)
-
-The templates from Step 4 are TODO scaffolds. Now you replace each TODO with the real implementation, using the decisions from Step 2.5. **Do this BEFORE registration** — registering an empty companion just means it shows up in the sidebar broken.
-
-```
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "authoring domain implementations" })
-```
-
-#### 4.5a — Author `companions/__NAME__/types.ts`
-
-Replace the TODO interfaces with the real ones:
-
-```ts
-import type { BaseArtifact } from "../../src/shared/types.js";
-
-export interface __PASCAL__Input {
-  // fields from Step 2.5.3 — capture WHERE/WHICH
-}
-
-export interface __PASCAL__Artifact extends BaseArtifact {
-  // fields from Step 2.5.4 — domain output the Detail page renders
-}
-```
-
-Both must be JSON-serializable (no functions, no Dates — use ISO strings).
-
-#### 4.5b — Author `companions/__NAME__/form.tsx`
-
-Replace the placeholder body with one input element per `__PASCAL__Input` field:
-- Strings → `<input type="text">` (or `<select>` for a finite set)
-- Numbers → `<input type="number">`
-- Required fields → client-side validation, error message on submit if missing
-- Optional fields → no validation; pass `undefined` if blank
-
-Call `onSubmit` with a fully shaped `__PASCAL__Input`. Match the styling of the placeholder template (label + input/select + button, modest inline styles).
-
-#### 4.5c — Author `companions/__NAME__/pages/List.tsx` and `Detail.tsx`
-
-`List.tsx`: render a meaningful row using `entity.input` + `entity.artifact` fields. Examples:
-- PR reviewer → `<repo>#<prNumber> — <recommendation>`
-- Log investigator → `<alarmName> at <startTime>`
-
-`Detail.tsx`: render the artifact's domain fields. The host already wraps this in `<BaseArtifactPanel>` (which renders `summary` + `errors[]`) — only render the domain middle. Lists, tables, headings — whatever fits the artifact shape.
-
-#### 4.5d — Author `companions/__NAME__/server/tools.ts` (the most important file)
-
-Replace the empty array with one `CompanionToolDefinition` per proxy tool from Step 2.5.5. Use the SDK from Step 2.5's lookup table. Each tool follows the §9d pattern: validate config → validate input → call API → classify error → return.
+Each tool: validate config → validate input → call API → classify error → return.
 
 ```ts
 import { z } from "zod";
@@ -242,15 +189,11 @@ export const tools: CompanionToolDefinition[] = [
 ];
 ```
 
-For **write tools**: set `sideEffect: "write"` and write the description to make the side-effect explicit (per §9e.i). Bad: `"Post a comment to GitHub"`. Good: `"Post a structured review comment to the PR. Visible to all collaborators on the repo and cannot be unsent. Requires GITHUB_TOKEN with 'repo' scope."`
+For **write tools**: set `sideEffect: "write"` and make the description's side-effect explicit (per §9e.i). Bad: `"Post a comment to GitHub"`. Good: `"Post a structured review comment to the PR. Visible to all collaborators on the repo and cannot be unsent. Requires GITHUB_TOKEN with 'repo' scope."`
 
-**EMPTY ARRAY = BUILD FAILURE when the description names an external system** (verified by Step 6 self-check).
+#### Skill body's "Step 4 — Do the work"
 
-#### 4.5e — Author the skill body's "Step 4 — Do the work"
-
-Open `skills/__NAME__-companion/SKILL.md`. Find the TODO comment block under `## Step 4 — Do the work` (it preserves the original `__DESCRIPTION__` for reference). Replace the comment with a sequenced playbook that calls each proxy tool from Step 4.5d in the right order.
-
-Each sub-step is a tool call + a log line:
+In the new skill file, Step 4 is a sequenced playbook for THIS companion's proxy tools — not generic placeholder text. Each sub-step is a tool call + a log line:
 
 ```
 ### 4a — Fetch the PR
@@ -266,18 +209,16 @@ For any **write tool** (`sideEffect: "write"`), include an explicit user-permiss
 
 > Show the proposed write content in chat. Ask "Should I post this?". Wait for confirmation. Only call the write tool if confirmed; if declined, save the artifact with `errors: ["user declined write action"]` and proceed.
 
-Update `statusMessage` between major phases:
+#### Log progress as you go
 
 ```
-mcp__claudepanion____NAME___update_status({ id, status: "running", statusMessage: "<current phase>" })
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "wrote <path>" })
 ```
 
-After authoring this section, the template's TODO comment AND the `__DESCRIPTION__` token must be gone from the final skill file.
-
-#### Log at end of Step 4.5
+#### Final log for Step 4
 
 ```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Authored real implementations: types.ts, form.tsx, List/Detail, server/tools.ts (<N> tools), SKILL.md Step 4" })
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Authored: manifest, types, form, List/Detail, server/tools.ts (<N> tools), SKILL.md" })
 ```
 
 ### Step 4.6 — Update root `package.json` and run `npm install` (§16e)
@@ -528,9 +469,9 @@ Every row caused a real failure. Don't repeat them.
 | *"Let me curl the MCP endpoint since the tools aren't loaded."* | STOP. Tell the user MCP tools aren't loaded (see CRITICAL block at top). Do not fall back to HTTP. |
 | *"I'll PATCH /api/entities/<id> to update status."* | The REST API has no PATCH endpoint and shouldn't be used for mutations regardless. Use `mcp__claudepanion__build_update_status`. |
 | *"I'll write directly to data/build/<id>.json via a Node script."* | Never. State changes go through MCP tools. Direct writes bypass logging, watchers, and session context. |
-| **Skipping Step 4.5 entirely** — running templates and stopping. | Step 4 alone produces a UI with no backend. Step 4.5 is the load-bearing authoring step. |
+| **Authoring only the scaffolding shell** — empty `server/tools.ts`, placeholder types. | Step 4 is the load-bearing authoring step. The companion needs REAL content per §16d, not just substituted tokens. |
 | **Empty `server/tools.ts` when the description named an external system.** | §16f.1: Step 6 self-check fails the build. Add real `CompanionToolDefinition` entries using the SDK from §16c. |
-| **Leaving `__DESCRIPTION__` or the TODO comment in the skill body's Step 4.** | Step 4.5e replaces the TODO comment with a sequenced playbook of proxy-tool calls. |
+| **Leaving `__DESCRIPTION__` or the TODO comment in the skill body's Step 4.** | Step 4 (skill body row) authors a sequenced playbook of proxy-tool calls — replace, don't preserve, the TODO comment. |
 | **Skipping `npm install` after editing `package.json`.** | Step 4.6: the import won't resolve until the package is installed. Watcher can't compile against missing dependencies. |
 | **Skipping `requiredEnv` declaration after adding a tool that reads `process.env.X`.** | §16f.2: Step 6 self-check fails. Update the manifest. |
 | **Writing the skill to `skills/<name>-companion.md` (flat).** | Claude Code expects nested. Path is `skills/<name>-companion/SKILL.md`, literal filename `SKILL.md`. |
