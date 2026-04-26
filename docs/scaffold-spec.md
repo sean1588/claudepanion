@@ -820,6 +820,100 @@ This keeps proxy tools small and testable, and makes skill diffs the readable ar
 
 ---
 
+## 16. Build's responsibilities
+
+> **What Build must produce when given a description.**
+
+The Scaffold Specification (§§1–15) describes what a finished companion must satisfy. This section describes what **Build** must *author* to satisfy it. The templates Build copies from `companions/build/templates/` are skeletons — Build is responsible for filling them in with real, working code. **Token substitution alone is not sufficient.** A companion that ships with an empty `server/tools.ts` and a placeholder `summary: string` artifact does not satisfy §§5, 9, or 11 — and Build is what's responsible for making it satisfy them.
+
+This section is the contract `skills/build-companion/SKILL.md` is written against. If something below is missing from the skill, the skill is incomplete.
+
+### 16a. Inputs to Build
+
+Build receives a `BuildInput` from the form (`companions/build/types.ts`):
+
+- `mode: "new-companion"` with `name`, `kind`, `description`, optional `example` slug, OR
+- `mode: "iterate-companion"` with `target` slug + `description` of changes.
+
+This section describes `new-companion` mode. Iterate mode is described in `skills/build-companion/SKILL.md`.
+
+### 16b. Interpretation — translate description into a companion shape
+
+Before writing any files, Build must read `entity.input.description` and decide five things:
+
+1. **External system.** Which API will the companion talk to (GitHub, AWS, Linear, Slack, OpenAI, generic HTTP, etc.)? Default assumption: every companion has at least one proxy tool. A description that names no external system is the rare case and must be confirmed (per §16f.4).
+2. **Read vs. write.** Does the description explicitly request actions that change external state ("post a review", "update an issue", "send a message", "create an alarm")? If yes, scaffold the requested write tools with `sideEffect: "write"`. If not, default to read-only per §9e.iv.
+3. **Form fields (input shape).** What configuration does the user provide on each run that makes a general query specific? The form captures WHERE/WHICH — repo + PR number, AWS profile + log group + time range, Linear team + filter — not "paste the thing here."
+4. **Artifact fields (output shape).** What domain fields does the user want the Detail page to render? At minimum `summary: string`. Domain fields make the artifact useful (e.g., for a PR reviewer: `prTitle`, `risks: string[]`, `questions: string[]`, `recommendation: "approve" | "request_changes" | "comment"`).
+5. **Proxy tools.** What tool calls does the skill body need to perform the requested work? Each tool maps to one external API call.
+
+### 16c. SDK / env-var lookup
+
+| Service | Recommended SDK | Required env var | Notes |
+|---|---|---|---|
+| GitHub API | `@octokit/rest` | `GITHUB_TOKEN` | Personal access token, `repo` scope |
+| AWS (any service) | `@aws-sdk/client-<service>` | (none) | Profile passed as tool arg, credentials from `~/.aws/credentials` |
+| Linear API | `@linear/sdk` | `LINEAR_API_KEY` | Personal API key |
+| Slack API | `@slack/web-api` | `SLACK_BOT_TOKEN` | Bot token starting with `xoxb-` |
+| OpenAI API | `openai` | `OPENAI_API_KEY` | |
+| Generic HTTP | built-in `fetch` | varies | Document required env vars in the manifest |
+
+Build must declare the chosen env var(s) in `manifest.requiredEnv` so the preflight check (§4) works on first run.
+
+### 16d. Files Build must author
+
+For `kind: "entity"`, Build authors **real** contents for every file in §13a — not stub bodies, not commented-out examples.
+
+| File | Build's authoring responsibility |
+|---|---|
+| `manifest.ts` | All fields populated. `requiredEnv` per §16c. `description` is one user-facing sentence. `icon` is one emoji that fits the domain. |
+| `types.ts` | `<Pascal>Input` with the fields decided in §16b.3. `<Pascal>Artifact extends BaseArtifact` with the fields decided in §16b.4. Both JSON-serializable. |
+| `form.tsx` | One input element per `<Pascal>Input` field with appropriate type (text, number, select, etc.), client-side validation, typed `onSubmit` payload. No "paste your text" textarea unless the description literally calls for it. |
+| `pages/List.tsx` | Render a meaningful summary per row from input + artifact fields. Not just `entity.input.description`. |
+| `pages/Detail.tsx` | Render the artifact's domain fields. The host wraps this in `<BaseArtifactPanel>` automatically — companion code only renders the domain middle. |
+| `server/tools.ts` | Real `CompanionToolDefinition[]` exporting one tool per external API call identified in §16b.5. Each follows the §9d pattern: validate config → validate input → call API → classify error → return. Set `sideEffect: "write"` on writes. **Exporting an empty array when the description names an external system is a build failure** (§16f). |
+| `index.ts` | Standard binding — `{ manifest, tools }`. |
+
+For the skill body at `skills/<name>-companion/SKILL.md`, Build authors:
+
+- A specific **Step 4 ("Do the work")** that calls each proxy tool in the right order, with `_append_log` calls between meaningful steps. The generic `__DESCRIPTION__` token from the template must be replaced with an actual sequence — not pasted in verbatim.
+- A **write-permission stanza** (§9e.ii) for any write tool.
+- The frontmatter, preflight, error handling, and continuation stanzas come from the template and should be left intact.
+
+### 16e. Files Build must modify
+
+| File | Modification |
+|---|---|
+| `package.json` (root) | Add the chosen SDK as a dependency. Run `npm install` after the edit so `tsc` and the watcher can resolve the import. |
+| `companions/index.ts` | Insert the new companion's import and array entry, alphabetical by slug. |
+| `companions/client.ts` (entity kind only) | Insert form, list, and detail registrations. |
+
+### 16f. Self-check before commit
+
+Before saving the artifact and marking the run complete, Build must verify:
+
+1. **`server/tools.ts` exports at least one tool** when the description names an external system. Empty exports = call `_fail` with a message naming the missing tool surface and stop.
+2. **`requiredEnv`** in the manifest matches the env vars actually referenced in `server/tools.ts` handlers.
+3. **Each tool name** is prefixed with `<slug>_` (slug hyphens become underscores in tool names).
+4. **Reliability snapshot** at `GET /api/reliability/<name>` reports `validator.ok === true` and `smoke.ok === true`.
+
+If any check fails: `_fail` with a specific message naming the gap. The user can re-trigger Build with feedback rather than restarting from scratch — that's the iteration loop the slash-command architecture enables.
+
+### 16g. What Build does NOT do
+
+- Build does **not** run the new companion's skill. The user does that, separately, after Build completes.
+- Build does **not** invent external systems not named in the description.
+- Build does **not** add write tools when the description only requested read access (§9e.iv).
+- Build does **not** edit files outside: `companions/<name>/`, `skills/<name>-companion/`, root `package.json`, `companions/index.ts`, and `companions/client.ts`.
+
+### 16h. The bar Build must clear
+
+A user types a paragraph describing the companion they want and a `requiredEnv` value (or has it pre-set). They paste one slash command into Claude Code. They wait. When Build completes, the new companion is live in the sidebar — manifest, types, form, list, detail, real proxy tools using the right SDK, skill body sequenced for those tools, dependency installed, registrations done, validator and smoke green.
+
+If Build can't clear that bar reliably, the product is incomplete. Every gap surfaced when running Build against a real description is a defect in either this spec, the templates, or the Build skill — not a defect in the user's description.
+
+---
+
 ## Implementation status
 
 This spec describes the target. Current state vs. spec:
