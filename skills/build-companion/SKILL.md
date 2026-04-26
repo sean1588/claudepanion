@@ -108,18 +108,31 @@ Read `entity.input.description` carefully. Before writing any file, decide all f
 
 Pick the SDK matching the external system. The chosen env var(s) go into `manifest.requiredEnv`.
 
-#### Log the interpretation
+#### Echo the interpretation back to the user
+
+This is a deliberate checkpoint. **Before writing any file**, append a structured multi-line log so the user watching the live tail can confirm Build interpreted their description correctly. Catching a misread here is cheap; catching it after files are on disk requires a re-run.
+
+Append the interpretation as one log call (newlines are preserved by the UI):
 
 ```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Interpreted: <external-system>, <read-only|with-write>, <N> input fields, <M> proxy tools, SDK: <package>" })
+mcp__claudepanion__build_append_log({
+  id: "<entity-id>",
+  message: "Interpreted as <read-only|with-write> companion against <external-system>.\n  Form: { <field>: <type>, ... }\n  Artifact: { <field>: <type>, ... }\n  Tools: <tool-name-1>, <tool-name-2>, ...\n  SDK: <package> + env <ENV_VAR>"
+})
 ```
 
-Carry these decisions forward to Step 4 (scaffold), Step 4.5 (author), Step 4.6 (package.json).
+Then briefly pause (1–2 seconds) so the user has a window to interrupt with `Ctrl-C` and re-trigger Build with feedback if any of the above is wrong. Carry these decisions forward to Step 4 (scaffold), Step 4.5 (author), Step 4.6 (package.json).
 
 ### Step 3 — Mark running
 
+The statusMessage carries the one-line interpretation summary so the UI status pill conveys what Build understood, not just "scaffolding."
+
 ```
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "scaffolding files" })
+mcp__claudepanion__build_update_status({
+  id: "<entity-id>",
+  status: "running",
+  statusMessage: "scaffolding <name> (<read-only|with-write>, <external-system>, <N> tools)"
+})
 ```
 
 ### Step 4 — Scaffold files from templates
