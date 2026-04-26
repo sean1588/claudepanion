@@ -91,14 +91,15 @@ export function validateCompanion(args: {
 
   if (m.kind === "entity" && args.module?.tools && typeof m.name === "string") {
     // Tool names can't contain hyphens, so the slug's hyphens become underscores.
-    // §15a: prefix = slug-with-underscores + "_"
+    // §15a: prefix = slug-with-underscores + "_". A misnamed tool means MCP
+    // routing breaks for that tool — fatal, not a warning.
     const prefix = `${m.name.replace(/-/g, "_")}_`;
     for (const def of args.module.tools) {
       if (!def.name.startsWith(prefix)) {
         issues.push({
           code: "tool.name.namespace",
           message: `tool ${def.name} must be prefixed with ${prefix}`,
-          fatal: false,
+          fatal: true,
         });
       }
     }

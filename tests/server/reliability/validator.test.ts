@@ -62,14 +62,14 @@ describe("validateCompanion", () => {
     expect(r.issues.some((i) => i.code === "manifest.displayName.empty")).toBe(true);
   });
 
-  it("flags mis-namespaced tools", () => {
+  it("flags mis-namespaced tools as fatal", () => {
     const r = validateCompanion({
       manifest: baseManifest,
       module: { tools: [makeTool("wrong_prefix_do")] },
       companionDir: null,
     });
-    expect(r.ok).toBe(true);
-    expect(r.issues.some((i) => i.code === "tool.name.namespace")).toBe(true);
+    expect(r.ok).toBe(false);
+    expect(r.issues.some((i) => i.code === "tool.name.namespace" && i.fatal)).toBe(true);
   });
 
   it("flags missing manifest as fatal", () => {
