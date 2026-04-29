@@ -81,11 +81,11 @@ export default function CompanionAbout() {
         </div>
         {manifest.kind === "entity" && (
           <Link to={`/c/${manifest.name}/new`} className="btn" style={{ whiteSpace: "nowrap" }}>
-            Start a new run
+            {manifest.actionLabels?.newEntity ?? "Start a new run"}
           </Link>
         )}
         <Link to={`/c/${manifest.name}/runs`} className="btn-outline" style={{ whiteSpace: "nowrap" }}>
-          View runs
+          {manifest.actionLabels?.listEntities ?? "View runs"}
         </Link>
       </header>
 

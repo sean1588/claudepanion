@@ -141,7 +141,7 @@ export default function BuildForm({ onSubmit }: Props) {
 
       {error && <div className="form-error" role="alert">{error}</div>}
       <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>
-        {mode === "new-companion" ? "Scaffold companion" : "Iterate"}
+        {mode === "new-companion" ? "Build companion" : "Iterate"}
       </button>
     </form>
   );

@@ -62,7 +62,7 @@ describe("BuildForm ?example= prefill", () => {
         </Routes>
       </MemoryRouter>
     );
-    const btn = await screen.findByRole("button", { name: /scaffold companion/i });
+    const btn = await screen.findByRole("button", { name: /build companion/i });
     fireEvent.click(btn);
     await waitFor(() => expect(submitted).not.toBeNull());
     // Chips are form-text-prefill sugar only — example slug must NOT leak into the entity input.
@@ -83,7 +83,7 @@ describe("BuildForm ?example= prefill", () => {
     const descInput = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
     fireEvent.change(nameInput, { target: { value: "handwritten" } });
     fireEvent.change(descInput, { target: { value: "no example" } });
-    fireEvent.click(screen.getByRole("button", { name: /scaffold companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
     await waitFor(() => expect(submitted).not.toBeNull());
     expect(submitted!).toMatchObject({ mode: "new-companion", name: "handwritten" });
     expect((submitted as { example?: string }).example).toBeUndefined();
