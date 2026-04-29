@@ -6,8 +6,6 @@ export type BuildInput =
       name: string;
       kind: "entity" | "tool";
       description: string;
-      /** Slug of the BuildExample that prefilled this submission, if any. Drives skillTemplate lookup during scaffolding. */
-      example?: string;
     }
   | {
       mode: "iterate-companion";

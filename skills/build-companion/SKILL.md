@@ -45,7 +45,7 @@ mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Continuing pr
 
 ### Step 2 — Validate + resolve substitution tokens
 
-`entity.input` has `name`, `kind`, `description`, and optionally `example` (a chip slug — used only as form-prefill sugar, NOT for skill-template branching). Reject if:
+`entity.input` has `name`, `kind`, and `description`. Reject if:
 
 - `name` doesn't match `/^[a-z][a-z0-9-]*$/`.
 - `kind` is not `"entity"` or `"tool"`.

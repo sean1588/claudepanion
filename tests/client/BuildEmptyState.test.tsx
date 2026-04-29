@@ -21,7 +21,7 @@ describe("BuildEmptyState", () => {
     expect(screen.getByText(/I'm Build — your first companion/i)).toBeInTheDocument();
   });
 
-  it("renders all 5 example chips by displayName", () => {
+  it("renders all 3 example chips by displayName", () => {
     renderAt();
     for (const ex of buildExamples) {
       expect(screen.getByText(ex.displayName)).toBeInTheDocument();
