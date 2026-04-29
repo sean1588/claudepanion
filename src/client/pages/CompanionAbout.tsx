@@ -3,6 +3,7 @@ import { Link, useParams } from "react-router-dom";
 import type { Manifest } from "@shared/types";
 import Breadcrumb from "../components/Breadcrumb";
 import PreflightBanner from "../components/PreflightBanner";
+import BuildChips from "../components/BuildChips";
 import { fetchCompanions } from "../api";
 
 interface ToolDescriptor {
@@ -121,6 +122,8 @@ export default function CompanionAbout() {
           </div>
         </section>
       )}
+
+      {manifest.name === "build" && <BuildChips />}
     </div>
   );
 }
