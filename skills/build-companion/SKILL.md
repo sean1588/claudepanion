@@ -221,27 +221,31 @@ mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "wrote <path>"
 mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Authored: manifest, types, form, List/Detail, server/tools.ts (<N> tools), SKILL.md" })
 ```
 
-### Step 4.6 — Update root `package.json` and run `npm install` (§16e)
+### Step 4.6 — Install SDK + rebuild the host (§16e)
 
-If Step 2.5 picked an SDK that isn't already a host dependency, add it now.
+The companion you just authored adds new files to both the **server build** (`tsc` → `dist/src/...`) and the **client bundle** (`vite build` → `dist/client/...`). Production-mode `claudepanion serve` reads from `dist/` directly. Until both are rebuilt, the new form / list / detail components are invisible to the browser even though the source files exist.
 
 1. Read `package.json` at the repo root.
-2. Add the SDK to `dependencies`.
+2. If Step 2.5 picked an SDK that isn't already a host dependency, add it to `dependencies`. (Skip if already present.)
 3. Run:
 
 ```bash
 npm install
 ```
 
-4. Wait for `npm install` to complete. The watcher uses dist/ output; `tsc` rebuild is required for the new companion's TS to be visible (production: at server start; dev: see `docs/followups.md` § Dev-mode ergonomics).
+4. Run a full host rebuild so the new companion is visible to both the server and the client bundle:
+
+```bash
+npm run build
+```
+
+This runs `tsc` (server) and `vite build` (client) sequentially. Without it, the user will see *"No form registered for &lt;name&gt;"* on the new companion's About page — the source is correct; the served bundle just hasn't caught up.
 
 Log:
 
 ```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Added <package> to dependencies; npm install completed" })
+mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Installed <package>; rebuilt host (tsc + vite)" })
 ```
-
-If the SDK is already in `package.json`, skip the edit but still log.
 
 ### Step 5 — Register the companion in the host
 
@@ -473,6 +477,7 @@ Every row caused a real failure. Don't repeat them.
 | **Empty `server/tools.ts` when the description named an external system.** | §16f.1: Step 6 self-check fails the build. Add real `CompanionToolDefinition` entries using the SDK from §16c. |
 | **Leaving `__DESCRIPTION__` or the TODO comment in the skill body's Step 4.** | Step 4 (skill body row) authors a sequenced playbook of proxy-tool calls — replace, don't preserve, the TODO comment. |
 | **Skipping `npm install` after editing `package.json`.** | Step 4.6: the import won't resolve until the package is installed. Watcher can't compile against missing dependencies. |
+| **Skipping `npm run build` after authoring files.** | Step 4.6: production-mode `claudepanion serve` reads from `dist/`. Without `npm run build`, the new form/list/detail components are missing from the bundled `companions/client.ts` and the user sees *"No form registered for &lt;name&gt;"* on the new companion's About page. |
 | **Skipping `requiredEnv` declaration after adding a tool that reads `process.env.X`.** | §16f.2: Step 6 self-check fails. Update the manifest. |
 | **Writing the skill to `skills/<name>-companion.md` (flat).** | Claude Code expects nested. Path is `skills/<name>-companion/SKILL.md`, literal filename `SKILL.md`. |
 | **Writing `interface __CAMEL__Input`** (camelCase). | Type names are PascalCase: `interface __PASCAL__Input`. Variable bindings are camelCase. |
