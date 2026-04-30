@@ -14,7 +14,8 @@ function getOctokit(): Octokit | null {
   return new Octokit({ auth: token });
 }
 
-function parseRepo(repo: string): { owner: string; repo: string } | null {
+function parseRepo(repo: string | undefined): { owner: string; repo: string } | null {
+  if (!repo) return null;
   const parts = repo.split("/");
   if (parts.length !== 2 || !parts[0] || !parts[1]) return null;
   return { owner: parts[0], repo: parts[1] };

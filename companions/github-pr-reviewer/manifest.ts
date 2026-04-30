@@ -7,7 +7,7 @@ export const manifest: Manifest = {
   icon: "🔍",
   description: "Fetch a GitHub PR's metadata, diff, and review comments; flag risky patterns and suggest review questions. Read-only.",
   contractVersion: "1",
-  version: "0.1.0",
+  version: "0.1.1",
   requiredEnv: ["GITHUB_TOKEN"],
   actionLabels: {
     newEntity: "Review a PR",
