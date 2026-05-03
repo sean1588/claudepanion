@@ -1,10 +1,10 @@
 import { useEffect, useState } from "react";
-import { Link, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Manifest } from "@shared/types";
 import Breadcrumb from "../components/Breadcrumb";
 import PreflightBanner from "../components/PreflightBanner";
 import BuildChips from "../components/BuildChips";
-import { fetchCompanions } from "../api";
+import { fetchCompanions, deleteCompanion } from "../api";
 
 interface ToolDescriptor {
   name: string;
@@ -21,9 +21,28 @@ interface AboutPayload {
 
 export default function CompanionAbout() {
   const { companion = "" } = useParams();
+  const navigate = useNavigate();
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [payload, setPayload] = useState<AboutPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const onRemove = async () => {
+    if (!manifest) return;
+    const ok = window.confirm(
+      `Remove "${manifest.displayName}"? This deletes companions/${manifest.name}/, its skill, and any saved entities. This cannot be undone.`
+    );
+    if (!ok) return;
+    setDeleting(true);
+    try {
+      const { rebuildHint } = await deleteCompanion(manifest.name);
+      if (rebuildHint) window.alert(`Removed. ${rebuildHint}`);
+      navigate("/");
+    } catch (e) {
+      setError((e as Error).message);
+      setDeleting(false);
+    }
+  };
 
   useEffect(() => {
     let cancelled = false;
@@ -124,6 +143,31 @@ export default function CompanionAbout() {
       )}
 
       {manifest.name === "build" && <BuildChips />}
+
+      {manifest.name !== "build" && (
+        <section style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16, marginTop: 8 }}>
+          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 16 }}>Danger zone</h2>
+          <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
+            Deletes <code>companions/{manifest.name}/</code>, its skill, and saved entities. A rebuild is needed to fully remove it from the client bundle.
+          </div>
+          <button
+            type="button"
+            onClick={onRemove}
+            disabled={deleting}
+            style={{
+              padding: "8px 14px",
+              border: "1px solid #dc2626",
+              color: "#dc2626",
+              background: "white",
+              borderRadius: 6,
+              cursor: deleting ? "not-allowed" : "pointer",
+              opacity: deleting ? 0.5 : 1,
+            }}
+          >
+            {deleting ? "Removing…" : "Remove companion"}
+          </button>
+        </section>
+      )}
     </div>
   );
 }

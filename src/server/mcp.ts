@@ -167,12 +167,11 @@ export function buildMcpServer(deps: McpDeps): McpHandle {
   for (const c of registry.list()) loadCompanion(c);
 
   const rebuildFor = (companionName: string) => {
-    const c = registry.get(companionName);
-    if (!c) return;
     for (const key of [...toolDefs.keys()]) {
       if (key === companionName || key.startsWith(`${companionName}_`)) toolDefs.delete(key);
     }
-    loadCompanion(c);
+    const c = registry.get(companionName);
+    if (c) loadCompanion(c);
   };
 
   registry.onChange((name) => rebuildFor(name));

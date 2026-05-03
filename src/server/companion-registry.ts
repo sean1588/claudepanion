@@ -16,6 +16,7 @@ export interface Registry {
   get(name: string): RegisteredCompanion | null;
   remount(companion: RegisteredCompanion): void;
   register(companion: RegisteredCompanion): void;
+  unregister(name: string): boolean;
   onChange(listener: (name: string) => void): () => void;
 }
 
@@ -52,6 +53,11 @@ export function createRegistry(companions: RegisteredCompanion[]): Registry {
       }
       byName.set(c.manifest.name, c);
       for (const l of listeners) l(c.manifest.name);
+    },
+    unregister: (name) => {
+      const removed = byName.delete(name);
+      if (removed) for (const l of listeners) l(name);
+      return removed;
     },
     onChange: (listener) => {
       listeners.add(listener);

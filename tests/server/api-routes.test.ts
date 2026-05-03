@@ -101,6 +101,78 @@ describe("api routes", () => {
     const res = await request(app).get("/api/companions/nope/preflight");
     expect(res.status).toBe(404);
   });
+
+  describe("DELETE /api/companions/:name", () => {
+    it("removes companion via injected file-deleter and unregisters", async () => {
+      const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-api-del-"));
+      const store = createEntityStore(tmp2);
+      const registry = createRegistry([
+        { manifest: manifest("victim"), tools: [] },
+        { manifest: { ...manifest("survivor") }, tools: [] },
+      ]);
+      const reliability = new Map<string, any>();
+      reliability.set("victim", { validator: { ok: true, issues: [] }, smoke: { ok: true, results: [] }, ranAt: "" });
+      const calls: string[] = [];
+      const app2 = express();
+      app2.use(express.json());
+      mountApiRoutes(app2, {
+        store,
+        registry,
+        reliability,
+        deleteCompanionFiles: async (slug) => { calls.push(slug); return { ok: true }; },
+      });
+
+      const res = await request(app2).delete("/api/companions/victim");
+      expect(res.status).toBe(200);
+      expect(res.body.ok).toBe(true);
+      expect(calls).toEqual(["victim"]);
+      expect(registry.get("victim")).toBeNull();
+      expect(registry.get("survivor")).not.toBeNull();
+      expect(reliability.has("victim")).toBe(false);
+
+      try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+    });
+
+    it("refuses to delete the build companion", async () => {
+      const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-api-del-"));
+      const store = createEntityStore(tmp2);
+      const registry = createRegistry([{ manifest: manifest("build"), tools: [] }]);
+      const app2 = express();
+      app2.use(express.json());
+      mountApiRoutes(app2, { store, registry, deleteCompanionFiles: async () => { throw new Error("should not run"); } });
+
+      const res = await request(app2).delete("/api/companions/build");
+      expect(res.status).toBe(400);
+      expect(registry.get("build")).not.toBeNull();
+
+      try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+    });
+
+    it("404s for unknown companion", async () => {
+      const res = await request(app).delete("/api/companions/nope");
+      expect(res.status).toBe(404);
+    });
+
+    it("propagates file-deleter failures and keeps companion registered", async () => {
+      const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-api-del-"));
+      const store = createEntityStore(tmp2);
+      const registry = createRegistry([{ manifest: manifest("flaky"), tools: [] }]);
+      const app2 = express();
+      app2.use(express.json());
+      mountApiRoutes(app2, {
+        store,
+        registry,
+        deleteCompanionFiles: async () => ({ ok: false, error: "disk full" }),
+      });
+
+      const res = await request(app2).delete("/api/companions/flaky");
+      expect(res.status).toBe(500);
+      expect(res.body.error).toBe("disk full");
+      expect(registry.get("flaky")).not.toBeNull();
+
+      try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+    });
+  });
 });
 
 describe("preflight with required env", () => {
