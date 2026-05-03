@@ -47,6 +47,13 @@ export interface Manifest {
   requiredEnv?: string[];
   /** Env vars that enable extra features but aren't required. Preflight surfaces as soft warning. */
   optionalEnv?: string[];
+  /** Per-companion CTA copy on the About page. Defaults to "Start a new run" / "View runs" for generic entities. */
+  actionLabels?: {
+    /** CTA label that links to the new-entity form (default: "Start a new run"). */
+    newEntity?: string;
+    /** Label for the link to the entity list (default: "View runs"). */
+    listEntities?: string;
+  };
 }
 
 // ─── MCP tool contract ───────────────────────────────────────────────────────

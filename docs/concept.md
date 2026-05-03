@@ -102,7 +102,7 @@ Slash commands remove the ambiguity. The user *types* the command. Claude *must*
 
 The **Build companion** is the most important companion in claudepanion. Not because it's the most useful — plenty of future companions will be more useful to any individual user — but because it proves the thesis.
 
-Build is a companion that scaffolds other companions. You fill in a form describing the tool you want ("track books I'm reading and have Claude summarize them"), submit, and get back a `/build-companion <id>` slash command. Paste it into Claude Code, and Claude reads the request via MCP, scaffolds a new companion in your claudepanion instance (routes, MCP tools, skill, UI pages), registers it, and reports completion. Restart the server, and the new companion is live.
+Build is a companion that scaffolds other companions. You fill in a form describing the tool you want ("track books I'm reading and have Claude summarize them"), submit, and get back a `/build-companion <id>` slash command. Paste it into Claude Code, and Claude reads the request via MCP, scaffolds a new companion in your claudepanion instance (routes, MCP tools, skill, UI pages), registers it, and reports completion. The host's file watcher hot-reloads the new companion's MCP tools automatically; Claude Code discovers the new skill the next time you start a session in that repo. Two boundaries, two mechanisms.
 
 This is the **self-replicating primitive**. It makes the marginal cost of a new companion approximately *"type a paragraph and wait."* Everything else in claudepanion exists to make Build work, and everything after Build exists because Build made it cheap.
 
@@ -201,7 +201,7 @@ Things we're actively debating in the near-term design. Distinct from the tensio
 
 1. **Build's scope — scaffold only, or also iterate on existing companions?** Scaffolding a new companion from a description is tractable. Modifying an existing companion — reasoning about its current code, respecting its contract, updating tests — is meaningfully harder. Version 1 is likely scaffold-only; iteration may come later.
 
-2. **How companions become live after Build creates them.** Options: restart the server, a file-watcher that hot-reloads, or a manifest-regeneration step. Restart is simplest and most honest; hot-reload is smoother UX but more machinery.
+2. ~~**How companions become live after Build creates them.**~~ **Resolved.** Two-part: the host's chokidar file watcher (`src/server/reliability/watcher.ts`) re-imports the companion-registry on file changes, so MCP tools become available on the next `mcp/initialize`. Claude Code discovers skills at session start, so the new `/<name>-companion` slash command appears in the next Claude Code session in that repo. Build's completion message tells the user explicitly to start a new session.
 
 3. **Polling vs SSE for log streams.** The oncall-investigator pattern polls every 2 seconds — cheap, dumb, correct. SSE is cleaner but adds a connection-lifecycle problem (reconnects, disconnection detection, ordering). Leaning polling for v1; revisit if the UX suffers.
 

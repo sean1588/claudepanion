@@ -13,9 +13,12 @@ export interface ApiDeps {
   store: EntityStore;
   registry: Registry;
   reliability?: Map<string, ReliabilitySnapshot>;
+  /** Override for tests — defaults to spawning `node bin/cli.js companion delete <slug>`. */
+  deleteCompanionFiles?: (slug: string) => Promise<{ ok: true } | { ok: false; error: string }>;
 }
 
-export function mountApiRoutes(app: Express, { store, registry, reliability }: ApiDeps): void {
+export function mountApiRoutes(app: Express, { store, registry, reliability, deleteCompanionFiles }: ApiDeps): void {
+  const runDelete = deleteCompanionFiles ?? defaultDeleteCompanionFiles;
   app.get("/api/reliability/:companion", (req: Request, res: Response) => {
     const name = String(req.params.companion);
     if (!registry.get(name)) return res.status(404).json({ error: `unknown companion: ${name}` });
@@ -150,6 +153,20 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     res.json({ ok: true, companion: companion.manifest });
   });
 
+  app.delete("/api/companions/:name", async (req: Request, res: Response) => {
+    const name = String(req.params.name);
+    if (name === "build") return res.status(400).json({ ok: false, error: "cannot delete the built-in Build companion" });
+    if (!/^[a-z][a-z0-9-]*$/.test(name)) return res.status(400).json({ ok: false, error: "invalid companion name" });
+    if (!registry.get(name)) return res.status(404).json({ ok: false, error: `unknown companion: ${name}` });
+
+    const result = await runDelete(name);
+    if (!result.ok) return res.status(500).json({ ok: false, error: result.error });
+
+    registry.unregister(name);
+    reliability?.delete(name);
+    res.json({ ok: true, rebuildHint: "npm run build && restart the server to refresh the client bundle" });
+  });
+
   app.post("/api/entities/:id/continue", async (req: Request, res: Response) => {
     const { companion, continuation } = req.body ?? {};
     if (!companion) return res.status(400).json({ error: "companion required" });
@@ -159,6 +176,19 @@ export function mountApiRoutes(app: Express, { store, registry, reliability }: A
     await store.continueWith(companion, String(req.params.id), continuation);
     const e = await store.get(companion, String(req.params.id));
     res.json(e);
+  });
+}
+
+async function defaultDeleteCompanionFiles(slug: string): Promise<{ ok: true } | { ok: false; error: string }> {
+  return new Promise((resolve) => {
+    const proc = spawn("node", ["bin/cli.js", "companion", "delete", slug], { cwd: process.cwd(), shell: false });
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.on("close", (code) => {
+      if (code === 0) resolve({ ok: true });
+      else resolve({ ok: false, error: stderr.trim() || `cli exited with code ${code}` });
+    });
+    proc.on("error", (err) => resolve({ ok: false, error: err.message }));
   });
 }
 

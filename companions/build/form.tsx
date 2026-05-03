@@ -52,8 +52,7 @@ export default function BuildForm({ onSubmit }: Props) {
       if (!nm) { setError("Companion name is required."); return; }
       if (!/^[a-z][a-z0-9-]*$/.test(nm)) { setError("Name must be lowercase letters, digits, hyphens; starts with a letter."); return; }
       setError(null);
-      const slug = params.get("example");
-      void onSubmit({ mode, name: nm, kind, description: desc, ...(slug ? { example: slug } : {}) });
+      void onSubmit({ mode, name: nm, kind, description: desc });
     } else {
       if (!target) { setError("Pick a target companion."); return; }
       setError(null);
@@ -118,24 +117,31 @@ export default function BuildForm({ onSubmit }: Props) {
         </label>
       )}
 
-      <label style={labelStyle}>
-        {mode === "new-companion" ? "Description" : "What should change?"}
-        <textarea
-          value={description}
-          onChange={(e) => setDescription(e.target.value)}
-          rows={3}
-          placeholder={
-            mode === "new-companion"
-              ? "Triage oncall alerts from the last 24h and summarize the top three."
-              : "Add a dim() tool that sets brightness to a number between 0 and 1."
-          }
-          style={{ ...inputStyle, resize: "vertical" as const }}
-        />
-      </label>
+      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
+        <label style={labelStyle}>
+          {mode === "new-companion" ? "Description" : "What should change?"}
+          <textarea
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            rows={4}
+            placeholder={
+              mode === "new-companion"
+                ? "Describe the companion. Name the external service (GitHub, AWS, Linear, Slack, …), what data to fetch, and what the artifact should contain. Read-only by default — say explicitly if it should write back.\n\nExample: Review a GitHub PR — fetch the diff and existing comments, flag risky diffs, suggest review questions for the author. Read-only."
+                : "Add a dim() tool that sets brightness to a number between 0 and 1."
+            }
+            style={{ ...inputStyle, resize: "vertical" as const }}
+          />
+        </label>
+        {mode === "new-companion" && (
+          <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>
+            Tip: companions get architectural value from authenticated proxy access to external systems. The form captures <strong>where</strong> to query (which repo / account / team / channel) — not "paste your text here."
+          </span>
+        )}
+      </div>
 
       {error && <div className="form-error" role="alert">{error}</div>}
       <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>
-        {mode === "new-companion" ? "Scaffold companion" : "Iterate"}
+        {mode === "new-companion" ? "Build companion" : "Iterate"}
       </button>
     </form>
   );

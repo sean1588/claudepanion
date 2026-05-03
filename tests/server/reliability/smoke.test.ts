@@ -66,4 +66,45 @@ describe("smokeCompanion", () => {
     const r = await smokeCompanion(c);
     expect(r).toEqual({ ok: true, results: [] });
   });
+
+  it("treats Zod schema rejection as ok and skips handler", async () => {
+    let called = false;
+    const tool: CompanionToolDefinition = {
+      name: "x_required",
+      description: "test",
+      schema: { repo: z.string(), prNumber: z.number() }, // both required
+      async handler() {
+        called = true;
+        // If the handler runs with empty args, this would crash in production —
+        // but smoke shouldn't reach here because Zod rejects {} first.
+        return successResult({ ok: true });
+      },
+    };
+    const c: RegisteredCompanion = { manifest: baseManifest, tools: [tool] };
+    const r = await smokeCompanion(c);
+    expect(r.ok).toBe(true);
+    expect(r.results[0].error).toBe("schema rejected empty args");
+    expect(called).toBe(false);
+  });
+
+  it("does not crash on handlers that assume required fields are defined", async () => {
+    // Reproduces the parseRepo(undefined) bug pattern from PR #13 dogfood:
+    // a handler that destructures a required field and uses it as a string.
+    // Before the Zod-first smoke fix, this crashed with TypeError. After, Zod
+    // rejects {} before the handler runs.
+    const tool: CompanionToolDefinition = {
+      name: "x_parse",
+      description: "test",
+      schema: { repo: z.string() },
+      async handler(params) {
+        const { repo } = params as { repo: string };
+        // Mimics parseRepo: assumes repo is a string. Crashes on undefined.
+        repo.split("/");
+        return successResult({ ok: true });
+      },
+    };
+    const c: RegisteredCompanion = { manifest: baseManifest, tools: [tool] };
+    const r = await smokeCompanion(c);
+    expect(r.ok).toBe(true);
+  });
 });

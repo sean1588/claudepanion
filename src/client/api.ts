@@ -28,6 +28,15 @@ export async function createEntity(companion: string, input: unknown): Promise<E
   return res.json();
 }
 
+export async function deleteCompanion(name: string): Promise<{ rebuildHint?: string }> {
+  const res = await fetch(`/api/companions/${encodeURIComponent(name)}`, { method: "DELETE" });
+  const body = await res.json().catch(() => ({}));
+  if (!res.ok || body?.ok === false) {
+    throw new Error(body?.error ?? `DELETE /api/companions/${name} failed: ${res.status}`);
+  }
+  return { rebuildHint: body?.rebuildHint };
+}
+
 export async function continueEntity(companion: string, id: string, continuation: string): Promise<Entity> {
   const res = await fetch(`/api/entities/${encodeURIComponent(id)}/continue`, {
     method: "POST",

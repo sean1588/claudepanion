@@ -28,12 +28,12 @@ function renderAt(path: string) {
 
 describe("BuildForm ?example= prefill", () => {
   it("prefills name/kind/description from a known example slug", async () => {
-    renderAt("/c/build/new?example=pr-reviewer");
+    renderAt("/c/build/new?example=github-pr-reviewer");
     const name = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
     const description = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
     const kind = await screen.findByLabelText(/kind/i) as HTMLSelectElement;
     await waitFor(() => {
-      expect(name.value).toBe("pr-reviewer");
+      expect(name.value).toBe("github-pr-reviewer");
       expect(kind.value).toBe("entity");
       expect(description.value).toMatch(/flag risky diffs/i);
     });
@@ -53,19 +53,21 @@ describe("BuildForm ?example= prefill", () => {
     expect(name.value).toBe("");
   });
 
-  it("includes example slug in submitted input when URL has ?example=", async () => {
+  it("does NOT include example slug in submitted input even when URL has ?example=", async () => {
     let submitted: BuildInput | null = null;
     render(
-      <MemoryRouter initialEntries={["/c/build/new?example=pr-reviewer"]}>
+      <MemoryRouter initialEntries={["/c/build/new?example=github-pr-reviewer"]}>
         <Routes>
           <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
         </Routes>
       </MemoryRouter>
     );
-    const btn = await screen.findByRole("button", { name: /scaffold companion/i });
+    const btn = await screen.findByRole("button", { name: /build companion/i });
     fireEvent.click(btn);
     await waitFor(() => expect(submitted).not.toBeNull());
-    expect(submitted!).toMatchObject({ mode: "new-companion", name: "pr-reviewer", example: "pr-reviewer" });
+    // Chips are form-text-prefill sugar only — example slug must NOT leak into the entity input.
+    expect(submitted!).toMatchObject({ mode: "new-companion", name: "github-pr-reviewer" });
+    expect((submitted as { example?: string }).example).toBeUndefined();
   });
 
   it("omits example field in submitted input when URL has no ?example=", async () => {
@@ -81,7 +83,7 @@ describe("BuildForm ?example= prefill", () => {
     const descInput = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
     fireEvent.change(nameInput, { target: { value: "handwritten" } });
     fireEvent.change(descInput, { target: { value: "no example" } });
-    fireEvent.click(screen.getByRole("button", { name: /scaffold companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
     await waitFor(() => expect(submitted).not.toBeNull());
     expect(submitted!).toMatchObject({ mode: "new-companion", name: "handwritten" });
     expect((submitted as { example?: string }).example).toBeUndefined();

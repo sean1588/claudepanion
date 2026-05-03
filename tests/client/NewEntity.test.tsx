@@ -34,7 +34,7 @@ describe("NewEntity", () => {
     await waitFor(() => expect(screen.getByLabelText(/companion name/i)).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText(/companion name/i), { target: { value: "my-companion" } });
     fireEvent.change(screen.getByLabelText(/^description$/i), { target: { value: "a test companion" } });
-    fireEvent.click(screen.getByRole("button", { name: /scaffold companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
     await waitFor(() => expect(screen.getByText("detail-page")).toBeInTheDocument());
   });
 
@@ -64,7 +64,7 @@ describe("NewEntity", () => {
     );
     await waitFor(() => expect(screen.getByText(/BLOCKED_TOKEN/)).toBeInTheDocument());
     // Submit button should be disabled
-    const button = screen.getByRole("button", { name: /scaffold companion/i });
+    const button = screen.getByRole("button", { name: /build companion/i });
     expect(button).toBeDisabled();
   });
 });

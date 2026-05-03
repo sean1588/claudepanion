@@ -6,40 +6,36 @@ export interface BuildExample {
   description: string;
 }
 
+// Chips are form-text-prefill sugar only. Each chip below is a description known
+// to produce a working companion when Build runs it (see scaffold-spec §16h
+// and the dogfood runs in PR #13). Each one names a distinct external system,
+// captures WHERE/WHICH (not "paste your text here"), and defaults to read-only.
+//
+// Chips do NOT drive any per-companion skill-template branching — Build authors
+// the skill body from scratch every time per §16d.
 export const buildExamples: BuildExample[] = [
   {
-    slug: "pr-reviewer",
+    slug: "github-pr-reviewer",
     kind: "entity",
-    displayName: "PR reviewer",
+    displayName: "GitHub PR reviewer",
     icon: "🔎",
-    description: "Review a PR in this repo, flag risky diffs, and suggest questions to ask the author.",
+    description:
+      "Review a GitHub pull request: fetch the PR metadata, the unified diff, and existing review comments. Flag risky diffs (auth changes, swallowed errors, missing tests) and suggest review questions for the author. Read-only — do not post anything back to GitHub.",
   },
   {
-    slug: "release-notes-drafter",
+    slug: "cloudwatch-investigator",
     kind: "entity",
-    displayName: "Release notes drafter",
-    icon: "📝",
-    description: "Generate user-facing release notes from merged PRs in a git range.",
+    displayName: "CloudWatch investigator",
+    icon: "📊",
+    description:
+      "Investigate AWS CloudWatch logs for an alarm in a given time range. Query the relevant log groups, identify error patterns, and suggest root-cause hypotheses. Uses local AWS credentials (~/.aws/credentials profile). Read-only.",
   },
   {
-    slug: "codebase-onboarding-doc",
+    slug: "linear-groomer",
     kind: "entity",
-    displayName: "Codebase onboarding doc",
-    icon: "🧭",
-    description: 'Read this repo and write a "how to get oriented" doc for new contributors.',
-  },
-  {
-    slug: "design-doc-reviewer",
-    kind: "entity",
-    displayName: "Design doc reviewer",
-    icon: "🪓",
-    description: "Critique a pasted design doc: flag ambiguities, missing constraints, unstated assumptions.",
-  },
-  {
-    slug: "postmortem-writer",
-    kind: "entity",
-    displayName: "Postmortem writer",
-    icon: "🕯️",
-    description: "Turn a pasted incident timeline into a structured postmortem: impact, root cause, action items.",
+    displayName: "Linear backlog groomer",
+    icon: "📋",
+    description:
+      "Triage Linear issues for a team: list stale tickets (untouched for over 30 days), summarize each one, and suggest priority changes. Read-only — do not update issues.",
   },
 ];

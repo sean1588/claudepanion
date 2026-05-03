@@ -16,11 +16,12 @@ const repoRoot = process.cwd();
 async function main() {
   const store = createEntityStore(resolve(repoRoot, "data"));
   const registry = createRegistry(companions);
-  const mcp = buildMcpServer({ store, registry });
   const snapshots = new Map<string, ReliabilitySnapshot>();
+  const companionsDir = resolve(repoRoot, "companions");
+  const mcp = buildMcpServer({ store, registry, companionsDir, snapshots });
   const watcher = createWatcher({
     registry,
-    companionsDir: resolve(repoRoot, "companions"),
+    companionsDir,
     snapshots,
   });
 
