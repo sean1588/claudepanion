@@ -32,9 +32,11 @@ export default function EntityDetail() {
       {manifest && <Breadcrumb manifest={manifest} trailing={entity.id} />}
       <div className="page-title">
         <div>
-          <h1>{describeEntity(entity)}</h1>
-          <div style={{ marginTop: 4, fontSize: 12, color: "var(--muted)" }}>
-            {subtitle(entity)} · ID <code>{entity.id}</code>
+          <h1 className="serif" style={{ fontSize: 40, lineHeight: 1.05, letterSpacing: "-0.01em" }}>
+            {describeEntity(entity)}
+          </h1>
+          <div className="mono" style={{ marginTop: 6, fontSize: 11, color: "var(--muted)" }}>
+            {subtitle(entity)} · ID {entity.id}
           </div>
         </div>
         <StatusPill status={entity.status} />
@@ -105,9 +107,9 @@ function RunningBody({ entity, onRerun }: { entity: Entity; onRerun: () => void 
     <>
       {stale && <StaleBadge updatedAt={entity.updatedAt} onRerun={onRerun} />}
       {entity.statusMessage && <StatusBar message={entity.statusMessage} updatedAt={entity.updatedAt} />}
-      <div className="panel" style={{ padding: "10px 14px", display: "flex", gap: 12, fontSize: 13, background: "#f8fafc" }}>
+      <div className="panel" style={{ padding: "10px 14px", display: "flex", gap: 12, alignItems: "center", fontSize: 13, background: "var(--paper)" }}>
         <span style={{ color: "var(--muted)", fontSize: 12 }}>Slash command</span>
-        <code style={{ background: "var(--code-bg)", color: "#e2e8f0", padding: "4px 10px", borderRadius: 6, fontSize: 12 }}>{slashCommand(entity)}</code>
+        <code style={{ background: "var(--code-bg)", color: "var(--code-fg)", padding: "4px 10px", borderRadius: 6, fontSize: 12 }}>{slashCommand(entity)}</code>
       </div>
       <InputPanel entity={entity} collapsed />
       <LogsPanel logs={entity.logs} polling />

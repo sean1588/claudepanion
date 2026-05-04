@@ -31,12 +31,13 @@ describe("BuildForm ?example= prefill", () => {
     renderAt("/c/build/new?example=github-pr-reviewer");
     const name = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
     const description = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
-    const kind = await screen.findByLabelText(/kind/i) as HTMLSelectElement;
     await waitFor(() => {
       expect(name.value).toBe("github-pr-reviewer");
-      expect(kind.value).toBe("entity");
       expect(description.value).toMatch(/flag risky diffs/i);
     });
+    // Kind picker is two role="radio" buttons; the prefilled example is "entity".
+    const entityBtn = screen.getByRole("radio", { name: /entity\s+form, lifecycle/i });
+    expect(entityBtn).toHaveAttribute("aria-checked", "true");
   });
 
   it("falls back to an empty form when example slug is unknown", async () => {

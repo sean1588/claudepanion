@@ -6,6 +6,18 @@ interface Props {
   heading?: string | null;
 }
 
+const SYSTEM_LABELS: Record<string, string> = {
+  "github-pr-reviewer": "GitHub API",
+  "cloudwatch-investigator": "AWS CloudWatch",
+  "linear-groomer": "Linear API",
+};
+
+const SHORT_DESCRIPTIONS: Record<string, string> = {
+  "github-pr-reviewer": "Flag risky diffs, suggest review questions. Read-only.",
+  "cloudwatch-investigator": "Query log groups, suggest root-cause hypotheses. Read-only.",
+  "linear-groomer": "Surface stale tickets, suggest priority changes. Read-only.",
+};
+
 export default function BuildChips({ heading = "Ideas to start from" }: Props) {
   const navigate = useNavigate();
 
@@ -14,38 +26,48 @@ export default function BuildChips({ heading = "Ideas to start from" }: Props) {
   };
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      {heading && (
-        <div style={{ fontSize: 11, color: "#64748b", textTransform: "uppercase", letterSpacing: "0.06em", fontWeight: 500 }}>
-          {heading}
-        </div>
-      )}
+    <div style={{ display: "flex", flexDirection: "column", gap: 14 }}>
+      {heading && <div className="eyebrow">{heading}</div>}
 
-      <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-        {buildExamples.map((ex, i) => (
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 14 }}>
+        {buildExamples.map((ex) => (
           <button
             key={ex.slug}
             type="button"
             data-testid="chip"
             onClick={() => openExample(ex)}
+            className="card-bordered"
             style={{
-              padding: "12px 14px",
-              border: "1px solid #cbd5e1",
-              borderRadius: 8,
-              background: "#fff",
-              display: "flex",
-              gap: 12,
-              alignItems: "flex-start",
-              cursor: "pointer",
+              background: "var(--bg)",
               textAlign: "left",
-              gridColumn: i === buildExamples.length - 1 && buildExamples.length % 2 === 1 ? "span 2" : undefined,
+              cursor: "pointer",
+              font: "inherit",
+              color: "inherit",
+              display: "flex",
+              flexDirection: "column",
+              gap: 10,
+              minHeight: 200,
             }}
           >
-            <span style={{ fontSize: 20, flexShrink: 0 }} aria-hidden="true">{ex.icon}</span>
-            <span>
-              <span style={{ display: "block", fontWeight: 600, fontSize: 13, color: "#1e293b" }}>{ex.displayName}</span>
-              <span style={{ display: "block", fontSize: 12, color: "#475569", marginTop: 2, lineHeight: 1.4 }}>{ex.description}</span>
-            </span>
+            <div style={{ fontSize: 26 }} aria-hidden="true">{ex.icon}</div>
+            <div className="serif" style={{ fontSize: 22, lineHeight: 1.15 }}>{ex.displayName}</div>
+            <div style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.5, flex: 1 }}>
+              {SHORT_DESCRIPTIONS[ex.slug] ?? ex.description}
+            </div>
+            <div
+              style={{
+                display: "flex",
+                justifyContent: "space-between",
+                alignItems: "center",
+                paddingTop: 12,
+                borderTop: "1px dashed rgba(21, 24, 26, 0.08)",
+              }}
+            >
+              <span className="mono" style={{ fontSize: 10, color: "var(--muted)", letterSpacing: "0.05em" }}>
+                → {SYSTEM_LABELS[ex.slug] ?? ""}
+              </span>
+              <span className="serif-italic" style={{ fontSize: 18, color: "var(--muted)" }}>→</span>
+            </div>
           </button>
         ))}
       </div>
