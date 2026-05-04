@@ -9,3 +9,6 @@ dist
 # runtime data — contents gitignored, directory kept via .gitkeep
 data/*
 !data/.gitkeep
+
+# design handoff bundle — kept locally, not in git
+claudepanion.zip
