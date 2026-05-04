@@ -376,6 +376,10 @@ textarea:focus-visible,
   70% { box-shadow: 0 0 0 8px transparent; }
   100% { box-shadow: 0 0 0 0 transparent; }
 }
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
 .status-bar-label {
   font-family: var(--font-mono);
   font-size: 10px;

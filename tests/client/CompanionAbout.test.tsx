@@ -18,6 +18,7 @@ beforeEach(() => {
         { name: "demo_post_thing", description: "Post a thing.", params: [], signature: "demo_post_thing()", sideEffect: "write" },
       ],
     }), { status: 200 });
+    if (url.startsWith("/api/entities?companion=")) return new Response(JSON.stringify([]), { status: 200 });
     throw new Error(`unexpected: ${url}`);
   }));
 });
@@ -71,6 +72,7 @@ describe("CompanionAbout", () => {
         manifest: { name: "ro", kind: "entity", displayName: "RO", icon: "🔍", description: "", contractVersion: "1", version: "0.1.0" },
         tools: [{ name: "ro_get", description: "read", params: [], signature: "ro_get()", sideEffect: "read" }],
       }), { status: 200 });
+      if (url.startsWith("/api/entities?companion=")) return new Response(JSON.stringify([]), { status: 200 });
       throw new Error(`unexpected: ${url}`);
     }));
     render(
