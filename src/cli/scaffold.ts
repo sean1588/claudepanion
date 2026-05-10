@@ -1,5 +1,16 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+import { spawn } from "node:child_process";
+
+function npmInstall(packages: string[], cwd: string): Promise<{ ok: boolean; stderr: string }> {
+  return new Promise((resolve) => {
+    const proc = spawn("npm", ["install", ...packages], { cwd, shell: false });
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.on("close", (code) => resolve({ ok: code === 0, stderr }));
+    proc.on("error", (err) => resolve({ ok: false, stderr: err.message }));
+  });
+}
 
 function detectMissingDeps(toolsTsPath: string, packageJsonPath: string): string[] {
   if (!existsSync(toolsTsPath)) return [];
@@ -97,11 +108,14 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
   const packageJsonPath = join(cwd, "package.json");
   const missing = detectMissingDeps(toolsTsPath, packageJsonPath);
   let dependenciesAdded: string[] = [];
-  if (missing.length > 0 && opts.installDeps === false) {
-    // Test path: just record without installing
+  if (missing.length > 0 && (opts.installDeps ?? true)) {
+    const r = await npmInstall(missing, cwd);
+    if (!r.ok) {
+      return { ok: false, stage: "deps", error: `npm install failed: ${r.stderr.slice(0, 1000)}`, remediation: "check package name / network; re-run" };
+    }
     dependenciesAdded = missing;
   } else if (missing.length > 0) {
-    // Install deferred to Task 4.4 — for now, just record what would be installed
+    // Tests pass installDeps: false — just record without installing
     dependenciesAdded = missing;
   }
   stagesRun.push("deps");
