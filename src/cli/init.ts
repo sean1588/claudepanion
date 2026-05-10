@@ -56,6 +56,16 @@ const DEFAULT_GITIGNORE = [
   "",
 ].join("\n");
 
+const DEFAULT_TSCONFIG = {
+  extends: "claudepanion-host/tsconfig.base.json",
+  compilerOptions: {
+    outDir: "dist",
+    rootDir: ".",
+  },
+  include: ["companions/**/*.ts"],
+  exclude: ["node_modules", "dist"],
+};
+
 export async function runInit(opts: RunInitOptions): Promise<RunInitResult> {
   // Validate: refuse to clobber non-claudepanion content.
   const pkgPath = join(opts.home, "package.json");
@@ -93,6 +103,11 @@ export async function runInit(opts: RunInitOptions): Promise<RunInitResult> {
   if (!existsSync(giPath) || opts.force) {
     writeFileSync(giPath, DEFAULT_GITIGNORE);
     filesCreated.push(".gitignore");
+  }
+  const tsPath = join(opts.home, "tsconfig.json");
+  if (!existsSync(tsPath) || opts.force) {
+    writeFileSync(tsPath, JSON.stringify(DEFAULT_TSCONFIG, null, 2) + "\n");
+    filesCreated.push("tsconfig.json");
   }
 
   // Create / refresh symlinks idempotently.

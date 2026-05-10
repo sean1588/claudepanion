@@ -33,6 +33,14 @@ describe("runInit — fresh install", () => {
     expect(gi).toContain("dist/");
   });
 
+  it("creates tsconfig.json extending claudepanion-host/tsconfig.base.json", async () => {
+    await runInit({ home, frameworkRoot });
+    const ts = JSON.parse(readFileSync(join(home, "tsconfig.json"), "utf-8"));
+    expect(ts.extends).toBe("claudepanion-host/tsconfig.base.json");
+    expect(ts.compilerOptions.outDir).toBe("dist");
+    expect(ts.include).toContain("companions/**/*.ts");
+  });
+
   it("creates data/, cache/, dist/ as real dirs", async () => {
     await runInit({ home, frameworkRoot });
     for (const sub of ["data", "cache", "dist"]) {
