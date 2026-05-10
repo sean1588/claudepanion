@@ -28,7 +28,20 @@ async function main() {
   const app = express();
   app.use(express.json({ limit: "10mb" }));
 
-  mountApiRoutes(app, { store, registry, reliability: snapshots });
+  mountApiRoutes(app, {
+    store,
+    registry,
+    reliability: snapshots,
+    triggerRemount: async (slug) => {
+      try {
+        await watcher.triggerRemount(slug);
+        const c = registry.get(slug);
+        return c ? { ok: true, version: c.manifest.version } : { ok: false, error: "remount completed but companion not registered" };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    },
+  });
 
   const mcpServer = new McpServer({ name: "claudepanion", version: "0.2.0" });
   const registeredTools = new Set<string>();

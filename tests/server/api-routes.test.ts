@@ -303,6 +303,59 @@ describe("POST /api/tools/:companion/:tool", () => {
   });
 });
 
+describe("POST /api/internal/remount", () => {
+  it("returns 200 on successful remount", async () => {
+    const reMounts: string[] = [];
+    const registry = createRegistry([{
+      manifest: { name: "x", kind: "ui", displayName: "X", icon: "🧪", description: "t", contractVersion: "1", version: "0.0.1" },
+      tools: [],
+    }]);
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-"));
+    const store = createEntityStore(tmp2);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, {
+      store,
+      registry,
+      triggerRemount: async (slug) => { reMounts.push(slug); return { ok: true, version: "0.0.1" }; },
+    });
+
+    const res = await request(app2).post("/api/internal/remount?slug=x");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, version: "0.0.1" });
+    expect(reMounts).toEqual(["x"]);
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+
+  it("returns 400 if slug query missing", async () => {
+    const registry = createRegistry([]);
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-noslug-"));
+    const store = createEntityStore(tmp2);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, triggerRemount: async () => ({ ok: true }) });
+    const res = await request(app2).post("/api/internal/remount");
+    expect(res.status).toBe(400);
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+
+  it("returns 400 for invalid slug format (path traversal guard)", async () => {
+    const registry = createRegistry([]);
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-invalid-"));
+    const store = createEntityStore(tmp2);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, triggerRemount: async () => ({ ok: true }) });
+    const res = await request(app2).post("/api/internal/remount?slug=../etc/passwd");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("invalid");
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+});
+
 describe("tools endpoint sideEffect", () => {
   it("returns sideEffect on each tool descriptor", async () => {
     const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-tools-"));
