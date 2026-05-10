@@ -83,4 +83,4 @@ The slash command handoff (form → pending state → paste into Claude Code) is
 ## Dev-mode ergonomics
 
 - ~~`npm run dev` doesn't run `tsc --watch`, so the watcher never sees rebuilt companion code in dev.~~ **Resolved** — `npm run dev` now spawns `dev:tsc` (`tsc -p tsconfig.json --watch --preserveWatchOutput`) alongside the server and client.
-- **Build relies on `tsc --watch` being active in dev** (or a fresh `npm run build` in prod) for the watcher to pick up newly-scaffolded companion code. If a Build run completes but the new companion's MCP tools aren't visible at the next session, that's the failure mode — confirm `dev:tsc` is running, or run `npm start` against the production build.
+- ~~**Build relies on `tsc --watch` being active in dev** (or a fresh `npm run build` in prod) for the watcher to pick up newly-scaffolded companion code.~~ **Resolved** by the v2 watcher fix (dist-mtime gate, debounced retries, `dev:tsc` health probe, structured failure logs) shipped in Phase 2 of `feat/scaffold-consistency`.
