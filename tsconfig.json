@@ -14,7 +14,9 @@
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "claudepanion-host": ["./src/host/index.ts"],
+      "claudepanion-host/tsconfig.base.json": ["./src/host/tsconfig.base.json"]
     }
   },
   "include": ["src/cli/**/*", "src/host/**/*", "src/server/**/*", "src/shared/**/*", "companions/**/*.ts"],
