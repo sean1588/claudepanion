@@ -8,6 +8,8 @@
     "skipLibCheck": true,
     "resolveJsonModule": true,
     "outDir": "dist",
+    "tsBuildInfoFile": "dist/.tsbuildinfo",
+    "incremental": true,
     "rootDir": ".",
     "baseUrl": ".",
     "paths": {

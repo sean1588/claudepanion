@@ -1,5 +1,6 @@
 import express from "express";
 import { join, resolve } from "node:path";
+import { statSync } from "node:fs";
 import { createEntityStore } from "./entity-store.js";
 import { createRegistry } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
@@ -13,6 +14,25 @@ import { dataPath, ensureClaudepanionDirs } from "./paths.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const repoRoot = process.cwd();
+
+function checkTscHealth(): void {
+  const tsBuildInfo = resolve(process.cwd(), "dist/.tsbuildinfo");
+  try {
+    const stat = statSync(tsBuildInfo);
+    const ageSec = (Date.now() - stat.mtimeMs) / 1000;
+    if (ageSec > 600) {
+      console.warn(
+        `[claudepanion] dist/.tsbuildinfo is ${Math.round(ageSec)}s old. ` +
+        `If you're developing companions, run 'npm run dev:tsc' so the watcher can pick up changes.`
+      );
+    }
+  } catch {
+    console.warn(
+      `[claudepanion] dist/.tsbuildinfo not found. ` +
+      `Run 'npm run build' or 'npm run dev' before scaffolding companions.`
+    );
+  }
+}
 
 async function main() {
   ensureClaudepanionDirs();
@@ -81,6 +101,7 @@ async function main() {
 
   app.listen(PORT, () => {
     console.log(`claudepanion listening on http://localhost:${PORT}`);
+    checkTscHealth();
   });
 
   const shutdown = async () => {
