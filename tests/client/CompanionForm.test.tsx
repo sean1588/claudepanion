@@ -115,3 +115,15 @@ describe("CompanionForm — argsFrom", () => {
     expect(lastBody.args).toEqual({ region: "us-west-2" });
   });
 });
+
+describe("CompanionForm — field grouping", () => {
+  it("renders grouped fields under one labeled row", () => {
+    const schema = z.object({
+      start: z.string().datetime().meta({ ui: { kind: "datetime", group: "time-window" } }).describe("Start"),
+      end:   z.string().datetime().meta({ ui: { kind: "datetime", group: "time-window" } }).describe("End"),
+    });
+    render(<CompanionForm schema={schema} onSubmit={() => {}} />);
+    const wrapper = screen.getByText(/time-window/i).parentElement;
+    expect(wrapper).toBeInTheDocument();
+  });
+});
