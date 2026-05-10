@@ -5,496 +5,462 @@ description: Use when the user pastes "/build-companion <entity-id>" — scaffol
 
 # /build-companion <entity-id>
 
-Claudepanion's built-in companion that scaffolds or iterates on other companions.
+Build is claudepanion's companion that scaffolds other companions.
 
 > **CRITICAL — MCP tools ONLY:**
-> - ALL state changes (status, logs, artifact, failure) go through tools prefixed `mcp__claudepanion__`.
-> - NEVER curl the REST API at `/api/entities/*` to mutate state.
-> - NEVER edit `data/build/<id>.json` directly.
-> - If an MCP tool returns an error, call `mcp__claudepanion__build_fail` with the error and stop. Do NOT fall back to HTTP.
-> - If MCP tools are unavailable in your session, STOP and tell the user: *"MCP tools from claudepanion are not loaded — verify `claudepanion plugin install` and that the server is running, then start a new Claude Code session."* Do not proceed.
+> - All state changes go through `mcp__claudepanion__build_*` tools.
+> - NEVER curl `/api/entities/*` to mutate state.
+> - NEVER edit `data/build/*.json` directly.
+> - NEVER leave a placeholder like `<<<INSERT PLAYBOOK HERE>>>` in an authored file.
+> - NEVER mark `completed` until `claudepanion scaffold`'s self-check stage passed.
+> - If MCP tools aren't loaded, STOP and tell the user to verify `claudepanion plugin install` and start a new session.
 
-> **All validation goes through MCP.** Use `mcp__claudepanion__build_self_check` (Step 6) to verify a just-scaffolded companion — no curl, no sleep, no REST. Reading entity state via REST is allowed for verification but NEVER for mutation.
+The reference doc for the contract you're authoring against is [`docs/scaffold-spec.md`](../../docs/scaffold-spec.md).
 
-> **Your job (per scaffold-spec §16):** produce a *complete, working companion*, not a token-substituted skeleton. The templates exist as a starting reference for boilerplate, but Step 4 authors **real domain content** for every file — types, form, list, detail, server/tools.ts (real proxy tool handlers), and the skill body. Empty server/tools.ts when an external system was named is a build failure.
-
-## Step 1 — Load the Build entity
+## Step 1 — Load the entity
 
 ```
 mcp__claudepanion__build_get({ id: "<entity-id>" })
 ```
 
-Read `entity.input.mode`. Branch:
+Branch on `entity.input.mode`: `"new-companion"` runs Steps 2–10; `"iterate-companion"` jumps to the iterate sub-flow.
 
-- `"new-companion"` → go to **Mode: new-companion** below.
-- `"iterate-companion"` → go to **Mode: iterate-companion** below.
+### Step 1.5 — Detect continuation
 
-## Step 1.5 — Detect continuation
+If `entity.artifact !== null`, this is a continuation — the user clicked "Continue" on a prior completed run. The new `description` is a redirection. Read the prior artifact, then *modify* the existing files instead of re-scaffolding.
 
-If `entity.artifact !== null`, this is a continuation — the user clicked "Continue" on a previously completed Build run. The prior `filesCreated` / `filesModified` are already on disk. The new `entity.input.description` is the user's redirection ("do this differently this time").
+## Step 2 — Validate + interpret (new mode)
 
-Read the prior artifact carefully. Apply the redirection by *modifying* the existing companion files, not by re-scaffolding from scratch. Save a complete updated artifact when done (the prior artifact is replaced when `_save_artifact` is called again).
+Reject if:
+- `name` doesn't match `/^[a-z][a-z0-9-]*$/`
+- `companions/<name>/` already exists
+- `name === "build"`
 
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Continuing prior Build run — applying redirected description to existing companion files" })
-```
+Read `entity.input.description` and decide all of:
 
----
+1. **External system** — AWS, GitHub, Linear, Slack, OpenAI, generic HTTP, or none.
+2. **Read-only or has writes** — does the description ask for actions that change external state?
+3. **Input schema fields** — what configures each run (the WHERE/WHICH, not "paste your text").
+4. **Artifact extras** — typed fields beyond `summary`/`markdown`, only if a list-row override needs them. Otherwise `Artifact = BaseArtifact;`.
+5. **Proxy tools** — one per API call, named `<slug_with_underscores>_<verb>`.
+6. **SDK + credential helper** — see the table below.
 
-## Mode: new-companion
-
-### Step 2 — Validate + resolve substitution tokens
-
-`entity.input` has `name`, `kind`, and `description`. Reject if:
-
-- `name` doesn't match `/^[a-z][a-z0-9-]*$/`.
-- `kind` is not `"entity"` or `"tool"`.
-- `companions/<name>/` already exists on disk.
-
-On reject:
-
-```
-mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "<specific reason>" })
-```
-
-Compute substitution tokens. This is mechanical — apply exactly:
-
-| Token | Derivation | Example (`pr-reviewer`) |
-|---|---|---|
-| `__NAME__` | the slug | `pr-reviewer` |
-| `__CAMEL__` | camelCase — strip hyphens, uppercase the next letter | `prReviewer` |
-| `__PASCAL__` | first char of `__CAMEL__` uppercased | `PrReviewer` |
-| `__DISPLAY__` | titleized — split on hyphens, capitalize each word | `Pr Reviewer` |
-| `__ICON__` | one emoji that fits `description` | `🔎` |
-| `__DESCRIPTION__` | `entity.input.description` collapsed to one line | `Review a PR in this repo…` |
-
-### Step 2.5 — Interpret the description (§16b — the load-bearing decision step)
-
-Read `entity.input.description` carefully. Before writing any file, decide all five things below. The decisions you make here shape every subsequent step.
-
-**1. External system** — which API will the companion talk to (GitHub, AWS, Linear, Slack, OpenAI, generic HTTP)? Default assumption: every companion has at least one proxy tool. A description that names no external system is the rare case — confirm by asking yourself *"what data does this companion need that Claude can't reach without an authenticated proxy?"*
-
-**2. Read vs write** — does the description explicitly request actions that change external state?
-
-| User wrote… | Action |
-|---|---|
-| "review PRs", "investigate logs", "check Linear", "summarize Slack" | Scaffold READ-only tools |
-| "post a review", "update an issue", "send a message", "create an alarm" | Scaffold READ tools + the explicitly-requested WRITE tools (set `sideEffect: "write"`) |
-| Vague description ("PR helper", "incident tool") | Default to READ-only (§9e.iv) |
-
-**3. Form fields (input shape)** — what configuration does the user provide on each run that makes a general query specific? The form captures **WHERE/WHICH**, not "paste your text." Examples:
-- GitHub PR review → `{ repo: string; prNumber: number; focus?: string }`
-- AWS log investigation → `{ profile: string; logGroup: string; startTime: string; endTime: string; filter?: string }`
-- Linear triage → `{ teamId: string; label?: string; staleAfterDays?: number }`
-
-**4. Artifact fields (output shape)** — what domain fields does the user want the Detail page to render? `BaseArtifact` already provides optional `summary?: string` and `errors?: string[]`. Domain fields make the artifact useful:
-- PR review → `{ prTitle, prUrl, risks: string[], questions: string[], recommendation: "approve" | "request_changes" | "comment" }`
-- Log investigation → `{ alarmName, eventCount, errorPatterns: string[], rootCauseHypotheses: string[] }`
-
-**5. Proxy tools (one per external API call)** — list them. Each maps to a single API method.
-- PR review (read-only) → `pr_reviewer_get_pr`, `pr_reviewer_get_diff`, `pr_reviewer_get_comments`
-- PR review (with post-back) → above + `pr_reviewer_post_review` (`sideEffect: "write"`)
-
-#### SDK and env-var lookup (§16c)
-
-| Service | Recommended SDK | Required env var | Notes |
-|---|---|---|---|
-| GitHub API | `@octokit/rest` | `GITHUB_TOKEN` | Personal access token, `repo` scope |
-| AWS (any service) | `@aws-sdk/client-<service>` | (none) | Profile passed as tool arg, credentials from `~/.aws/credentials` |
-| Linear API | `@linear/sdk` | `LINEAR_API_KEY` | Personal API key |
-| Slack API | `@slack/web-api` | `SLACK_BOT_TOKEN` | Bot token starting with `xoxb-` |
-| OpenAI API | `openai` | `OPENAI_API_KEY` | |
-| Generic HTTP | built-in `fetch` | varies | Document required env vars in the manifest |
-
-Pick the SDK matching the external system. The chosen env var(s) go into `manifest.requiredEnv`.
-
-#### Echo the interpretation back to the user
-
-This is a deliberate checkpoint. **Before writing any file**, append a structured multi-line log so the user watching the live tail can confirm Build interpreted their description correctly. Catching a misread here is cheap; catching it after files are on disk requires a re-run.
-
-Append the interpretation as one log call (newlines are preserved by the UI):
+## Step 3 — Echo the interpretation, pause
 
 ```
 mcp__claudepanion__build_append_log({
   id: "<entity-id>",
-  message: "Interpreted as <read-only|with-write> companion against <external-system>.\n  Form: { <field>: <type>, ... }\n  Artifact: { <field>: <type>, ... }\n  Tools: <tool-name-1>, <tool-name-2>, ...\n  SDK: <package> + env <ENV_VAR>"
+  message: "Interpreted as <read-only|with-write> companion against <system>.\n  Form fields: <list>\n  Tools: <list>\n  Artifact extras: <none|list>\n  SDK: <package>; credentials: <env or helper>"
 })
 ```
 
-Then briefly pause (1–2 seconds) so the user has a window to interrupt with `Ctrl-C` and re-trigger Build with feedback if any of the above is wrong. Carry these decisions forward to Step 4 (author files) and Step 4.6 (package.json).
+Pause ~5 seconds so the user can interrupt with `Ctrl-C` if the interpretation is off.
 
-### Step 3 — Mark running
-
-The statusMessage carries the one-line interpretation summary so the UI status pill conveys what Build understood, not just "scaffolding."
+## Step 4 — Mark running
 
 ```
 mcp__claudepanion__build_update_status({
   id: "<entity-id>",
   status: "running",
-  statusMessage: "scaffolding <name> (<read-only|with-write>, <external-system>, <N> tools)"
+  statusMessage: "scaffolding <name> (<read-only|with-write>, <system>, <N> tools)"
 })
 ```
 
-### Step 4 — Author each companion file (§16d — the load-bearing step)
+## Step 5 — Author 4 files
 
-Write each of the files below with **real domain content** based on the Step 2.5 interpretation. Author the real content directly — do not do a "tokenize-substitute-then-replace" pass.
+Author real domain content for each file based on Step 2's interpretation. No tokens, no `<<<INSERT>>>`, no empty arrays when an external system was named.
 
-This is the load-bearing step. If the description named an external system but `server/tools.ts` ends up an empty array, you have produced a UI with no backend. Step 6 self-check will fail the build.
-
-For `kind: "entity"`, create `companions/__NAME__/` with these files. For `kind: "tool"`, only the `manifest.ts`, `index.ts`, and `server/tools.ts` files apply.
-
-| File | What to author |
+| File | Contents |
 |---|---|
-| `manifest.ts` | Complete manifest — `name: "__NAME__"`, `kind`, `displayName: "__DISPLAY__"`, `icon: "__ICON__"` (one emoji), `description` (one user-facing sentence), `contractVersion: "1"`, `version: "0.1.0"`, **`requiredEnv`** per Step 2.5's SDK lookup. |
-| `types.ts` | Real `__PASCAL__Input` (fields from Step 2.5.3, capturing WHERE/WHICH) and `__PASCAL__Artifact extends BaseArtifact` (fields from Step 2.5.4, the domain output). Both JSON-serializable. |
-| `index.ts` | `export const __CAMEL__: RegisteredCompanion = { manifest, tools };` — wires the manifest + tools together. |
-| `form.tsx` | One input element per `__PASCAL__Input` field — strings → `<input type="text">` (or `<select>` for finite sets), numbers → `<input type="number">`. Required fields have client-side validation; optional fields pass `undefined` if blank. Call `onSubmit` with a fully-shaped `__PASCAL__Input`. (entity kind only) |
-| `pages/List.tsx` | Render a meaningful row from `entity.input` + `entity.artifact` fields. e.g. PR reviewer → `<repo>#<prNumber> — <recommendation>`. (entity kind only) |
-| `pages/Detail.tsx` | Render the artifact's domain fields. Host wraps in `<BaseArtifactPanel>` automatically (handles `summary` + `errors[]`) — render only the domain middle. (entity kind only) |
-| `server/tools.ts` | Real `CompanionToolDefinition[]` — one tool per Step 2.5.5 entry. **THE MOST IMPORTANT FILE.** Empty array = build failure when an external system was named. See pattern below. |
-| `skills/__NAME__-companion/SKILL.md` | Full skill body. Frontmatter, the standard CRITICAL block, Steps 1–6 + error handling. **Step 4 ("Do the work") must be a sequenced playbook of proxy-tool calls** for the tools you authored — not a pasted `__DESCRIPTION__`. The directory `skills/__NAME__-companion/` must exist (nested layout, literal filename `SKILL.md`). |
+| `companions/<slug>/manifest.ts` | `name`, `kind: "ui"`, `displayName`, `icon`, `description`, `contractVersion: "2"`, `version: "0.1.0"`, `requiredEnv`. |
+| `companions/<slug>/types.ts` | `InputSchema = z.object({...})` with `.describe()` and `.meta({ ui: ... })`. Optional `ArtifactExtras`. Default `Artifact = BaseArtifact;`. |
+| `companions/<slug>/server/tools.ts` | One `defineTool({...})` per proxy tool. Inline error classifier mapping the SDK's errors onto `[config]` / `[input]` / `[transient]`. `sideEffect: "write"` on write tools with explicit consequence in the description. |
+| `skills/<slug>-companion/SKILL.md` | Frontmatter + CRITICAL block + Steps 1–6. Step 4 is a sequenced playbook of `mcp__claudepanion__<slug>_*` tool calls + log lines — one sub-step per tool. Write tools get the user-permission stanza. |
 
-#### `server/tools.ts` — the §9d pattern
-
-Each tool: validate config → validate input → call API → classify error → return.
-
-```ts
-import { z } from "zod";
-import { Octokit } from "@octokit/rest";  // or whichever SDK Step 2.5 picked
-import type { CompanionToolDefinition } from "../../../src/shared/types.js";
-import {
-  successResult,
-  errorResult,
-  configErrorResult,
-  inputErrorResult,
-  transientErrorResult,
-} from "../../../src/shared/types.js";
-
-export const tools: CompanionToolDefinition[] = [
-  {
-    name: "__NAME___fetch_thing",  // hyphens in slug → underscores
-    description: "<one user-facing sentence — what does this tool do, what external system, what credentials>",
-    schema: {
-      // Zod raw shape — describe each param
-    },
-    async handler(params: { /* match schema */ }) {
-      const token = process.env.GITHUB_TOKEN;  // matches manifest.requiredEnv
-      if (!token) return configErrorResult("GITHUB_TOKEN", "create a token at github.com/settings/tokens");
-      // validate input
-      // try { call API } catch { classify err.status / err.code }
-      return successResult(data);
-    },
-  },
-  // ... one per API call
-];
+After each file:
+```
+mcp__claudepanion__build_append_log({ id, message: "wrote <path>" })
 ```
 
-For **write tools**: set `sideEffect: "write"` and make the description's side-effect explicit (per §9e.i). Bad: `"Post a comment to GitHub"`. Good: `"Post a structured review comment to the PR. Visible to all collaborators on the repo and cannot be unsent. Requires GITHUB_TOKEN with 'repo' scope."`
+## Step 6 — Add SDK to package.json (if needed)
 
-#### Skill body's "Step 4 — Do the work"
+If the chosen SDK isn't already a dependency, add it. The scaffold CLI's `deps` stage runs `npm install` and reports back, so you don't need to run it yourself — just edit `package.json`.
 
-In the new skill file, Step 4 is a sequenced playbook for THIS companion's proxy tools — not generic placeholder text. Each sub-step is a tool call + a log line:
-
-```
-### 4a — Fetch the PR
-
-mcp__claudepanion__pr_reviewer_get_pr({ repo: <from input>, prNumber: <from input> })
-mcp__claudepanion__pr_reviewer_append_log({ id, message: "Fetched PR #<n> (<title>)" })
-
-### 4b — Read the diff
-...
-```
-
-For any **write tool** (`sideEffect: "write"`), include an explicit user-permission sub-step before the call (§9e.ii):
-
-> Show the proposed write content in chat. Ask "Should I post this?". Wait for confirmation. Only call the write tool if confirmed; if declined, save the artifact with `errors: ["user declined write action"]` and proceed.
-
-#### Log progress as you go
-
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "wrote <path>" })
-```
-
-#### Final log for Step 4
-
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Authored: manifest, types, form, List/Detail, server/tools.ts (<N> tools), SKILL.md" })
-```
-
-### Step 4.6 — Install SDK + rebuild the host (§16e)
-
-The companion you just authored adds new files to both the **server build** (`tsc` → `dist/src/...`) and the **client bundle** (`vite build` → `dist/client/...`). Production-mode `claudepanion serve` reads from `dist/` directly. Until both are rebuilt, the new form / list / detail components are invisible to the browser even though the source files exist.
-
-1. Read `package.json` at the repo root.
-2. If Step 2.5 picked an SDK that isn't already a host dependency, add it to `dependencies`. (Skip if already present.)
-3. Run:
+## Step 7 — Run the scaffold CLI
 
 ```bash
-npm install
+claudepanion scaffold <slug>
 ```
 
-4. Run a full host rebuild so the new companion is visible to both the server and the client bundle:
+This runs in order: `validate` → `deps` → `codegen` (regenerates `companions/<slug>/index.ts`, `companions/index.ts`, `companions/client.ts`) → `build` (`tsc` + `vite build`) → `remount` (POST `/api/internal/remount`) → `self-check` (validator + smoke).
+
+It emits one JSON object on stdout. On success: `{ ok: true, stagesRun, filesGenerated, dependenciesAdded, selfCheck }`. On failure: `{ ok: false, stage, error, remediation }`.
+
+## Step 8 — Branch on scaffold result
+
+| Stage | Remediation |
+|---|---|
+| `validate` | manifest mismatch / missing file. Fix the named file; re-run. |
+| `deps` | npm install failed. Check package name + network. |
+| `codegen` | filesystem error. Check permissions. |
+| `build` | tsc/vite failed. Read the error; fix `types.ts` or `server/tools.ts`. |
+| `remount` | server unreachable. Confirm `claudepanion serve` is running. |
+| `self-check` | validator or smoke issue. Read the `issues[]`; fix; re-run. |
+
+On any failure call `mcp__claudepanion__build_fail` with `errorMessage: "[<prefix>] <stage>: <error>"`. Do NOT proceed to commit.
+
+## Step 9 — Commit
 
 ```bash
-npm run build
+git add companions/<slug> skills/<slug>-companion companions/index.ts companions/client.ts package.json package-lock.json
+git commit -m "companion: scaffold <slug>"
 ```
 
-This runs `tsc` (server) and `vite build` (client) sequentially. Without it, the user will see *"No form registered for &lt;name&gt;"* on the new companion's About page — the source is correct; the served bundle just hasn't caught up.
+Drop `package.json`/`package-lock.json` from the add-list if no SDK was added.
 
-Log:
+## Step 10 — Save artifact + complete
 
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Installed <package>; rebuilt host (tsc + vite)" })
-```
+The artifact is markdown — what was built, where it lives, what to do next. A good shape:
 
-### Step 5 — Register the companion in the host
+```markdown
+## Built `<slug>`
 
-Two files. Both load-bearing — miss either and the companion won't work.
+<one-paragraph description of the companion: external system, read/write, credential model>
 
-#### Step 5a — `companions/index.ts`
+**Tools:** `<tool_1>`, `<tool_2>`, …
 
-Read it first. Current shape:
+### Files created
+- `companions/<slug>/manifest.ts`
+- `companions/<slug>/types.ts`
+- `companions/<slug>/server/tools.ts`
+- `skills/<slug>-companion/SKILL.md`
 
-```ts
-import type { RegisteredCompanion } from "../src/server/companion-registry.js";
-import { build } from "./build/index.js";
-// ...other existing imports, alphabetical by slug
+### Files modified
+- `companions/<slug>/index.ts` (auto-generated)
+- `companions/index.ts` (auto-regenerated)
+- `companions/client.ts` (auto-regenerated)
+- `package.json` — added <SDK list>
 
-export const companions: RegisteredCompanion[] = [build /*, ...alphabetical */];
-```
+### Validation
+- ✓ validator
+- ✓ smoke (<N> tools)
 
-Add an import for the new companion's binding (`__CAMEL__` is the exported binding):
-
-```ts
-import { __CAMEL__ } from "./__NAME__/index.js";
-```
-
-Insert in alphabetical slug order. Add `__CAMEL__` to the `companions` array, preserving alphabetical order.
-
-#### Step 5b — `companions/client.ts` (entity kind ONLY)
-
-Skip for `kind: "tool"`. For entity kind, read `companions/client.ts`, then add:
-
-```ts
-import __PASCAL__Detail from "./__NAME__/pages/Detail";
-import __PASCAL__ListRow from "./__NAME__/pages/List";
-import __PASCAL__Form from "./__NAME__/form";
-
-// artifactRenderers:
-  "__NAME__": __PASCAL__Detail as ArtifactRenderer,
-// listRows:
-  "__NAME__": __PASCAL__ListRow as ListRow,
-// forms:
-  "__NAME__": __PASCAL__Form as CompanionForm,
+### Next step
+Start a new Claude Code session in this repo and paste:
+`/<slug>-companion <new-entity-id>`
 ```
 
-Log:
-
 ```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "registered __NAME__ in companions/index.ts and companions/client.ts" })
-```
-
-### Step 6 — Self-check (§16f)
-
-Run a single synchronous validation:
-
-```
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "validating" })
-mcp__claudepanion__build_self_check({ companion: "__NAME__" })
+mcp__claudepanion__build_save_artifact({ id, artifact: { summary: "Built <slug>: <one line>", markdown: <above>, ...extras } })
+mcp__claudepanion__build_update_status({ id, status: "completed" })
 ```
 
-`build_self_check` runs the full §16f validator + smoke synchronously and returns:
+## Iterate-mode sub-flow
 
-```json
-{
-  "ok": <boolean>,
-  "validator": { "ok": <boolean>, "issues": [{ "code", "message", "fatal" }] },
-  "smoke":     { "ok": <boolean>, "results": [{ "tool", "ok" }] },
-  "ranAt":     "<ISO timestamp>"
-}
-```
-
-The validator already enforces the §16f rules from the spec:
-
-- `tools.empty_with_requiredEnv` — `requiredEnv` declared but `server/tools.ts` is empty (§16f.1, fatal)
-- `env.referenced_not_declared` / `env.declared_not_used` — env vars in handlers must match `requiredEnv` (§16f.2, warn)
-- `tool.name.namespace` — every tool prefixed with the slug (hyphens→underscores)
-- `skill.missing` / `skill.frontmatter.*` — skill file exists with required frontmatter
-- `index.export.missing` — companion's `index.ts` exports the camelCase binding
-- `file.missing` — required companion files present
-
-Plus smoke: every domain tool runs (or fails the right way) when called with empty args.
-
-#### Branch on the result
-
-If `result.ok === true`:
-
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Self-check passed: validator + smoke green" })
-```
-
-If `result.ok === false`, gather the fatal issue messages (`validator.issues.filter(i => i.fatal)`) and any failed smoke results, and call:
-
-```
-mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "[input] self-check failed: <joined issue messages>" })
-```
-
-The `[input]` prefix means the user can re-trigger Build with feedback (e.g. "the description was vague — be more specific about what data the companion needs"). Do not commit a half-built companion.
-
-### Step 7 — Commit
-
-```bash
-git add companions/__NAME__ skills/__NAME__-companion companions/index.ts companions/client.ts package.json package-lock.json
-git commit -m "companion: scaffold __NAME__"
-```
-
-For `kind: "tool"`, omit `companions/client.ts`. If no SDK was added, omit `package.json` and `package-lock.json`.
-
-### Step 8 — Save artifact + complete
-
-```
-mcp__claudepanion__build_save_artifact({
-  id: "<entity-id>",
-  artifact: {
-    filesCreated: [<list of new file paths>],
-    filesModified: ["companions/index.ts", "companions/client.ts", "package.json"],
-    summary: "Built __NAME__ (<kind>) with <N> proxy tools using <SDK>. Start a new Claude Code session in this repo and paste /__NAME__-companion <new-entity-id> to use it.",
-    validatorPassed: <bool>,
-    smokeTestPassed: <bool>
-  }
-})
-```
-
-Append a final log line so the live tail in the browser shows the next-session instruction even before the artifact renders:
-
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "Done. Start a new Claude Code session in this repo to use /__NAME__-companion." })
-```
-
-Then complete:
-
-```
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "completed" })
-```
-
-If Step 6 self-check reported fatal issues, call `build_fail` instead.
+1. `build_get`; verify target exists and `target !== "build"`.
+2. Read every file under `companions/<target>/` and `skills/<target>-companion/SKILL.md`.
+3. `build_update_status` running.
+4. Apply the requested change to the affected files (manifest / types / tools / skill body).
+5. Bump version in `manifest.ts` — patch for fix/typo, minor for additions, major for breaking.
+6. `claudepanion scaffold <target>`.
+7. Branch on result (Step 8 table above).
+8. Commit `git add companions/<target> skills/<target>-companion` (+ `package.json` if changed).
+9. `build_save_artifact` (markdown of what changed) + `build_update_status` completed.
 
 ---
 
-## Mode: iterate-companion
+## SDK guidance
 
-### Step 2 — Load target
+| External system | SDK | Credential default |
+|---|---|---|
+| AWS | `@aws-sdk/client-<service>` | `fromNodeProviderChain({ profile })` from `@aws-sdk/credential-providers` |
+| GitHub | `@octokit/rest` | env `GITHUB_TOKEN` (PAT, `repo` scope) |
+| Linear | `@linear/sdk` | env `LINEAR_API_KEY` |
+| Slack | `@slack/web-api` | env `SLACK_BOT_TOKEN` |
+| OpenAI | `openai` | env `OPENAI_API_KEY` |
+| Generic HTTP | built-in `fetch` | varies — document required env in manifest |
 
-`entity.input` has `target` (slug) and `description` (what to change). Verify:
+The skill teaches the canonical `[config]` / `[input]` / `[transient]` taxonomy in the worked example below; per-service mappings are copy-paste.
 
-- `companions/<target>/` exists on disk.
-- `target !== "build"` — self-iteration is disallowed. On violation:
+---
 
-```
-mcp__claudepanion__build_fail({ id: "<entity-id>", errorMessage: "cannot iterate on Build itself" })
-```
+## Worked example: PR reviewer
 
-### Step 3 — Mark running
+User submits a Build form with:
 
-```
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "reading current source" })
-```
+> "Review a PR in this repo — fetch the diff and existing comments, flag risky diffs, suggest review questions for the author. Optionally post a structured review back. GitHub-only, requires GITHUB_TOKEN."
 
-### Step 4 — Read current source
-
-Read every file under `companions/<target>/`. Note the manifest version. Read `skills/<target>-companion/SKILL.md` too.
-
-### Step 5 — Apply the change (§16-aware)
+### Interpretation (echoed back to the user)
 
 ```
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "running", statusMessage: "applying change" })
+Interpreted as with-write companion against GitHub.
+  Form fields: { repo: string, prNumber: number, focus?: string, postBack: boolean }
+  Tools: pr_reviewer_get_pr (read), pr_reviewer_get_diff (read),
+         pr_reviewer_get_comments (read), pr_reviewer_post_review (write)
+  Artifact extras: { prNumber: number, recommendation: "approve" | "request_changes" | "comment" }
+  SDK: @octokit/rest; credentials: env GITHUB_TOKEN
 ```
 
-Judgment step. Read `entity.input.description` and make the requested modifications. Keep changes focused on what was asked.
+### Authored `companions/pr-reviewer/manifest.ts`
 
-If the change adds a new proxy tool or modifies an existing one, apply the §16d/§16e contract for affected files:
+```ts
+import type { Manifest } from "../../src/shared/types.js";
 
-- **New proxy tool** → add to `companions/<target>/server/tools.ts` following §9d pattern (validate config → validate input → call API → classify error → return); update skill body's Step 4 to call it
-- **New external system** → declare env var in `manifest.requiredEnv` (§16c), add SDK to root `package.json`, run `npm install`
-- **New input field** → update `<Pascal>Input` in `types.ts` AND add the input element to `form.tsx`
-- **New artifact field** → update `<Pascal>Artifact` in `types.ts` AND render it in `pages/Detail.tsx`
-- **New write tool** → set `sideEffect: "write"`, update skill body's Step 4 with the user-permission stanza (§9e.ii)
-
-After each file change:
-
-```
-mcp__claudepanion__build_append_log({ id: "<entity-id>", message: "modified <path>" })
-```
-
-### Step 6 — Bump version
-
-Update `companions/<target>/manifest.ts` `version`:
-
-- **Patch** (0.1.0 → 0.1.1) for "fix", "typo", "wording".
-- **Major** (0.1.0 → 1.0.0) for explicit "breaking" language.
-- **Minor** (0.1.0 → 0.2.0) otherwise.
-
-### Step 7 — Validate
-
-Same as new-companion Step 6 (build_self_check), but for `<target>`.
-
-### Step 8 — Commit
-
-```bash
-git add companions/<target> skills/<target>-companion package.json package-lock.json
-git commit -m "companion(<target>): <one-line summary>"
+export const manifest: Manifest = {
+  name: "pr-reviewer",
+  kind: "ui",
+  displayName: "PR Reviewer",
+  icon: "👀",
+  description: "Review a GitHub PR — fetch the diff, flag risky changes, suggest review questions, optionally post a structured review.",
+  contractVersion: "2",
+  version: "0.1.0",
+  requiredEnv: ["GITHUB_TOKEN"],
+};
 ```
 
-### Step 9 — Save artifact + complete
+### Authored `companions/pr-reviewer/types.ts`
+
+```ts
+import { z } from "zod";
+import type { BaseArtifact } from "../../src/shared/types.js";
+
+export const InputSchema = z.object({
+  repo: z.string().min(1).describe("Repo (owner/name)"),
+  prNumber: z.number().int().positive().describe("PR number"),
+  focus: z.string().optional().describe("Optional focus area (e.g. 'security', 'perf')")
+    .meta({ ui: { kind: "textarea" } }),
+  postBack: z.boolean().default(false).describe("Post the review back to the PR"),
+});
+
+export type Input = z.infer<typeof InputSchema>;
+
+export interface ArtifactExtras {
+  prNumber: number;
+  recommendation: "approve" | "request_changes" | "comment";
+}
+
+export type Artifact = BaseArtifact & ArtifactExtras;
+```
+
+### Authored `companions/pr-reviewer/server/tools.ts`
+
+```ts
+import { z } from "zod";
+import { Octokit } from "@octokit/rest";
+import { defineTool } from "../../../src/shared/define-tool.js";
+import {
+  successResult,
+  configErrorResult,
+  inputErrorResult,
+  transientErrorResult,
+  errorResult,
+} from "../../../src/shared/types.js";
+
+function classifyGithubError(err: unknown) {
+  const e = err as { status?: number; message?: string };
+  const msg = e?.message ?? String(err);
+  if (e?.status === 401 || e?.status === 403) return configErrorResult("GITHUB_TOKEN", `auth failed: ${msg}`);
+  if (e?.status === 404 || e?.status === 422) return inputErrorResult(`not found / unprocessable: ${msg}`);
+  if (e?.status === 429 || (e?.status ?? 0) >= 500) return transientErrorResult(`upstream: ${msg}`);
+  return errorResult(msg);
+}
+
+function octokit() {
+  const token = process.env.GITHUB_TOKEN;
+  if (!token) return null;
+  return new Octokit({ auth: token });
+}
+
+export const tools = [
+  defineTool({
+    name: "pr_reviewer_get_pr",
+    description: "Fetch PR metadata (title, author, base/head, mergeable). Read-only.",
+    sideEffect: "read",
+    schema: { repo: z.string(), prNumber: z.number().int().positive() },
+    async handler({ repo, prNumber }) {
+      const gh = octokit();
+      if (!gh) return configErrorResult("GITHUB_TOKEN", "set a PAT with repo scope");
+      const [owner, name] = repo.split("/");
+      if (!owner || !name) return inputErrorResult("repo must be 'owner/name'");
+      try {
+        const { data } = await gh.pulls.get({ owner, repo: name, pull_number: prNumber });
+        return successResult(data);
+      } catch (err) { return classifyGithubError(err); }
+    },
+  }),
+  defineTool({
+    name: "pr_reviewer_get_diff",
+    description: "Fetch the unified diff for the PR. Read-only.",
+    sideEffect: "read",
+    schema: { repo: z.string(), prNumber: z.number().int().positive() },
+    async handler({ repo, prNumber }) {
+      const gh = octokit();
+      if (!gh) return configErrorResult("GITHUB_TOKEN", "set a PAT with repo scope");
+      const [owner, name] = repo.split("/");
+      try {
+        const { data } = await gh.pulls.get({
+          owner, repo: name, pull_number: prNumber,
+          mediaType: { format: "diff" },
+        });
+        return successResult({ diff: data as unknown as string });
+      } catch (err) { return classifyGithubError(err); }
+    },
+  }),
+  defineTool({
+    name: "pr_reviewer_get_comments",
+    description: "Fetch existing review comments on the PR. Read-only.",
+    sideEffect: "read",
+    schema: { repo: z.string(), prNumber: z.number().int().positive() },
+    async handler({ repo, prNumber }) {
+      const gh = octokit();
+      if (!gh) return configErrorResult("GITHUB_TOKEN", "set a PAT with repo scope");
+      const [owner, name] = repo.split("/");
+      try {
+        const { data } = await gh.pulls.listReviewComments({ owner, repo: name, pull_number: prNumber });
+        return successResult(data);
+      } catch (err) { return classifyGithubError(err); }
+    },
+  }),
+  defineTool({
+    name: "pr_reviewer_post_review",
+    description: "Post a structured review back to the PR. Visible to all collaborators on the repo and cannot be unsent. Requires GITHUB_TOKEN with 'repo' scope.",
+    sideEffect: "write",
+    schema: {
+      repo: z.string(),
+      prNumber: z.number().int().positive(),
+      event: z.enum(["APPROVE", "REQUEST_CHANGES", "COMMENT"]),
+      body: z.string().min(1),
+    },
+    async handler({ repo, prNumber, event, body }) {
+      const gh = octokit();
+      if (!gh) return configErrorResult("GITHUB_TOKEN", "set a PAT with repo scope");
+      const [owner, name] = repo.split("/");
+      try {
+        const { data } = await gh.pulls.createReview({ owner, repo: name, pull_number: prNumber, event, body });
+        return successResult({ id: data.id, htmlUrl: data.html_url });
+      } catch (err) { return classifyGithubError(err); }
+    },
+  }),
+];
+```
+
+### Authored `skills/pr-reviewer-companion/SKILL.md`
+
+```markdown
+---
+name: pr-reviewer-companion
+description: Use when the user pastes "/pr-reviewer-companion <entity-id>" — reviews a GitHub PR and (optionally) posts a structured review back.
+---
+
+# /pr-reviewer-companion <entity-id>
+
+> Read-only by default. Posts a review only when `postBack` is true AND the user explicitly confirms.
+
+## Step 1 — Load
+`mcp__claudepanion__pr_reviewer_get({ id })`
+
+## Step 2 — Mark running
+`mcp__claudepanion__pr_reviewer_update_status({ id, status: "running", statusMessage: "fetching PR" })`
+
+## Step 3 — Validate
+Confirm `repo`, `prNumber`, `GITHUB_TOKEN` set.
+
+## Step 4 — Do the work
+
+### 4a — Fetch the PR
+`mcp__claudepanion__pr_reviewer_get_pr({ repo, prNumber })`
+`mcp__claudepanion__pr_reviewer_append_log({ id, message: "Fetched PR #<n>: <title>" })`
+
+### 4b — Read the diff
+`mcp__claudepanion__pr_reviewer_get_diff({ repo, prNumber })`
+`mcp__claudepanion__pr_reviewer_append_log({ id, message: "Read diff (<lines> lines)" })`
+
+### 4c — Read existing comments
+`mcp__claudepanion__pr_reviewer_get_comments({ repo, prNumber })`
+`mcp__claudepanion__pr_reviewer_append_log({ id, message: "<n> existing comments" })`
+
+### 4d — Analyze
+Read the diff with `focus` in mind. Build a list of risks and review questions. Pick one of `approve` / `request_changes` / `comment`.
+
+### 4e — (postBack only) Post the review
+**Show the user the proposed review body in chat.** Ask: "Should I post this review to PR #<n>?" Wait for confirmation.
+
+If confirmed:
+`mcp__claudepanion__pr_reviewer_post_review({ repo, prNumber, event, body })`
+
+If declined: skip the call; add `"user declined to post review"` to `artifact.errors[]` and continue.
+
+## Step 5 — Save artifact
+`mcp__claudepanion__pr_reviewer_save_artifact({ id, artifact: { summary, markdown, prNumber, recommendation } })`
+
+## Step 6 — Complete
+`mcp__claudepanion__pr_reviewer_update_status({ id, status: "completed" })`
+```
+
+### Scaffold CLI invocation
 
 ```
-mcp__claudepanion__build_save_artifact({
-  id: "<entity-id>",
-  artifact: {
-    filesCreated: [],
-    filesModified: [<list of modified paths>],
-    summary: "Iterated <target>: <one-or-two sentences>. If the change added a new skill step or proxy tool, start a new Claude Code session to pick it up.",
-    validatorPassed: <bool>,
-    smokeTestPassed: <bool>
-  }
-})
+$ claudepanion scaffold pr-reviewer
+{ "ok": true, "slug": "pr-reviewer", "kind": "ui",
+  "stagesRun": ["validate","deps","codegen","build","remount","self-check"],
+  "filesGenerated": ["companions/pr-reviewer/index.ts","companions/index.ts","companions/client.ts"],
+  "dependenciesAdded": ["@octokit/rest@^21.0.0"],
+  "selfCheck": { "validator": { "ok": true }, "smoke": { "ok": true } } }
+```
 
-mcp__claudepanion__build_update_status({ id: "<entity-id>", status: "completed" })
+### Markdown artifact saved by the build skill
+
+```markdown
+## Built `pr-reviewer`
+
+GitHub PR reviewer. Read-only by default; can post a structured review back when the user confirms. Requires `GITHUB_TOKEN` with `repo` scope.
+
+**Tools:** `pr_reviewer_get_pr`, `pr_reviewer_get_diff`, `pr_reviewer_get_comments`, `pr_reviewer_post_review` (write)
+
+### Files created
+- `companions/pr-reviewer/manifest.ts`
+- `companions/pr-reviewer/types.ts`
+- `companions/pr-reviewer/server/tools.ts`
+- `skills/pr-reviewer-companion/SKILL.md`
+
+### Files modified
+- `companions/pr-reviewer/index.ts` (auto-generated)
+- `companions/index.ts` (auto-regenerated)
+- `companions/client.ts` (auto-regenerated)
+- `package.json` — added @octokit/rest
+
+### Validation
+- ✓ validator
+- ✓ smoke (4 tools)
+
+### Next step
+Start a new Claude Code session in this repo and paste:
+`/pr-reviewer-companion <new-entity-id>`
 ```
 
 ---
 
 ## Common mistakes
 
-Every row caused a real failure. Don't repeat them.
+### STOP — do not proceed
+- About to curl `/api/entities/*` to mutate state.
+- About to write directly to `data/**/*.json`.
+- About to leave `<<<INSERT PLAYBOOK HERE>>>` (or any placeholder) in the authored SKILL.md.
+- About to mark `completed` without `claudepanion scaffold`'s self-check having passed.
 
-| Mistake | Fix |
+### Hygiene — fix before commit
+- `git add` missed `package.json` (and `package-lock.json`) after a dependency change.
+- Skill description is generic ("Helps with X") instead of specific (what data, what action, what credentials).
+- `ArtifactExtras` has fields no list-row override consumes — delete them; rendering is markdown.
+
+---
+
+## Error handling
+
+| Prefix | Action |
 |---|---|
-| *"Let me curl the MCP endpoint since the tools aren't loaded."* | STOP. Tell the user MCP tools aren't loaded (see CRITICAL block at top). Do not fall back to HTTP. |
-| *"I'll PATCH /api/entities/<id> to update status."* | The REST API has no PATCH endpoint and shouldn't be used for mutations regardless. Use `mcp__claudepanion__build_update_status`. |
-| *"I'll write directly to data/build/<id>.json via a Node script."* | Never. State changes go through MCP tools. Direct writes bypass logging, watchers, and session context. |
-| **Authoring only the scaffolding shell** — empty `server/tools.ts`, placeholder types. | Step 4 is the load-bearing authoring step. The companion needs REAL content per §16d, not just substituted tokens. |
-| **Empty `server/tools.ts` when the description named an external system.** | §16f.1: Step 6 self-check fails the build. Add real `CompanionToolDefinition` entries using the SDK from §16c. |
-| **Leaving `__DESCRIPTION__` or the TODO comment in the skill body's Step 4.** | Step 4 (skill body row) authors a sequenced playbook of proxy-tool calls — replace, don't preserve, the TODO comment. |
-| **Skipping `npm install` after editing `package.json`.** | Step 4.6: the import won't resolve until the package is installed. Watcher can't compile against missing dependencies. |
-| **Skipping `npm run build` after authoring files.** | Step 4.6: production-mode `claudepanion serve` reads from `dist/`. Without `npm run build`, the new form/list/detail components are missing from the bundled `companions/client.ts` and the user sees *"No form registered for &lt;name&gt;"* on the new companion's About page. |
-| **Skipping `requiredEnv` declaration after adding a tool that reads `process.env.X`.** | §16f.2: Step 6 self-check fails. Update the manifest. |
-| **Writing the skill to `skills/<name>-companion.md` (flat).** | Claude Code expects nested. Path is `skills/<name>-companion/SKILL.md`, literal filename `SKILL.md`. |
-| **Writing `interface __CAMEL__Input`** (camelCase). | Type names are PascalCase: `interface __PASCAL__Input`. Variable bindings are camelCase. |
-| Skipping `companions/client.ts` registration for entity kind. | UI shows *"No form registered"*. Always edit BOTH `index.ts` and `client.ts`. |
-| Forgetting `package.json` + `package-lock.json` in `git add`. | Reviewer can't tell what dependency was added. Always include both. |
-| **Forgetting to tell the user to start a new Claude Code session.** | Claude Code discovers skills at session start. Step 8's artifact summary AND the final log line must say it explicitly. |
-
-## Red flags — STOP and re-read this skill
-
-- About to write a curl command against `/api/entities`.
-- About to invent an MCP tool name not spelled `mcp__claudepanion__build_*` or `mcp__claudepanion__<new-slug>_*`.
-- About to edit `data/**/*.json` directly.
-- About to skip `companions/client.ts` "because the UI will figure it out."
-- About to commit a companion whose `server/tools.ts` is still the empty TODO array.
-- About to leave `__DESCRIPTION__` or any `__TOKEN__` in the final skill body.
-- About to call `build_update_status({ status: "completed" })` without having run the Step 6 self-check.
-- About to substitute `__CAMEL__` where a type is declared.
-- About to place a skill file as `skills/<name>.md` instead of `skills/<name>/SKILL.md`.
-
-All of these mean: stop, re-read this skill, try again the correct way.
+| `[config]` | `_fail`; stop. User must fix env / credentials. |
+| `[input]` | `_fail`; stop. User must fix the form. |
+| `[transient]` | retry once; `_fail` if still failing. |
+| `[recoverable]` | log warn; append to `artifact.errors[]`; continue. |
+| (no prefix) | treat as fatal; `_fail`. |
