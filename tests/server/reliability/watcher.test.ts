@@ -1,9 +1,9 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { createWatcher, refreshReliability } from "../../../src/server/reliability/watcher";
+import { createWatcher, refreshReliability, isDistStale, DistStaleError } from "../../../src/server/reliability/watcher";
 import { createRegistry } from "../../../src/server/companion-registry";
 import type { RegisteredCompanion } from "../../../src/server/companion-registry";
 import { tmpdir } from "node:os";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 
 function mkCompanion(name: string, version: string): RegisteredCompanion {
@@ -109,5 +109,39 @@ describe("registry onChange", () => {
     reg.onChange((n) => fired.push(n));
     reg.remount(mkCompanion("foo", "0.2.0"));
     expect(fired).toEqual(["foo"]);
+  });
+});
+
+describe("watcher dist-mtime gate", () => {
+  it("isDistStale returns true when dist is older than source", () => {
+    const testDir = mkdtempSync(join(tmpdir(), "watcher-stale-test-"));
+    const sourcePath = join(testDir, "src.ts");
+    const distPath = join(testDir, "dist.js");
+    writeFileSync(sourcePath, "");
+    writeFileSync(distPath, "");
+    const old = new Date(Date.now() - 60000);
+    utimesSync(distPath, old, old);
+
+    expect(isDistStale(sourcePath, distPath)).toBe(true);
+
+    rmSync(testDir, { recursive: true });
+  });
+
+  it("isDistStale returns false when dist is newer than source", () => {
+    const testDir = mkdtempSync(join(tmpdir(), "watcher-stale-test-"));
+    const sourcePath = join(testDir, "src.ts");
+    const distPath = join(testDir, "dist.js");
+    writeFileSync(sourcePath, "");
+    writeFileSync(distPath, "");
+    const old = new Date(Date.now() - 60000);
+    utimesSync(sourcePath, old, old);
+
+    expect(isDistStale(sourcePath, distPath)).toBe(false);
+
+    rmSync(testDir, { recursive: true });
+  });
+
+  it("isDistStale returns true when files are missing", () => {
+    expect(isDistStale("/nonexistent/source", "/nonexistent/dist")).toBe(true);
   });
 });

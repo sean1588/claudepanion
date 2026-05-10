@@ -1,10 +1,28 @@
 import chokidar from "chokidar";
 import { resolve } from "node:path";
+import { statSync } from "node:fs";
 import type { Registry, RegisteredCompanion } from "../companion-registry.js";
 import { validateCompanion } from "./validator.js";
 import { smokeCompanion } from "./smoke.js";
 import type { ValidationReport } from "./validator.js";
 import type { SmokeReport } from "./smoke.js";
+
+export class DistStaleError extends Error {
+  constructor(public sourcePath: string, public distPath: string) {
+    super(`dist file ${distPath} is older than source ${sourcePath}`);
+    this.name = "DistStaleError";
+  }
+}
+
+export function isDistStale(sourcePath: string, distPath: string): boolean {
+  try {
+    const srcStat = statSync(sourcePath);
+    const distStat = statSync(distPath);
+    return distStat.mtimeMs < srcStat.mtimeMs;
+  } catch {
+    return true; // file missing → treat as stale
+  }
+}
 
 export interface ReliabilitySnapshot {
   validator: ValidationReport;
@@ -29,18 +47,23 @@ export interface Watcher {
 }
 
 async function defaultReimport(companionName: string, companionsDir: string): Promise<RegisteredCompanion | null> {
-  const candidates = [
+  const distCandidates = [
     resolve(process.cwd(), "dist/companions", companionName, "index.js"),
     resolve(companionsDir, companionName, "index.js"),
   ];
+  const sourceCandidate = resolve(companionsDir, companionName, "manifest.ts");
   const cacheBust = `?t=${Date.now()}`;
-  for (const path of candidates) {
+  for (const distPath of distCandidates) {
+    if (isDistStale(sourceCandidate, distPath)) {
+      throw new DistStaleError(sourceCandidate, distPath);
+    }
     try {
-      const mod = await import(`file://${path}${cacheBust}`);
+      const mod = await import(`file://${distPath}${cacheBust}`);
       const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
       if (companion && companion.manifest) return companion;
-    } catch {
-      // try next
+    } catch (err) {
+      if (err instanceof DistStaleError) throw err;
+      // try next candidate for non-stale errors
     }
   }
   return null;
