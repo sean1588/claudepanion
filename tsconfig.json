@@ -7,6 +7,7 @@
     "esModuleInterop": true,
     "skipLibCheck": true,
     "resolveJsonModule": true,
+    "declaration": true,
     "outDir": "dist",
     "tsBuildInfoFile": "dist/.tsbuildinfo",
     "incremental": true,
@@ -16,6 +17,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/cli/**/*", "src/server/**/*", "src/shared/**/*", "companions/**/*.ts"],
+  "include": ["src/cli/**/*", "src/host/**/*", "src/server/**/*", "src/shared/**/*", "companions/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/client", "companions/**/*.tsx", "companions/client.ts", "companions/build/templates"]
 }

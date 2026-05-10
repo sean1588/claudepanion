@@ -4,6 +4,15 @@
   "private": true,
   "license": "Apache-2.0",
   "type": "module",
+  "main": "./dist/src/host/index.js",
+  "types": "./dist/src/host/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/host/index.js",
+      "types": "./dist/src/host/index.d.ts"
+    },
+    "./tsconfig.base.json": "./src/host/tsconfig.base.json"
+  },
   "bin": {
     "claudepanion": "./bin/cli.js"
   },
