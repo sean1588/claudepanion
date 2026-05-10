@@ -110,8 +110,9 @@ export function validateCompanion(args: {
 
   if (args.companionDir) {
     // Phase 5: drop "entity" check; only "ui" valid.
+    // form/Detail/List are optional overrides; types + tools are required.
     const required = isUiKind
-      ? ["form.tsx", "pages/List.tsx", "pages/Detail.tsx", "types.ts", "server/tools.ts"]
+      ? ["types.ts", "server/tools.ts"]
       : ["server/tools.ts"];
     for (const rel of required) {
       if (!existsSync(join(args.companionDir, rel))) {
