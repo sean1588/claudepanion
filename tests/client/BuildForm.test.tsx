@@ -34,7 +34,7 @@ describe("BuildForm ?example= prefill", () => {
     const kind = await screen.findByLabelText(/kind/i) as HTMLSelectElement;
     await waitFor(() => {
       expect(name.value).toBe("github-pr-reviewer");
-      expect(kind.value).toBe("entity");
+      expect(kind.value).toBe("ui");
       expect(description.value).toMatch(/flag risky diffs/i);
     });
   });
