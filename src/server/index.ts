@@ -11,6 +11,7 @@ import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
 import { dataPath, ensureClaudepanionDirs } from "./paths.js";
+import { bumpMcpStatus } from "./mcp-status.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const repoRoot = process.cwd();
@@ -89,7 +90,10 @@ async function main() {
 
   const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
   await mcpServer.connect(transport);
-  app.all("/mcp", (req, res) => transport.handleRequest(req, res, req.body));
+  app.all("/mcp", (req, res) => {
+    bumpMcpStatus();
+    transport.handleRequest(req, res, req.body);
+  });
 
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").send("User-agent: *\nDisallow: /\n");

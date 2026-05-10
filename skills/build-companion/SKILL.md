@@ -13,9 +13,31 @@ Build is claudepanion's companion that scaffolds other companions.
 > - NEVER edit `data/build/*.json` directly.
 > - NEVER leave a placeholder like `<<<INSERT PLAYBOOK HERE>>>` in an authored file.
 > - NEVER mark `completed` until `claudepanion scaffold`'s self-check stage passed.
-> - If MCP tools aren't loaded, STOP and tell the user to verify `claudepanion plugin install` and start a new session.
 
 The reference doc for the contract you're authoring against is [`docs/scaffold-spec.md`](../../docs/scaffold-spec.md).
+
+## Step 0 — Verify the claudepanion MCP is connected
+
+**This MUST be the first thing you do. Do not skip it. Do not improvise around it.**
+
+Confirm `mcp__claudepanion__*` tools are available in this session before doing anything else. If Step 1 below (the `build_get` call) returns "tool not available", "MCP server not connected", a transport error, or any analogous failure:
+
+- **STOP. Do not continue past this step.**
+- **Do not** read files manually, run `git` / `grep` / Bash, or try to discover the entity any other way.
+- **Do not** start authoring scaffold files speculatively.
+- Tell the user the message below and wait for them to fix the connection before proceeding.
+
+> I can't reach the claudepanion MCP server. Try these in order:
+>
+> 1. Run `/mcp` in this session and check whether `claudepanion` is listed (and not in an error state).
+> 2. Confirm the claudepanion server is running — open <http://localhost:3001> or run `lsof -i :3001`. If it isn't, run `claudepanion serve`.
+> 3. Re-install the plugin in this repo: `claudepanion plugin install`.
+> 4. Rebuild the claudepanion checkout: `npm run build`.
+> 5. Start a **new** Claude Code session (plugins load at session start, not mid-session) and re-run `/mcp` to confirm — then re-paste the slash command.
+>
+> See [`docs/troubleshooting.md`](../../docs/troubleshooting.md) for more.
+
+The MCP server is the only supported channel for this skill. If it's unreachable, the work cannot proceed — there is no manual fallback.
 
 ## Step 1 — Load the entity
 
@@ -75,7 +97,7 @@ Author real domain content for each file based on Step 2's interpretation. No to
 | `companions/<slug>/manifest.ts` | `name`, `kind: "ui"`, `displayName`, `icon`, `description`, `contractVersion: "2"`, `version: "0.1.0"`, `requiredEnv`. |
 | `companions/<slug>/types.ts` | `InputSchema = z.object({...})` with `.describe()` and `.meta({ ui: ... })`. Optional `ArtifactExtras`. Default `Artifact = BaseArtifact;`. |
 | `companions/<slug>/server/tools.ts` | One `defineTool({...})` per proxy tool. Inline error classifier mapping the SDK's errors onto `[config]` / `[input]` / `[transient]`. `sideEffect: "write"` on write tools with explicit consequence in the description. |
-| `skills/<slug>-companion/SKILL.md` | Frontmatter + CRITICAL block + Steps 1–6. Step 4 is a sequenced playbook of `mcp__claudepanion__<slug>_*` tool calls + log lines — one sub-step per tool. Write tools get the user-permission stanza. |
+| `skills/<slug>-companion/SKILL.md` | Frontmatter + CRITICAL block + **Step 0 (verify MCP)** + Steps 1–6. Step 4 is a sequenced playbook of `mcp__claudepanion__<slug>_*` tool calls + log lines — one sub-step per tool. Write tools get the user-permission stanza. |
 
 After each file:
 ```
@@ -363,6 +385,18 @@ description: Use when the user pastes "/pr-reviewer-companion <entity-id>" — r
 # /pr-reviewer-companion <entity-id>
 
 > Read-only by default. Posts a review only when `postBack` is true AND the user explicitly confirms.
+
+## Step 0 — Verify the claudepanion MCP is connected
+
+**This MUST be the first thing you do.** If Step 1 below returns "tool not available", "MCP server not connected", or any analogous failure, **STOP**. Do not read files, run Bash, or investigate the PR manually. Tell the user:
+
+> I can't reach the claudepanion MCP server. Try these in order:
+>
+> 1. Run `/mcp` and check whether `claudepanion` is listed (and not errored).
+> 2. Confirm the claudepanion server is running — open <http://localhost:3001> or run `lsof -i :3001`. If not, run `claudepanion serve`.
+> 3. Re-install the plugin in this repo: `claudepanion plugin install`.
+> 4. Rebuild the claudepanion checkout: `npm run build`.
+> 5. Start a **new** Claude Code session and re-run `/mcp` to confirm — then re-paste the slash command.
 
 ## Step 1 — Load
 `mcp__claudepanion__pr_reviewer_get({ id })`
