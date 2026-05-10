@@ -1,5 +1,28 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
 import { join } from "node:path";
+
+function detectMissingDeps(toolsTsPath: string, packageJsonPath: string): string[] {
+  if (!existsSync(toolsTsPath)) return [];
+  const src = readFileSync(toolsTsPath, "utf8");
+  const importRe = /\bimport\s+(?:[^"']+from\s+)?["']([^"']+)["']/g;
+  const imports = new Set<string>();
+  let match: RegExpExecArray | null;
+  while ((match = importRe.exec(src))) {
+    const spec = match[1];
+    if (!spec.startsWith(".") && !spec.startsWith("node:")) {
+      const pkg = spec.startsWith("@")
+        ? spec.split("/").slice(0, 2).join("/")
+        : spec.split("/")[0];
+      imports.add(pkg);
+    }
+  }
+  const pkg = JSON.parse(readFileSync(packageJsonPath, "utf8"));
+  const deps = new Set([
+    ...Object.keys(pkg.dependencies ?? {}),
+    ...Object.keys(pkg.devDependencies ?? {}),
+  ]);
+  return [...imports].filter((p) => !deps.has(p));
+}
 import {
   renderCompanionIndex,
   renderRegistryIndex,
@@ -70,12 +93,18 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
   filesGenerated.push("companions/client.ts");
   stagesRun.push("codegen");
 
-  return {
-    ok: true,
-    slug,
-    kind: "ui",
-    stagesRun,
-    filesGenerated,
-    dependenciesAdded: [],
-  };
+  const toolsTsPath = join(compDir, "server/tools.ts");
+  const packageJsonPath = join(cwd, "package.json");
+  const missing = detectMissingDeps(toolsTsPath, packageJsonPath);
+  let dependenciesAdded: string[] = [];
+  if (missing.length > 0 && opts.installDeps === false) {
+    // Test path: just record without installing
+    dependenciesAdded = missing;
+  } else if (missing.length > 0) {
+    // Install deferred to Task 4.4 — for now, just record what would be installed
+    dependenciesAdded = missing;
+  }
+  stagesRun.push("deps");
+
+  return { ok: true, slug, kind: "ui", stagesRun, filesGenerated, dependenciesAdded };
 }

@@ -43,3 +43,21 @@ describe("scaffold CLI — discovery + codegen", () => {
     expect(readFileSync(join(dir, "companions/client.ts"), "utf8")).toContain("AUTO-GENERATED");
   });
 });
+
+describe("scaffold CLI — dep detection", () => {
+  it("detects an import in tools.ts not present in package.json", async () => {
+    writeFileSync(
+      join(dir, "companions/alpha/server/tools.ts"),
+      `import { z } from "zod"; import { something } from "@aws-sdk/client-s3"; export const tools = [];`
+    );
+    const result = await runScaffold("alpha", {
+      cwd: dir,
+      runBuild: false,
+      runRemount: false,
+      runSelfCheck: false,
+      installDeps: false,
+    });
+    expect(result.ok).toBe(true);
+    if (result.ok) expect(result.dependenciesAdded).toContain("@aws-sdk/client-s3");
+  });
+});
