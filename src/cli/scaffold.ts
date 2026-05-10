@@ -53,6 +53,7 @@ import {
   type CompanionDescriptor,
   type ClientDescriptor,
 } from "./codegen.js";
+import { callRemount } from "./remount.js";
 
 export interface ScaffoldOptions {
   cwd?: string;
@@ -137,6 +138,14 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
       return { ok: false, stage: "build", error: `npm run build failed: ${r.stderr.slice(0, 2000)}`, remediation: "fix the type/syntax error in the file the compiler names; re-run" };
     }
     stagesRun.push("build");
+  }
+
+  if (opts.runRemount ?? true) {
+    const r = await callRemount(slug, opts.port);
+    if (!r.ok) {
+      console.warn(`[scaffold] remount skipped: ${r.error}. Restart 'claudepanion serve' to pick up changes.`);
+    }
+    stagesRun.push("remount");
   }
 
   return { ok: true, slug, kind: "ui", stagesRun, filesGenerated, dependenciesAdded };
