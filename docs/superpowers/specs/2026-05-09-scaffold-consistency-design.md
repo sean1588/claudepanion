@@ -24,6 +24,46 @@ After this, the build skill is ~150 lines, every companion has the same predicta
 
 ---
 
+## What's a companion?
+
+A companion is a small app that lives inside the claudepanion host. There are two kinds.
+
+### UI-kind companion (`kind: "ui"`)
+
+A lifecycle-driven companion with a form, a run, and an artifact. Made up of:
+
+- **A manifest** (`manifest.ts`) — declares slug, kind, display name, icon, contract version, semantic version. The host's handshake.
+- **An input schema** (`types.ts`, exported as `InputSchema`) — a Zod schema describing the form's inputs, with `.meta({ ui: ... })` hints for dropdowns, groups, and field types. Drives auto-rendered forms.
+- **A markdown artifact contract** — every run produces a `BaseArtifact` (`{ summary, markdown, errors? }`) plus optional `ArtifactExtras` (typed fields for list-row badges, search, future programmatic use). The markdown is the canonical user-facing report.
+- **Proxy tools** (`server/tools.ts`) — MCP tools the skill calls during execution and the form calls for `optionsFrom` dropdowns. Authored with `defineTool({...})`.
+- **A skill body** (`skills/<slug>-companion/SKILL.md`) — the playbook Claude follows when the slash command fires. Mostly a host-canonical template; the freeform parts are the description frontmatter and the "Step 4 — Do the work" sequence of proxy-tool calls.
+- **Optional override files** — `form.tsx`, `pages/Detail.tsx`, `pages/List.tsx`. Drop one in to replace the default host primitive for that surface. Filesystem-presence is the contract.
+- **Lifecycle state** — entity JSON files in `~/.claudepanion/data/<slug>/<id>.json`, managed by the host. Form submission creates an entity; the skill transitions it from `pending` → `running` → `completed`/`error` and saves the artifact.
+
+The host renders three pages for every UI companion: the **Form page** (auto-generated from `InputSchema`), the **List page** (one row per past run, default `<DefaultListRow>`), and the **Detail page** (default `<MarkdownArtifactPanel>`).
+
+### Tool-kind companion (`kind: "tool"`)
+
+An MCP-only companion. No form, no list, no artifact, no lifecycle. Made up of:
+
+- **A manifest** (`manifest.ts`) — same shape as UI-kind but with `kind: "tool"`.
+- **Proxy tools** (`server/tools.ts`) — the entire point of this kind. The MCP server exposes them; Claude calls them directly during a session.
+- **A skill body** (`skills/<slug>-companion/SKILL.md`) — typically a brief "use these tools when X" guide rather than a step-by-step playbook. Optional, but recommended so Claude knows when the tools are relevant.
+
+The host renders one page for every tool companion: the **About page**, an auto-generated reference of available tools and their parameters.
+
+### What's auto-generated
+
+For both kinds, these files are emitted by `claudepanion scaffold` (deterministic, regenerated on every run):
+
+- `companions/<slug>/index.ts` — the exports binding manifest + tools.
+- `companions/index.ts` — the host registry array (alphabetical-by-slug).
+- `companions/client.ts` — the browser dispatch table for forms / list rows / detail panels (registers overrides where present, defaults otherwise).
+
+These stay tracked in git so a fresh `git clone && npm install && npm run build` works without first running the CLI. Manual edits are flagged in PR review by the `// AUTO-GENERATED` banner.
+
+---
+
 ## Background — the build experience this fixes
 
 The 2026-05-09 build run hit eleven distinct friction points, of which the load-bearing ones were:
