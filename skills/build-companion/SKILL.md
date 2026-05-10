@@ -137,7 +137,7 @@ mcp__claudepanion__build_update_status({
 
 ### Step 4 — Author each companion file (§16d — the load-bearing step)
 
-Write each of the files below with **real domain content** based on the Step 2.5 interpretation. The templates under `companions/build/templates/` exist as a starting reference — particularly for boilerplate (imports, JSX scaffolding, error helpers) — but you do not do a "tokenize-substitute-then-replace" pass. Author the real content directly.
+Write each of the files below with **real domain content** based on the Step 2.5 interpretation. Author the real content directly — do not do a "tokenize-substitute-then-replace" pass.
 
 This is the load-bearing step. If the description named an external system but `server/tools.ts` ends up an empty array, you have produced a UI with no backend. Step 6 self-check will fail the build.
 
