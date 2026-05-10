@@ -10,12 +10,13 @@ const pkgRoot = resolve(dirname(__filename), "..");
 const USAGE = `claudepanion — localhost companion host for Claude Code
 
 Usage:
-  claudepanion serve                     start the server (default port 3001)
-  claudepanion plugin install            register claudepanion as a Claude Code plugin in this repo
-  claudepanion plugin uninstall          unregister the plugin from this repo
-  claudepanion companion delete <slug>   delete a scaffolded companion and clean up registrations
-  claudepanion scaffold <slug>           generate registry files, build, remount, self-check
-  claudepanion regenerate                re-derive registry files from companions/ on disk
+  claudepanion init [--force]            initialize ~/.claudepanion/ (idempotent)
+  claudepanion serve                     start the server (auto-initializes if needed)
+  claudepanion plugin install [--repo]   register as a Claude Code plugin
+  claudepanion plugin uninstall [--repo] unregister the plugin
+  claudepanion companion delete <slug>   delete a scaffolded companion
+  claudepanion scaffold <slug>           generate registry files, build, remount
+  claudepanion regenerate                re-derive registry files from companions/
   claudepanion remount <slug>            ask the running server to re-import a companion
   claudepanion --help                    show this help
 
@@ -23,11 +24,11 @@ Options:
   PORT=<n>                               override server port (serve only)
 
 Notes:
-  - "plugin install" writes to <repo>/.claude/settings.local.json so Claude Code
-    loads both the MCP tools AND the bundled skills at session start. It does NOT
-    modify .mcp.json. Run this in every repo where you want claudepanion available.
-  - "serve" runs the HTTP server the plugin's MCP entry points at. Run it in a
-    long-lived terminal; plugin install only configures Claude Code, not the server.
+  - "init" bootstraps ~/.claudepanion/ — a user-local directory holding your
+    companions, skills, and runtime data. Idempotent; safe to re-run.
+  - "plugin install" defaults to global (~/.claude/settings.json). --repo writes
+    per-repo settings instead.
+  - "serve" auto-initializes ~/.claudepanion/ on first run if missing.
 `;
 
 function die(msg, code = 1) {
@@ -167,6 +168,22 @@ const [cmd, sub] = process.argv.slice(2);
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
   console.log(USAGE);
   process.exit(cmd ? 0 : 1);
+} else if (cmd === "init") {
+  const force = process.argv.includes("--force");
+  (async () => {
+    const { runInit } = await import(join(pkgRoot, "dist/src/cli/init.js"));
+    const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+    const home = rootPath();
+    const result = await runInit({ home, frameworkRoot: pkgRoot, force });
+    if (!result.ok) {
+      console.error(`✗ init failed at ${result.stage}: ${result.error}`);
+      process.exit(1);
+    }
+    console.log(`✓ ~/.claudepanion/ initialized`);
+    for (const file of result.filesCreated) console.log(`  created  ${file}`);
+    for (const link of result.symlinks) console.log(`  linked   ${link.path.replace(home + "/", "")} → ${link.target}`);
+    console.log(`\nTip: run 'claudepanion plugin install' to expose this to Claude Code.`);
+  })();
 } else if (cmd === "scaffold") {
   const slug = process.argv[3];
   if (!slug) die("Usage: claudepanion scaffold <slug>");
