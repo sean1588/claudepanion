@@ -52,3 +52,21 @@ The full stderr from npm is rendered on the page. Common causes:
 ## Tests failing with "module not found" for `.js` imports
 
 This project uses Node ESM. Imports of local `.ts` files must use `.js` extension: `import { x } from './foo.js'`. TypeScript rewrites this correctly. Templates under `companions/build/templates/` are excluded from `tsc` because they're source material, not compile inputs.
+
+## "Companion import 'claudepanion-host' not found" in a freshly scaffolded companion
+
+The symlink at `~/.claudepanion/node_modules/claudepanion-host` is broken or missing. Most common cause: switched node versions (`nvm use` or similar) and the global path moved. Fix:
+
+```bash
+claudepanion init
+```
+
+Init is idempotent; running it refreshes the symlinks. If that doesn't work, verify the global install is intact: `which claudepanion && ls -la $(dirname $(dirname $(which claudepanion)))/lib/node_modules/claudepanion`.
+
+## "`~/.claudepanion/` not found" when running `claudepanion plugin install`
+
+`plugin install` requires the user-local home to exist (the marketplace source points there). Run `claudepanion init` first, then retry `plugin install`.
+
+## After `npm install -g claudepanion@latest`, companions fail to load
+
+Possible contract-version drift — the new framework supports `contractVersion: "X"` and your companions are on an older version. Open <http://localhost:3001/api/reliability/<companion>> to see the validator's complaint. As an interim workaround, edit the companion's `manifest.ts` to bump the contractVersion (if no breaking changes apply) or pin to the previous framework version (`npm install -g claudepanion@<previous>`).
