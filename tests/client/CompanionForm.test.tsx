@@ -29,3 +29,35 @@ describe("CompanionForm — text and select", () => {
     expect(onSubmit).toHaveBeenCalledWith({ name: "Sean" });
   });
 });
+
+describe("CompanionForm — datetime/number/checkbox/textarea", () => {
+  it("renders datetime-local for z.string().datetime()", () => {
+    const schema = z.object({ when: z.string().datetime().describe("When") });
+    render(<CompanionForm schema={schema} onSubmit={() => {}} />);
+    const inp = screen.getByLabelText(/when/i) as HTMLInputElement;
+    expect(inp.type).toBe("datetime-local");
+  });
+
+  it("renders number input for z.number()", () => {
+    const schema = z.object({ count: z.number().describe("Count") });
+    render(<CompanionForm schema={schema} onSubmit={() => {}} />);
+    const inp = screen.getByLabelText(/count/i) as HTMLInputElement;
+    expect(inp.type).toBe("number");
+  });
+
+  it("renders checkbox for z.boolean()", () => {
+    const schema = z.object({ enabled: z.boolean().describe("Enabled") });
+    render(<CompanionForm schema={schema} onSubmit={() => {}} />);
+    const inp = screen.getByLabelText(/enabled/i) as HTMLInputElement;
+    expect(inp.type).toBe("checkbox");
+  });
+
+  it("renders textarea for meta.ui.kind = 'textarea'", () => {
+    const schema = z.object({
+      desc: z.string().meta({ ui: { kind: "textarea" } }).describe("Description"),
+    });
+    render(<CompanionForm schema={schema} onSubmit={() => {}} />);
+    const inp = screen.getByLabelText(/description/i);
+    expect(inp.tagName).toBe("TEXTAREA");
+  });
+});
