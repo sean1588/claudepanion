@@ -10,7 +10,9 @@
     "skipLibCheck": true,
     "baseUrl": ".",
     "paths": {
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "claudepanion-host": ["./src/host/index.ts"],
+      "claudepanion-host/tsconfig.base.json": ["./src/host/tsconfig.base.json"]
     }
   },
   "include": ["src/client/**/*", "src/shared/**/*", "companions/**/*.tsx", "companions/**/*.ts"],

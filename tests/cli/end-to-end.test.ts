@@ -10,7 +10,12 @@ describe("CLI end-to-end (init → regenerate)", () => {
   let home: string;
   beforeAll(() => {
     home = mkdtempSync(join(tmpdir(), "cp-e2e-"));
-  });
+    // bin/cli.js dynamic-imports from dist/; ensure it exists. tsc is fast on no-op rebuilds.
+    if (!existsSync(join(repoRoot, "dist/src/cli/init.js"))) {
+      const build = spawnSync("npm", ["run", "build"], { cwd: repoRoot, encoding: "utf-8" });
+      if (build.status !== 0) throw new Error(`pre-test build failed: ${build.stderr}`);
+    }
+  }, 60_000);
   afterAll(() => {
     rmSync(home, { recursive: true, force: true });
   });
