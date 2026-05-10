@@ -17,7 +17,7 @@ const manifest = (name: string): Manifest => ({
   displayName: name,
   icon: "🧪",
   description: "t",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.0.1",
 });
 
@@ -307,7 +307,7 @@ describe("POST /api/internal/remount", () => {
   it("returns 200 on successful remount", async () => {
     const reMounts: string[] = [];
     const registry = createRegistry([{
-      manifest: { name: "x", kind: "ui", displayName: "X", icon: "🧪", description: "t", contractVersion: "1", version: "0.0.1" },
+      manifest: { name: "x", kind: "ui", displayName: "X", icon: "🧪", description: "t", contractVersion: "2", version: "0.0.1" },
       tools: [],
     }]);
     const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-"));

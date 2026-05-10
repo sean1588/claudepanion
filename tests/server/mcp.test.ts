@@ -15,7 +15,7 @@ const manifest = (name: string): Manifest => ({
   displayName: name,
   icon: "🧪",
   description: "t",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.0.1",
 });
 

@@ -6,13 +6,13 @@ import CompanionAbout from "../../src/client/pages/CompanionAbout";
 beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url === "/api/companions") return new Response(JSON.stringify([
-      { name: "demo", kind: "entity", displayName: "Demo", icon: "✨", description: "Demo companion.", contractVersion: "1", version: "0.1.0", requiredEnv: ["DEMO_TOKEN"] },
+      { name: "demo", kind: "entity", displayName: "Demo", icon: "✨", description: "Demo companion.", contractVersion: "2", version: "0.1.0", requiredEnv: ["DEMO_TOKEN"] },
     ]), { status: 200 });
     if (url === "/api/companions/demo/preflight") return new Response(JSON.stringify({
       ok: false, missingRequired: ["DEMO_TOKEN"], missingOptional: [],
     }), { status: 200 });
     if (url === "/api/tools/demo") return new Response(JSON.stringify({
-      manifest: { name: "demo", kind: "entity", displayName: "Demo", icon: "✨", description: "Demo companion.", contractVersion: "1", version: "0.1.0" },
+      manifest: { name: "demo", kind: "entity", displayName: "Demo", icon: "✨", description: "Demo companion.", contractVersion: "2", version: "0.1.0" },
       tools: [
         { name: "demo_get_thing", description: "Read a thing.", params: [], signature: "demo_get_thing()", sideEffect: "read" },
         { name: "demo_post_thing", description: "Post a thing.", params: [], signature: "demo_post_thing()", sideEffect: "write" },
@@ -64,11 +64,11 @@ describe("CompanionAbout", () => {
   it("does NOT show write warning when no write tools", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url === "/api/companions") return new Response(JSON.stringify([
-        { name: "ro", kind: "entity", displayName: "RO", icon: "🔍", description: "", contractVersion: "1", version: "0.1.0" },
+        { name: "ro", kind: "entity", displayName: "RO", icon: "🔍", description: "", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
       if (url === "/api/companions/ro/preflight") return new Response(JSON.stringify({ ok: true, missingRequired: [], missingOptional: [] }), { status: 200 });
       if (url === "/api/tools/ro") return new Response(JSON.stringify({
-        manifest: { name: "ro", kind: "entity", displayName: "RO", icon: "🔍", description: "", contractVersion: "1", version: "0.1.0" },
+        manifest: { name: "ro", kind: "entity", displayName: "RO", icon: "🔍", description: "", contractVersion: "2", version: "0.1.0" },
         tools: [{ name: "ro_get", description: "read", params: [], signature: "ro_get()", sideEffect: "read" }],
       }), { status: 200 });
       throw new Error(`unexpected: ${url}`);

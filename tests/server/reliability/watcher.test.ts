@@ -14,7 +14,7 @@ function mkCompanion(name: string, version: string): RegisteredCompanion {
       displayName: name,
       icon: "x",
       description: "x",
-      contractVersion: "1",
+      contractVersion: "2",
       version,
     },
     tools: [],

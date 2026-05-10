@@ -8,7 +8,7 @@ function mockFetch(entity: Partial<Entity>) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.includes("/api/companions")) {
       return new Response(JSON.stringify([
-        { name: "x", kind: "entity", displayName: "X", icon: "x", description: "x", contractVersion: "1", version: "0.1.0" },
+        { name: "x", kind: "entity", displayName: "X", icon: "x", description: "x", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
     }
     return new Response(JSON.stringify({
@@ -69,7 +69,7 @@ describe("EntityDetail", () => {
   it("renders summary banner from artifact", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url === "/api/companions") return new Response(JSON.stringify([
-        { name: "build", kind: "entity", displayName: "Build", icon: "🔨", description: "", contractVersion: "1", version: "0.1.0" },
+        { name: "build", kind: "entity", displayName: "Build", icon: "🔨", description: "", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
       if (url.startsWith("/api/entities/build-abc")) return new Response(JSON.stringify({
         id: "build-abc", companion: "build", status: "completed",

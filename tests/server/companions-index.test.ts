@@ -9,7 +9,7 @@ import { rewriteCompanionsIndex } from "../../src/server/companions-index";
 
 function mk(name: string, source?: "local" | "installed"): RegisteredCompanion {
   return {
-    manifest: { name, kind: "entity", displayName: name, icon: "x", description: "x", contractVersion: "1", version: "0.1.0" },
+    manifest: { name, kind: "entity", displayName: name, icon: "x", description: "x", contractVersion: "2", version: "0.1.0" },
     tools: [],
     source,
   };

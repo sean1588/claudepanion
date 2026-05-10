@@ -17,7 +17,7 @@ beforeEach(() => {
   }));
   writeFileSync(
     join(dir, "companions/alpha/manifest.ts"),
-    `export const manifest = { name: "alpha", kind: "ui", displayName: "Alpha", icon: "🅰️", description: "test", contractVersion: "1", version: "0.1.0" };`
+    `export const manifest = { name: "alpha", kind: "ui", displayName: "Alpha", icon: "🅰️", description: "test", contractVersion: "2", version: "0.1.0" };`
   );
   writeFileSync(join(dir, "companions/alpha/types.ts"), `export const InputSchema = {};`);
   writeFileSync(join(dir, "companions/alpha/server/tools.ts"), `export const tools = [];`);

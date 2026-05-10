@@ -11,7 +11,7 @@ const baseManifest = {
   displayName: "X",
   icon: "x",
   description: "x",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.1.0",
 };
 

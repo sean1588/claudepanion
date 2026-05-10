@@ -29,7 +29,7 @@ describe("shared types", () => {
       displayName: "X",
       icon: "📦",
       description: "desc",
-      contractVersion: "1",
+      contractVersion: "2",
       version: "0.1.0",
     };
     expectTypeOf(m.kind).toEqualTypeOf<CompanionKind>();

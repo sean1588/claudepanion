@@ -8,7 +8,7 @@ const fakeManifest = (name: string): Manifest => ({
   displayName: name,
   icon: "🧪",
   description: "test companion",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.0.1",
 });
 

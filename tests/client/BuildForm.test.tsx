@@ -8,7 +8,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.startsWith("/api/companions")) {
       return new Response(JSON.stringify([
-        { name: "build", kind: "entity", displayName: "Build", icon: "🔨", description: "", contractVersion: "1", version: "0.1.0" },
+        { name: "build", kind: "entity", displayName: "Build", icon: "🔨", description: "", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
     }
     throw new Error(`unexpected ${url}`);
