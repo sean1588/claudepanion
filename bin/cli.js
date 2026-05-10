@@ -147,20 +147,44 @@ async function companionDelete(slug) {
   console.log(`   npm run build && PORT=3001 npm start`);
 }
 
-function serve() {
+async function serve() {
+  const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+  const home = rootPath();
+
+  if (!existsSync(join(home, "package.json"))) {
+    console.log(`~/.claudepanion/ not found.`);
+    // Interactive prompt unless --yes or non-TTY.
+    if (process.stdin.isTTY && !process.argv.includes("--yes")) {
+      const answer = await prompt(`Initialize a new claudepanion home? [Y/n] `);
+      if (answer.trim().toLowerCase() === "n") {
+        die("Aborted. Run 'claudepanion init' when ready.");
+      }
+    }
+    const { runInit } = await import(join(pkgRoot, "dist/src/cli/init.js"));
+    const result = await runInit({ home, frameworkRoot: pkgRoot });
+    if (!result.ok) die(`init failed at ${result.stage}: ${result.error}`);
+    console.log(`✓ ~/.claudepanion/ initialized`);
+  }
+
   const entry = join(pkgRoot, "dist/src/server/index.js");
   if (!existsSync(entry)) {
-    die(
-      `Build not found at ${entry}.\n` +
-      `Run \`npm run build\` in the claudepanion repo first, or reinstall.`
-    );
+    die(`Framework build not found at ${entry}.\nReinstall: npm install -g claudepanion`);
   }
   const proc = spawn(process.execPath, [entry], {
     stdio: "inherit",
-    cwd: pkgRoot,
+    cwd: home,
     env: process.env,
   });
   proc.on("exit", (code) => process.exit(code ?? 0));
+}
+
+async function prompt(q) {
+  process.stdout.write(q);
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    stdin.resume();
+    stdin.once("data", (d) => { stdin.pause(); resolve(d.toString()); });
+  });
 }
 
 const [cmd, sub] = process.argv.slice(2);
@@ -210,7 +234,7 @@ if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
     process.exit(result.ok ? 0 : 1);
   })();
 } else if (cmd === "serve") {
-  serve();
+  serve().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "plugin" && sub === "install") {
   pluginInstall();
 } else if (cmd === "plugin" && sub === "uninstall") {
