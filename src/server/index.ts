@@ -1,4 +1,9 @@
 import { bootServer } from "./boot.js";
-import { companions } from "../../companions/index.js";
+import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 
-void bootServer({ companions });
+void (async () => {
+  const distCompanionsPath = join(process.cwd(), "dist/companions/index.js");
+  const mod = await import(pathToFileURL(distCompanionsPath).href);
+  await bootServer({ companions: mod.companions });
+})();
