@@ -120,3 +120,5 @@ export interface CompanionToolDefinition<
   sideEffect?: "read" | "write";
   handler: (params: TParams) => Promise<McpToolResult>;
 }
+
+export { defineTool } from "./define-tool.js";
