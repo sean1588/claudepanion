@@ -17,7 +17,7 @@ export async function runRegenerate(opts: { cwd?: string } = {}): Promise<
   }
 
   const allSlugs = readdirSync(compsDir, { withFileTypes: true })
-    .filter((e) => e.isDirectory())
+    .filter((e) => e.isDirectory() || e.isSymbolicLink())
     .map((e) => e.name)
     .filter((name) => existsSync(join(compsDir, name, "manifest.ts")));
 

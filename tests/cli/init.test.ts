@@ -1,7 +1,9 @@
+// @vitest-environment node
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, rmSync, existsSync, lstatSync, readFileSync, mkdirSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
+import { pathToFileURL } from "node:url";
 import { runInit } from "../../src/cli/init.js";
 
 let home: string;
@@ -56,6 +58,17 @@ describe("runInit — fresh install", () => {
       expect(existsSync(p)).toBe(true);
       expect(lstatSync(p).isSymbolicLink()).toBe(true);
     }
+  });
+
+  it("after init, dist/companions/index.js exists and exports an array with build", async () => {
+    await runInit({ home, frameworkRoot });
+    const distIndex = join(home, "dist/companions/index.js");
+    expect(existsSync(distIndex)).toBe(true);
+    // Load it and verify Build is registered.
+    // Use pathToFileURL so Vitest's module resolver doesn't intercept the import.
+    const mod = await import(pathToFileURL(distIndex).href);
+    expect(Array.isArray(mod.companions)).toBe(true);
+    expect(mod.companions.map((c: any) => c.manifest.name)).toContain("build");
   });
 });
 

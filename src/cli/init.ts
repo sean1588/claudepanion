@@ -8,6 +8,7 @@ import {
   writeFileSync,
 } from "node:fs";
 import { join } from "node:path";
+import { spawn } from "node:child_process";
 
 export interface RunInitOptions {
   home: string;
@@ -133,6 +134,37 @@ export async function runInit(opts: RunInitOptions): Promise<RunInitResult> {
     mkdirSync(join(linkPath, ".."), { recursive: true });
     symlinkSync(targetPath, linkPath);
     symlinks.push({ path: linkPath, target: targetPath });
+  }
+
+  // Generate companions/index.ts + client.ts from disk state.
+  const { runRegenerate } = await import("./regenerate.js");
+  const regenResult = await runRegenerate({ cwd: opts.home });
+  if (!regenResult.ok) {
+    return { ok: false, stage: "files", error: `regenerate failed: ${regenResult.error}` };
+  }
+
+  // Compile the freshly-written index.ts to dist/companions/index.js.
+  // We shell out to tsc rather than reimplementing — guarantees the user-local
+  // tsconfig is honored.
+  const tscPath = join(opts.frameworkRoot, "node_modules/.bin/tsc");
+  const tscResult = await new Promise<{ code: number; stderr: string }>((resolve) => {
+    const tsc = spawn(tscPath, ["-p", opts.home, "--noEmitOnError", "false"], { cwd: opts.home });
+    let stderr = "";
+    tsc.stderr.on("data", (d) => { stderr += d.toString(); });
+    tsc.on("close", (code) => resolve({ code: code ?? 1, stderr }));
+    tsc.on("error", (err) => resolve({ code: 1, stderr: err.message }));
+  });
+  // tsc may exit non-zero due to type errors in symlinked companions (import type
+  // declarations that reference framework internals).  Emit still happens because
+  // noEmitOnError is false.  We only treat it as a hard failure when the expected
+  // output file was not produced (i.e. tsc couldn't parse / write at all).
+  const distIndex = join(opts.home, "dist/companions/index.js");
+  if (!existsSync(distIndex)) {
+    return {
+      ok: false,
+      stage: "files",
+      error: `tsc failed: ${tscResult.stderr.slice(0, 500)}`,
+    };
   }
 
   return { ok: true, symlinks, filesCreated };
