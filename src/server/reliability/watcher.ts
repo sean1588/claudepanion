@@ -106,14 +106,14 @@ export function createWatcher(deps: WatcherDeps): Watcher {
       return;
     }
     if (!fresh) {
-      logger.warn(`[watcher] could not re-import ${companionName}`);
+      logger.warn(`[watcher] ${companionName} remount failed at stage='import-empty' (no module returned)`);
       return;
     }
     const companionDir = resolve(deps.companionsDir, companionName);
     const snapshot = await refreshReliability(fresh, companionDir);
     if (!snapshot.validator.ok) {
       const fatals = snapshot.validator.issues.filter((i) => i.fatal).map((i) => i.message).join("; ");
-      logger.warn(`[watcher] ${companionName} failed validation, keeping old mount: ${fatals}`);
+      logger.warn(`[watcher] ${companionName} remount failed at stage='validation-failed': ${fatals}`);
       if (snapshots) snapshots.set(companionName, snapshot);
       return;
     }
