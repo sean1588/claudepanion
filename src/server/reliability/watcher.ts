@@ -30,6 +30,8 @@ export interface ReliabilitySnapshot {
   ranAt: string;
 }
 
+const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
+
 export interface WatcherDeps {
   registry: Registry;
   companionsDir: string;
@@ -38,6 +40,8 @@ export interface WatcherDeps {
   snapshots?: Map<string, ReliabilitySnapshot>;
   /** Injectable for tests — returns a fresh module import for the given companion name. */
   reimport?: (companionName: string) => Promise<RegisteredCompanion | null>;
+  /** Override retry delays (ms) for tests; defaults to [1000, 2000, 4000]. */
+  retryDelaysMs?: number[];
 }
 
 export interface Watcher {
@@ -83,11 +87,24 @@ export function createWatcher(deps: WatcherDeps): Watcher {
   const debounceMs = deps.debounceMs ?? 200;
   const logger = deps.logger ?? { info: console.log.bind(console), warn: console.warn.bind(console) };
   const snapshots = deps.snapshots;
+  const retryDelays = deps.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  const doRemount = async (companionName: string) => {
+  const doRemount = async (companionName: string, retryAttempt = 0): Promise<void> => {
     const reimport = deps.reimport ?? ((n) => defaultReimport(n, deps.companionsDir));
-    const fresh = await reimport(companionName);
+    let fresh: RegisteredCompanion | null = null;
+    try {
+      fresh = await reimport(companionName);
+    } catch (err) {
+      if (err instanceof DistStaleError && retryAttempt < retryDelays.length) {
+        const delay = retryDelays[retryAttempt];
+        logger.info(`[watcher] ${companionName} remount retry ${retryAttempt + 1}/${retryDelays.length} at stage='dist-stale' in ${delay}ms`);
+        setTimeout(() => void doRemount(companionName, retryAttempt + 1), delay);
+        return;
+      }
+      logger.warn(`[watcher] ${companionName} remount failed at stage='import-threw': ${(err as Error).message}`);
+      return;
+    }
     if (!fresh) {
       logger.warn(`[watcher] could not re-import ${companionName}`);
       return;
