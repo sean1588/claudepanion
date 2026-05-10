@@ -94,9 +94,13 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
     const toolName = String(req.params.tool);
     const c = registry.get(name);
     if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
-    if (c.manifest.kind !== "tool") return res.status(400).json({ error: `${name} is not a tool-kind companion` });
     const def = c.tools.find((t) => t.name === toolName);
     if (!def) return res.status(404).json({ error: `unknown tool: ${toolName}` });
+    // ui-kind companions may expose READ tools to the browser (e.g. for form
+    // dropdowns). Write tools go through the skill so user permission is prompted.
+    if (c.manifest.kind !== "tool" && (def.sideEffect ?? "read") !== "read") {
+      return res.status(400).json({ error: `${name} is a ui-kind companion; only read tools may be invoked from the browser` });
+    }
     try {
       const result = await def.handler((req.body ?? {}).args ?? {});
       res.json({ ok: true, result });
