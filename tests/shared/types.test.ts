@@ -18,8 +18,8 @@ describe("shared types", () => {
     expectTypeOf(e.level).toEqualTypeOf<"info" | "warn" | "error">();
   });
 
-  it("CompanionKind is entity or tool", () => {
-    expectTypeOf<CompanionKind>().toEqualTypeOf<"entity" | "tool">();
+  it("CompanionKind is ui, entity, or tool (transitional)", () => {
+    expectTypeOf<CompanionKind>().toEqualTypeOf<"ui" | "entity" | "tool">();
   });
 
   it("Manifest has the declared fields", () => {

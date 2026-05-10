@@ -33,7 +33,7 @@ export interface BaseArtifact {
   errors?: string[];
 }
 
-export type CompanionKind = "entity" | "tool";
+export type CompanionKind = "ui" | "entity" | "tool";
 
 export interface Manifest {
   name: string;
