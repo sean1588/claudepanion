@@ -48,13 +48,23 @@ describe("EntityDetail", () => {
     expect(screen.getByText("hi")).toBeInTheDocument();
   });
 
-  it("renders artifact JSON and continuation in completed state", async () => {
+  it("renders markdown artifact and continuation in completed state", async () => {
+    mockFetch({ status: "completed", artifact: { summary: "all good", markdown: "## Result\n\nGreat **work**." } });
+    renderAt("/c/x/x-1");
+    await vi.runOnlyPendingTimersAsync();
+    await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
+    // The markdown body renders the heading and bold text.
+    expect(screen.getByText("Result")).toBeInTheDocument();
+    expect(screen.getByText("work")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /continue/i })).toBeInTheDocument();
+  });
+
+  it("falls back to a placeholder for legacy non-markdown artifacts", async () => {
     mockFetch({ status: "completed", artifact: { total: 42 } });
     renderAt("/c/x/x-1");
     await vi.runOnlyPendingTimersAsync();
     await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
-    expect(screen.getByText(/"total": 42/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /continue/i })).toBeInTheDocument();
+    expect(screen.getByText(/no markdown report/i)).toBeInTheDocument();
   });
 
   it("renders error message and stack in error state", async () => {

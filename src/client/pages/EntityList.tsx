@@ -68,7 +68,9 @@ export default function EntityList() {
             entities.map((e) => (
               <Link key={e.id} to={`/c/${companion}/${e.id}`} className="entity-list-row">
                 <StatusPill status={e.status} />
-                {Row ? <Row entity={e} /> : <div>{(e.input as any).description || JSON.stringify(e.input).slice(0, 80)}</div>}
+                {Row ? <Row entity={e} /> : (
+                  <div>{(e.artifact as { summary?: string } | null)?.summary ?? (e.input as { description?: string }).description ?? JSON.stringify(e.input).slice(0, 80)}</div>
+                )}
                 <div className="entity-list-updated" style={{ color: "var(--muted)" }}>{timeAgo(e.updatedAt)}</div>
               </Link>
             ))

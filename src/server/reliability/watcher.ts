@@ -50,27 +50,54 @@ export interface Watcher {
   triggerRemount(companionName: string): Promise<void>;
 }
 
-async function defaultReimport(companionName: string, companionsDir: string): Promise<RegisteredCompanion | null> {
-  const distCandidates = [
-    resolve(process.cwd(), "dist/companions", companionName, "index.js"),
-    resolve(companionsDir, companionName, "index.js"),
+/** Returns the most-recent mtime among the source files that, when changed, mean
+ *  the dist artifact is stale. Considers manifest.ts and index.ts (the codegen
+ *  output written by `claudepanion scaffold` after the file watcher fires). */
+function newestSourceMtimeMs(companionsDir: string, companionName: string): number {
+  const candidates = [
+    resolve(companionsDir, companionName, "manifest.ts"),
+    resolve(companionsDir, companionName, "index.ts"),
+    resolve(companionsDir, companionName, "types.ts"),
+    resolve(companionsDir, companionName, "server/tools.ts"),
   ];
-  const sourceCandidate = resolve(companionsDir, companionName, "manifest.ts");
-  const cacheBust = `?t=${Date.now()}`;
-  for (const distPath of distCandidates) {
-    if (isDistStale(sourceCandidate, distPath)) {
-      throw new DistStaleError(sourceCandidate, distPath);
-    }
+  let max = 0;
+  for (const p of candidates) {
     try {
-      const mod = await import(`file://${distPath}${cacheBust}`);
-      const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
-      if (companion && companion.manifest) return companion;
-    } catch (err) {
-      if (err instanceof DistStaleError) throw err;
-      // try next candidate for non-stale errors
+      const s = statSync(p);
+      if (s.mtimeMs > max) max = s.mtimeMs;
+    } catch {
+      // missing file is fine — just don't contribute to max
     }
   }
-  return null;
+  return max;
+}
+
+async function defaultReimport(companionName: string, companionsDir: string): Promise<RegisteredCompanion | null> {
+  const distPath = resolve(process.cwd(), "dist/companions", companionName, "index.js");
+
+  // Stale gate: dist must be at least as new as the newest authored source file.
+  let distMtime: number;
+  try {
+    distMtime = statSync(distPath).mtimeMs;
+  } catch {
+    throw new DistStaleError(resolve(companionsDir, companionName, "manifest.ts"), distPath);
+  }
+  const srcMtime = newestSourceMtimeMs(companionsDir, companionName);
+  if (distMtime < srcMtime) {
+    throw new DistStaleError(resolve(companionsDir, companionName, "manifest.ts"), distPath);
+  }
+
+  // Import — surface real errors rather than swallowing them.
+  const cacheBust = `?t=${Date.now()}`;
+  const mod = await import(`file://${distPath}${cacheBust}`);
+  const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
+  if (!companion?.manifest) {
+    throw new Error(
+      `dist module at ${distPath} loaded but did not export a RegisteredCompanion ` +
+      `(expected a default export, or a named export 'default'/'${companionName}'/'${toCamel(companionName)}' with a .manifest property)`
+    );
+  }
+  return companion;
 }
 
 function toCamel(slug: string): string {

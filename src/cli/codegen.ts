@@ -10,6 +10,8 @@ export interface ClientDescriptor extends CompanionDescriptor {
   hasForm: boolean;
   hasDetail: boolean;
   hasList: boolean;
+  /** True if companions/<slug>/types.ts exists and exports `InputSchema` (ui-kind). */
+  hasInputSchema: boolean;
 }
 
 export function renderCompanionIndex(d: CompanionDescriptor): string {
@@ -46,6 +48,7 @@ export function renderClientIndex(companions: ClientDescriptor[]): string {
   const formMap: string[] = [];
   const detailMap: string[] = [];
   const listMap: string[] = [];
+  const schemaMap: string[] = [];
   for (const c of sorted) {
     const Pascal = c.camelCase[0].toUpperCase() + c.camelCase.slice(1);
     if (c.hasForm) {
@@ -60,11 +63,16 @@ export function renderClientIndex(companions: ClientDescriptor[]): string {
       imports.push(`import ${Pascal}ListRow from "./${c.slug}/pages/List";`);
       listMap.push(`  "${c.slug}": ${Pascal}ListRow as ListRow,`);
     }
+    if (c.hasInputSchema) {
+      imports.push(`import { InputSchema as ${c.camelCase}InputSchema } from "./${c.slug}/types";`);
+      schemaMap.push(`  "${c.slug}": ${c.camelCase}InputSchema,`);
+    }
   }
   return [
     BANNER,
     `import type { Entity } from "../src/shared/types";`,
     `import type { ComponentType } from "react";`,
+    `import type { z } from "zod";`,
     ...imports,
     ``,
     `type ArtifactRenderer = ComponentType<{ entity: Entity }>;`,
@@ -80,10 +88,14 @@ export function renderClientIndex(companions: ClientDescriptor[]): string {
     `const forms: Record<string, CompanionForm> = {`,
     ...formMap,
     `};`,
+    `const inputSchemas: Record<string, z.ZodTypeAny> = {`,
+    ...schemaMap,
+    `};`,
     ``,
     `export function getArtifactRenderer(name: string): ArtifactRenderer | undefined { return artifactRenderers[name]; }`,
     `export function getListRow(name: string): ListRow | undefined { return listRows[name]; }`,
     `export function getForm(name: string): CompanionForm | undefined { return forms[name]; }`,
+    `export function getInputSchema(name: string): z.ZodTypeAny | undefined { return inputSchemas[name]; }`,
     ``,
   ].join("\n");
 }

@@ -1,6 +1,11 @@
-import { existsSync, readdirSync, writeFileSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { renderRegistryIndex, renderClientIndex, slugToCamelCase } from "./codegen.js";
+
+function hasInputSchema(typesTsPath: string): boolean {
+  if (!existsSync(typesTsPath)) return false;
+  return /\bexport\s+const\s+InputSchema\b/.test(readFileSync(typesTsPath, "utf8"));
+}
 
 export async function runRegenerate(opts: { cwd?: string } = {}): Promise<
   { ok: true; filesGenerated: string[] } | { ok: false; error: string }
@@ -25,6 +30,7 @@ export async function runRegenerate(opts: { cwd?: string } = {}): Promise<
     hasForm: existsSync(join(compsDir, s, "form.tsx")),
     hasDetail: existsSync(join(compsDir, s, "pages/Detail.tsx")),
     hasList: existsSync(join(compsDir, s, "pages/List.tsx")),
+    hasInputSchema: hasInputSchema(join(compsDir, s, "types.ts")),
   }));
   writeFileSync(join(compsDir, "client.ts"), renderClientIndex(clientDescriptors));
 

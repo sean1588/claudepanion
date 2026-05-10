@@ -23,6 +23,11 @@ function npmBuild(cwd: string): Promise<{ ok: boolean; stderr: string }> {
   });
 }
 
+function hasInputSchema(typesTsPath: string): boolean {
+  if (!existsSync(typesTsPath)) return false;
+  return /\bexport\s+const\s+InputSchema\b/.test(readFileSync(typesTsPath, "utf8"));
+}
+
 function detectMissingDeps(toolsTsPath: string, packageJsonPath: string): string[] {
   if (!existsSync(toolsTsPath)) return [];
   const src = readFileSync(toolsTsPath, "utf8");
@@ -112,6 +117,7 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
       hasForm: existsSync(join(sd, "form.tsx")),
       hasDetail: existsSync(join(sd, "pages/Detail.tsx")),
       hasList: existsSync(join(sd, "pages/List.tsx")),
+      hasInputSchema: hasInputSchema(join(sd, "types.ts")),
     };
   });
   writeFileSync(join(cwd, "companions/client.ts"), renderClientIndex(clientDescriptors));

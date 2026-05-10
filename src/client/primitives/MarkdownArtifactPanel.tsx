@@ -3,15 +3,20 @@ import type { BaseArtifact } from "../../shared/types.js";
 
 interface Props {
   artifact: BaseArtifact;
+  /** Set true for standalone use (renders summary header + errors callout + markdown body).
+   *  Defaults to false because the host's <BaseArtifactPanel> wrapper already renders the
+   *  summary banner and errors callout; this primitive is typically used as just the body
+   *  slot inside that wrapper, so it would duplicate them otherwise. */
+  standalone?: boolean;
 }
 
-export function MarkdownArtifactPanel({ artifact }: Props) {
+export function MarkdownArtifactPanel({ artifact, standalone = false }: Props) {
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {artifact.summary && (
+      {standalone && artifact.summary && (
         <h1 style={{ margin: 0, fontSize: 20 }}>{artifact.summary}</h1>
       )}
-      {artifact.errors && artifact.errors.length > 0 && (
+      {standalone && artifact.errors && artifact.errors.length > 0 && (
         <div style={{
           border: "1px solid #f59e0b",
           background: "#fffbeb",
