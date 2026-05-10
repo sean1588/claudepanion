@@ -101,7 +101,7 @@ function pluginUninstall() {
   console.log(`✓  Plugin removed from Claude Code (${settingsPath})`);
 }
 
-function companionDelete(slug) {
+async function companionDelete(slug) {
   if (!slug || !/^[a-z][a-z0-9-]*$/.test(slug)) {
     die(`invalid slug: ${JSON.stringify(slug)}\nSlug must match ^[a-z][a-z0-9-]*$`);
   }
@@ -109,14 +109,8 @@ function companionDelete(slug) {
 
   const companionDir = join(pkgRoot, "companions", slug);
   const skillDir = join(pkgRoot, "skills", `${slug}-companion`);
-  const indexPath = join(pkgRoot, "companions", "index.ts");
-  const clientPath = join(pkgRoot, "companions", "client.ts");
 
   if (!existsSync(companionDir)) die(`companion not found: companions/${slug}/`);
-
-  // Helper: camelCase from slug
-  const camel = slug.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-  const pascal = camel[0].toUpperCase() + camel.slice(1);
 
   // 1. Remove companion directory
   rmSync(companionDir, { recursive: true, force: true });
@@ -128,36 +122,20 @@ function companionDelete(slug) {
     console.log(`removed skills/${slug}-companion/`);
   }
 
-  // 3. Rewrite companions/index.ts
-  if (existsSync(indexPath)) {
-    let src = readFileSync(indexPath, "utf-8");
-    // Remove import line
-    src = src.replace(new RegExp(`^import \\{ ${camel} \\} from "\\./${slug}/index\\.js";\\n`, "m"), "");
-    // Remove from array (handles trailing comma or leading comma)
-    src = src.replace(new RegExp(`,?\\s*${camel}\\b`, "g"), "");
-    src = src.replace(new RegExp(`\\b${camel}\\s*,?\\s*`, "g"), "");
-    // Clean up double commas / leading commas in array
-    src = src.replace(/\[\s*,/g, "[").replace(/,\s*\]/g, "]").replace(/,\s*,/g, ",");
-    writeFileSync(indexPath, src, "utf-8");
-    console.log(`updated companions/index.ts`);
+  // 3. Regenerate companions/index.ts and companions/client.ts from disk state.
+  //    This is more robust than regex surgery — the regenerator reads the
+  //    on-disk truth and emits whatever the codegen says is correct, so any
+  //    new exports (inputSchemas, future maps) are handled automatically.
+  try {
+    const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
+    const result = await runRegenerate({ cwd: pkgRoot });
+    if (!result.ok) die(`failed to regenerate registry: ${result.error}`);
+    console.log(`updated ${result.filesGenerated.join(", ")}`);
+  } catch (err) {
+    die(`failed to regenerate registry: ${err?.message ?? err}\n(if dist/ is missing, run 'npm run build' once and retry)`);
   }
 
-  // 4. Rewrite companions/client.ts
-  if (existsSync(clientPath)) {
-    let src = readFileSync(clientPath, "utf-8");
-    // Remove import lines for Detail, ListRow, Form
-    src = src.replace(new RegExp(`^import ${pascal}Detail from "\\./${slug}/pages/Detail";\\n`, "m"), "");
-    src = src.replace(new RegExp(`^import ${pascal}ListRow from "\\./${slug}/pages/List";\\n`, "m"), "");
-    src = src.replace(new RegExp(`^import ${pascal}Form from "\\./${slug}/form";\\n`, "m"), "");
-    // Remove registry entries
-    src = src.replace(new RegExp(`^\\s*"${slug}":\\s*${pascal}Detail as ArtifactRenderer,\\n`, "m"), "");
-    src = src.replace(new RegExp(`^\\s*"${slug}":\\s*${pascal}ListRow as ListRow,\\n`, "m"), "");
-    src = src.replace(new RegExp(`^\\s*"${slug}":\\s*${pascal}Form as CompanionForm,\\n`, "m"), "");
-    writeFileSync(clientPath, src, "utf-8");
-    console.log(`updated companions/client.ts`);
-  }
-
-  // 5. Remove leftover data directory (optional — silently skip if absent)
+  // 4. Remove leftover data directory (optional — silently skip if absent)
   const dataDir = join(pkgRoot, "data", slug);
   if (existsSync(dataDir)) {
     rmSync(dataDir, { recursive: true, force: true });
@@ -223,7 +201,7 @@ if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
 } else if (cmd === "companion" && sub === "delete") {
   const slug = process.argv[4];
   if (!slug) die(`usage: claudepanion companion delete <slug>\n\n${USAGE}`);
-  companionDelete(slug);
+  await companionDelete(slug);
 } else {
   die(`unknown command: ${[cmd, sub].filter(Boolean).join(" ")}\n\n${USAGE}`);
 }
