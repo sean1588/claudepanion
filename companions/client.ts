@@ -4,7 +4,6 @@ import type { ComponentType } from "react";
 import type { z } from "zod";
 import BuildForm from "./build/form";
 import { InputSchema as buildInputSchema } from "./build/types";
-import { InputSchema as cloudwatchInvestigatorInputSchema } from "./cloudwatch-investigator/types";
 
 type ArtifactRenderer = ComponentType<{ entity: Entity }>;
 type ListRow = ComponentType<{ entity: Entity }>;
@@ -19,7 +18,6 @@ const forms: Record<string, CompanionForm> = {
 };
 const inputSchemas: Record<string, z.ZodTypeAny> = {
   "build": buildInputSchema,
-  "cloudwatch-investigator": cloudwatchInvestigatorInputSchema,
 };
 
 export function getArtifactRenderer(name: string): ArtifactRenderer | undefined { return artifactRenderers[name]; }
