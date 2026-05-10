@@ -61,3 +61,28 @@ describe("CompanionForm — datetime/number/checkbox/textarea", () => {
     expect(inp.tagName).toBe("TEXTAREA");
   });
 });
+
+describe("CompanionForm — optionsFrom", () => {
+  it("populates a select from /api/tools/<slug>/<tool>", async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      json: async () => ({
+        ok: true,
+        result: { content: [{ type: "text", text: JSON.stringify({ items: ["alpha", "beta"] }) }] },
+      }),
+    }) as any;
+
+    const schema = z.object({
+      thing: z.string().meta({
+        ui: { kind: "select", optionsFrom: "list_things" },
+      }).describe("Thing"),
+    });
+
+    render(<CompanionForm schema={schema} onSubmit={() => {}} companionSlug="x" />);
+    await screen.findByText("alpha");
+    expect(screen.getByText("beta")).toBeInTheDocument();
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/tools/x/list_things",
+      expect.objectContaining({ method: "POST" })
+    );
+  });
+});
