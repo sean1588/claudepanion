@@ -113,6 +113,10 @@ function useToolOptions(companionSlug: string | undefined, optionsFrom: string |
         if (!j.ok) { setError(j.error ?? "fetch failed"); return; }
         const text = j.result?.content?.[0]?.text;
         if (!text) { setError("empty response"); return; }
+        if (j.result?.isError) {
+          setError(text);
+          return;
+        }
         try {
           const parsed = JSON.parse(text);
           const arr: any[] = Array.isArray(parsed)
