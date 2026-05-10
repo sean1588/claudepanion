@@ -108,8 +108,10 @@ async function companionDelete(slug) {
   }
   if (slug === "build") die("cannot delete the built-in Build companion");
 
-  const companionDir = join(pkgRoot, "companions", slug);
-  const skillDir = join(pkgRoot, "skills", `${slug}-companion`);
+  const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+  const home = rootPath();
+  const companionDir = join(home, "companions", slug);
+  const skillDir = join(home, "skills", `${slug}-companion`);
 
   if (!existsSync(companionDir)) die(`companion not found: companions/${slug}/`);
 
@@ -124,12 +126,9 @@ async function companionDelete(slug) {
   }
 
   // 3. Regenerate companions/index.ts and companions/client.ts from disk state.
-  //    This is more robust than regex surgery — the regenerator reads the
-  //    on-disk truth and emits whatever the codegen says is correct, so any
-  //    new exports (inputSchemas, future maps) are handled automatically.
   try {
     const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
-    const result = await runRegenerate({ cwd: pkgRoot });
+    const result = await runRegenerate({ cwd: home });
     if (!result.ok) die(`failed to regenerate registry: ${result.error}`);
     console.log(`updated ${result.filesGenerated.join(", ")}`);
   } catch (err) {
@@ -137,14 +136,13 @@ async function companionDelete(slug) {
   }
 
   // 4. Remove leftover data directory (optional — silently skip if absent)
-  const dataDir = join(pkgRoot, "data", slug);
+  const dataDir = join(home, "data", slug);
   if (existsSync(dataDir)) {
     rmSync(dataDir, { recursive: true, force: true });
     console.log(`removed data/${slug}/ (entity history)`);
   }
 
-  console.log(`\n✓  Companion "${slug}" deleted. Rebuild the app or restart the server for changes to take effect.`);
-  console.log(`   npm run build && PORT=3001 npm start`);
+  console.log(`\n✓  Companion "${slug}" deleted. Rebuild or restart the server for changes to take effect.`);
 }
 
 async function serve() {
@@ -213,14 +211,16 @@ if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
   if (!slug) die("Usage: claudepanion scaffold <slug>");
   (async () => {
     const { runScaffold } = await import(join(pkgRoot, "dist/src/cli/scaffold.js"));
-    const result = await runScaffold(slug);
+    const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+    const result = await runScaffold(slug, { cwd: rootPath() });
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
   })();
 } else if (cmd === "regenerate") {
   (async () => {
     const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
-    const result = await runRegenerate();
+    const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+    const result = await runRegenerate({ cwd: rootPath() });
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
   })();
