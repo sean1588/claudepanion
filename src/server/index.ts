@@ -9,12 +9,14 @@ import { companions } from "../../companions/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { dataPath, ensureClaudepanionDirs } from "./paths.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const repoRoot = process.cwd();
 
 async function main() {
-  const store = createEntityStore(resolve(repoRoot, "data"));
+  ensureClaudepanionDirs();
+  const store = createEntityStore(dataPath());
   const registry = createRegistry(companions);
   const snapshots = new Map<string, ReliabilitySnapshot>();
   const companionsDir = resolve(repoRoot, "companions");
