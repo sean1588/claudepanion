@@ -23,15 +23,15 @@ export interface Entity<Input = unknown, Artifact = unknown> {
 }
 
 /**
- * Common fields every artifact may carry. Companions should extend this
+ * Common fields every artifact must carry. Companions should extend this
  * interface for their specific Artifact type.
  */
 export interface BaseArtifact {
-  /** Short one-liner describing the run's outcome. Shown in the List row and Detail header. */
-  summary?: string;
-  /** Canonical user-facing report rendered as markdown. Required for v2 ui-kind companions; optional during the v1→v2 transition. */
-  markdown?: string;
-  /** Recoverable issues encountered during the run. Rendered as a "Notes during this run" section by the host. */
+  /** Required: shown in List row + Detail header. */
+  summary: string;
+  /** Required: canonical user-facing report rendered as markdown. */
+  markdown: string;
+  /** Recoverable issues; rendered as a "Notes during this run" section. */
   errors?: string[];
 }
 

@@ -13,10 +13,10 @@ describe("BaseArtifact", () => {
     expect(a.errors).toHaveLength(1);
   });
 
-  it("treats summary, markdown, and errors as optional during transition", () => {
-    const a: BaseArtifact = {};
-    expect(a.summary).toBeUndefined();
-    expect(a.markdown).toBeUndefined();
+  it("requires summary and markdown (v2 contract)", () => {
+    const a: BaseArtifact = { summary: "x", markdown: "y" };
+    expect(a.summary).toBe("x");
+    expect(a.markdown).toBe("y");
     expect(a.errors).toBeUndefined();
   });
 });
