@@ -55,51 +55,39 @@ function writeJson(path, data) {
   writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf-8");
 }
 
-function pluginInstall() {
-  const gitRoot = findGitRoot();
-  if (!gitRoot) die("Error: not inside a git repository");
-
-  const settingsPath = join(gitRoot, ".claude", "settings.local.json");
-  const settings = readJson(settingsPath) ?? {};
-
-  settings.enabledPlugins ??= {};
-  settings.enabledPlugins["claudepanion@local"] = true;
-
-  settings.extraKnownMarketplaces ??= {};
-  settings.extraKnownMarketplaces.local = {
-    source: { source: "directory", path: pkgRoot },
-  };
-
-  // Cleanup stale disabled entry from older CLI versions. If you are enabling
-  // the plugin, its MCP server should not also be in the disable list.
-  if (Array.isArray(settings.disabledMcpjsonServers)) {
-    const filtered = settings.disabledMcpjsonServers.filter((s) => s !== "claudepanion");
-    if (filtered.length !== settings.disabledMcpjsonServers.length) {
-      if (filtered.length === 0) delete settings.disabledMcpjsonServers;
-      else settings.disabledMcpjsonServers = filtered;
-    }
+async function pluginInstall() {
+  const wantRepo = process.argv.includes("--repo");
+  const { runPluginInstall } = await import(join(pkgRoot, "dist/src/cli/plugin-install.js"));
+  let opts;
+  if (wantRepo) {
+    const gitRoot = findGitRoot();
+    if (!gitRoot) die("Error: --repo requires a git repository");
+    opts = { scope: "repo", repoRoot: gitRoot, frameworkRoot: pkgRoot };
+  } else {
+    opts = { scope: "global", frameworkRoot: pkgRoot };
   }
-
-  writeJson(settingsPath, settings);
-  console.log("✓  Plugin installed in Claude Code");
-  console.log(`   Plugin directory: ${pkgRoot}`);
-  console.log(`   Settings: ${settingsPath}`);
+  const result = await runPluginInstall(opts);
+  if (!result.ok) die(`✗ ${result.error}`);
+  console.log(`✓  Plugin installed (${result.settingsPath})`);
+  const { homedir } = await import("node:os");
+  console.log(`   Marketplace source: ${join(process.env.HOME ?? homedir(), ".claudepanion")}`);
   console.log("\n   Start a new Claude Code session for the plugin to load.");
 }
 
-function pluginUninstall() {
-  const gitRoot = findGitRoot();
-  if (!gitRoot) die("Error: not inside a git repository");
-
-  const settingsPath = join(gitRoot, ".claude", "settings.local.json");
-  const settings = readJson(settingsPath);
-  if (!settings) { console.log("Nothing to uninstall."); return; }
-
-  if (settings.enabledPlugins) delete settings.enabledPlugins["claudepanion@local"];
-  if (settings.extraKnownMarketplaces) delete settings.extraKnownMarketplaces.local;
-
-  writeJson(settingsPath, settings);
-  console.log(`✓  Plugin removed from Claude Code (${settingsPath})`);
+async function pluginUninstall() {
+  const wantRepo = process.argv.includes("--repo");
+  const { runPluginUninstall } = await import(join(pkgRoot, "dist/src/cli/plugin-install.js"));
+  let opts;
+  if (wantRepo) {
+    const gitRoot = findGitRoot();
+    if (!gitRoot) die("Error: --repo requires a git repository");
+    opts = { scope: "repo", repoRoot: gitRoot };
+  } else {
+    opts = { scope: "global" };
+  }
+  const result = await runPluginUninstall(opts);
+  if (!result.ok) die(`✗ ${result.error}`);
+  console.log(`✓  Plugin removed (${result.settingsPath})`);
 }
 
 async function companionDelete(slug) {
@@ -236,9 +224,9 @@ if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
 } else if (cmd === "serve") {
   serve().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "plugin" && sub === "install") {
-  pluginInstall();
+  pluginInstall().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "plugin" && sub === "uninstall") {
-  pluginUninstall();
+  pluginUninstall().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "companion" && sub === "delete") {
   const slug = process.argv[4];
   if (!slug) die(`usage: claudepanion companion delete <slug>\n\n${USAGE}`);
