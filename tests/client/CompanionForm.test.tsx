@@ -86,3 +86,32 @@ describe("CompanionForm — optionsFrom", () => {
     );
   });
 });
+
+describe("CompanionForm — argsFrom", () => {
+  it("refetches options when an argsFrom field changes", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      json: async () => ({
+        ok: true,
+        result: { content: [{ type: "text", text: JSON.stringify({ items: ["a"] }) }] },
+      }),
+    });
+    global.fetch = fetchMock as any;
+
+    const schema = z.object({
+      region: z.string().describe("Region"),
+      thing: z.string().meta({
+        ui: { kind: "select", optionsFrom: "list_things", argsFrom: ["region"] },
+      }).describe("Thing"),
+    });
+    render(<CompanionForm schema={schema} onSubmit={() => {}} companionSlug="x" />);
+
+    fireEvent.change(screen.getByLabelText(/region/i), { target: { value: "us-east-1" } });
+    await new Promise((r) => setTimeout(r, 20));
+    fireEvent.change(screen.getByLabelText(/region/i), { target: { value: "us-west-2" } });
+    await new Promise((r) => setTimeout(r, 20));
+
+    expect(fetchMock.mock.calls.length).toBeGreaterThanOrEqual(3);
+    const lastBody = JSON.parse(fetchMock.mock.calls.at(-1)![1].body);
+    expect(lastBody.args).toEqual({ region: "us-west-2" });
+  });
+});
