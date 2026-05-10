@@ -12,6 +12,17 @@ function npmInstall(packages: string[], cwd: string): Promise<{ ok: boolean; std
   });
 }
 
+function npmBuild(cwd: string): Promise<{ ok: boolean; stderr: string }> {
+  return new Promise((resolve) => {
+    const proc = spawn("npm", ["run", "build"], { cwd, shell: false });
+    let stderr = "";
+    proc.stderr.on("data", (d) => { stderr += d.toString(); });
+    proc.stdout.on("data", () => { /* swallow on success */ });
+    proc.on("close", (code) => resolve({ ok: code === 0, stderr }));
+    proc.on("error", (err) => resolve({ ok: false, stderr: err.message }));
+  });
+}
+
 function detectMissingDeps(toolsTsPath: string, packageJsonPath: string): string[] {
   if (!existsSync(toolsTsPath)) return [];
   const src = readFileSync(toolsTsPath, "utf8");
@@ -119,6 +130,14 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
     dependenciesAdded = missing;
   }
   stagesRun.push("deps");
+
+  if (opts.runBuild ?? true) {
+    const r = await npmBuild(cwd);
+    if (!r.ok) {
+      return { ok: false, stage: "build", error: `npm run build failed: ${r.stderr.slice(0, 2000)}`, remediation: "fix the type/syntax error in the file the compiler names; re-run" };
+    }
+    stagesRun.push("build");
+  }
 
   return { ok: true, slug, kind: "ui", stagesRun, filesGenerated, dependenciesAdded };
 }
