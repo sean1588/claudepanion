@@ -54,6 +54,8 @@ import {
   type ClientDescriptor,
 } from "./codegen.js";
 import { callRemount } from "./remount.js";
+import { validateCompanion } from "../server/reliability/validator.js";
+import { smokeCompanion } from "../server/reliability/smoke.js";
 
 export interface ScaffoldOptions {
   cwd?: string;
@@ -146,6 +148,28 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
       console.warn(`[scaffold] remount skipped: ${r.error}. Restart 'claudepanion serve' to pick up changes.`);
     }
     stagesRun.push("remount");
+  }
+
+  if (opts.runSelfCheck ?? true) {
+    const distPath = join(cwd, "dist/companions", slug, "index.js");
+    let companion: any;
+    try {
+      const mod = await import(`${distPath}?t=${Date.now()}`);
+      companion = mod.default ?? mod[slug] ?? mod[slugToCamelCase(slug)];
+    } catch (err) {
+      return { ok: false, stage: "self-check", error: `failed to import dist module: ${(err as Error).message}`, remediation: "check that npm run build completed; re-run" };
+    }
+    const validator = validateCompanion({ manifest: companion?.manifest, module: companion, companionDir: compDir });
+    if (!validator.ok) {
+      const fatals = validator.issues.filter((i) => i.fatal).map((i) => i.message).join("; ");
+      return { ok: false, stage: "self-check", error: `validator: ${fatals}`, remediation: "read issues; fix file; re-run" };
+    }
+    const smoke = await smokeCompanion(companion);
+    if (!smoke.ok) {
+      const errors = smoke.results.filter((r) => !r.ok).map((r) => `${r.tool}: ${r.error}`).join("; ");
+      return { ok: false, stage: "self-check", error: `smoke: ${errors}`, remediation: "fix tool handler; re-run" };
+    }
+    stagesRun.push("self-check");
   }
 
   return { ok: true, slug, kind: "ui", stagesRun, filesGenerated, dependenciesAdded };
