@@ -14,6 +14,9 @@ Usage:
   claudepanion plugin install            register claudepanion as a Claude Code plugin in this repo
   claudepanion plugin uninstall          unregister the plugin from this repo
   claudepanion companion delete <slug>   delete a scaffolded companion and clean up registrations
+  claudepanion scaffold <slug>           generate registry files, build, remount, self-check
+  claudepanion regenerate                re-derive registry files from companions/ on disk
+  claudepanion remount <slug>            ask the running server to re-import a companion
   claudepanion --help                    show this help
 
 Options:
@@ -186,6 +189,31 @@ const [cmd, sub] = process.argv.slice(2);
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
   console.log(USAGE);
   process.exit(cmd ? 0 : 1);
+} else if (cmd === "scaffold") {
+  const slug = process.argv[3];
+  if (!slug) die("Usage: claudepanion scaffold <slug>");
+  (async () => {
+    const { runScaffold } = await import(join(pkgRoot, "dist/src/cli/scaffold.js"));
+    const result = await runScaffold(slug);
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  })();
+} else if (cmd === "regenerate") {
+  (async () => {
+    const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
+    const result = await runRegenerate();
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  })();
+} else if (cmd === "remount") {
+  const slug = process.argv[3];
+  if (!slug) die("Usage: claudepanion remount <slug>");
+  (async () => {
+    const { callRemount } = await import(join(pkgRoot, "dist/src/cli/remount.js"));
+    const result = await callRemount(slug);
+    console.log(JSON.stringify(result, null, 2));
+    process.exit(result.ok ? 0 : 1);
+  })();
 } else if (cmd === "serve") {
   serve();
 } else if (cmd === "plugin" && sub === "install") {

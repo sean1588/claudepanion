@@ -16,6 +16,6 @@
       "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/server/**/*", "src/shared/**/*", "companions/**/*.ts"],
+  "include": ["src/cli/**/*", "src/server/**/*", "src/shared/**/*", "companions/**/*.ts"],
   "exclude": ["node_modules", "dist", "src/client", "companions/**/*.tsx", "companions/client.ts", "companions/build/templates"]
 }
