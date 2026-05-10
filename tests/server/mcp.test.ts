@@ -11,7 +11,7 @@ import { successResult } from "../../src/shared/types.js";
 
 const manifest = (name: string): Manifest => ({
   name,
-  kind: "entity",
+  kind: "ui",
   displayName: name,
   icon: "🧪",
   description: "t",

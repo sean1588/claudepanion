@@ -7,7 +7,7 @@ import { successResult } from "../../../src/shared/types";
 
 const baseManifest = {
   name: "x",
-  kind: "entity" as const,
+  kind: "ui" as const,
   displayName: "X",
   icon: "x",
   description: "x",

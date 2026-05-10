@@ -4,7 +4,7 @@ import type { Manifest } from "../../src/shared/types";
 
 const fakeManifest = (name: string): Manifest => ({
   name,
-  kind: "entity",
+  kind: "ui",
   displayName: name,
   icon: "🧪",
   description: "test companion",

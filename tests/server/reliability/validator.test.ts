@@ -6,7 +6,7 @@ import { successResult } from "../../../src/shared/types";
 
 const baseManifest = {
   name: "expense-tracker",
-  kind: "entity" as const,
+  kind: "ui" as const,
   displayName: "Expense Tracker",
   icon: "💰",
   description: "Track expenses.",

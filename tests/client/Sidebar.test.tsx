@@ -8,7 +8,7 @@ beforeEach(() => {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url === "/api/companions") {
       return new Response(JSON.stringify([
-        { name: "expense-tracker", kind: "entity", displayName: "Expense Tracker", icon: "💰", description: "", contractVersion: "2", version: "0.1.0" },
+        { name: "expense-tracker", kind: "ui", displayName: "Expense Tracker", icon: "💰", description: "", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
     }
     throw new Error(`unexpected fetch: ${url}`);

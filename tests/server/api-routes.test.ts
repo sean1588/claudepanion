@@ -13,7 +13,7 @@ import type { CompanionToolDefinition } from "../../src/shared/types";
 
 const manifest = (name: string): Manifest => ({
   name,
-  kind: "entity",
+  kind: "ui",
   displayName: name,
   icon: "🧪",
   description: "t",

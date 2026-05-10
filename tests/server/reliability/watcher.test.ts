@@ -10,7 +10,7 @@ function mkCompanion(name: string, version: string): RegisteredCompanion {
   return {
     manifest: {
       name,
-      kind: "entity",
+      kind: "ui",
       displayName: name,
       icon: "x",
       description: "x",
