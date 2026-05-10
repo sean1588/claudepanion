@@ -15,9 +15,11 @@ export interface ApiDeps {
   reliability?: Map<string, ReliabilitySnapshot>;
   /** Override for tests — defaults to spawning `node bin/cli.js companion delete <slug>`. */
   deleteCompanionFiles?: (slug: string) => Promise<{ ok: true } | { ok: false; error: string }>;
+  /** Triggers a fresh re-import of the companion module. Wired to the watcher in production. */
+  triggerRemount?: (slug: string) => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
 }
 
-export function mountApiRoutes(app: Express, { store, registry, reliability, deleteCompanionFiles }: ApiDeps): void {
+export function mountApiRoutes(app: Express, { store, registry, reliability, deleteCompanionFiles, triggerRemount }: ApiDeps): void {
   const runDelete = deleteCompanionFiles ?? defaultDeleteCompanionFiles;
   app.get("/api/reliability/:companion", (req: Request, res: Response) => {
     const name = String(req.params.companion);
@@ -94,9 +96,13 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
     const toolName = String(req.params.tool);
     const c = registry.get(name);
     if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
-    if (c.manifest.kind !== "tool") return res.status(400).json({ error: `${name} is not a tool-kind companion` });
     const def = c.tools.find((t) => t.name === toolName);
     if (!def) return res.status(404).json({ error: `unknown tool: ${toolName}` });
+    // ui-kind companions may expose READ tools to the browser (e.g. for form
+    // dropdowns). Write tools go through the skill so user permission is prompted.
+    if (c.manifest.kind !== "tool" && (def.sideEffect ?? "read") !== "read") {
+      return res.status(400).json({ error: `${name} is a ui-kind companion; only read tools may be invoked from the browser` });
+    }
     try {
       const result = await def.handler((req.body ?? {}).args ?? {});
       res.json({ ok: true, result });
@@ -104,6 +110,16 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
       const e = err as Error;
       res.json({ ok: false, error: e?.message ?? String(err) });
     }
+  });
+
+  app.post("/api/internal/remount", async (req: Request, res: Response) => {
+    const slug = String(req.query.slug ?? "");
+    if (!slug) return res.status(400).json({ ok: false, error: "slug query param required" });
+    if (!/^[a-z][a-z0-9-]*$/.test(slug)) return res.status(400).json({ ok: false, error: "invalid slug" });
+    if (!triggerRemount) return res.status(503).json({ ok: false, error: "remount not wired (server may be running without a watcher)" });
+    const result = await triggerRemount(slug);
+    if (!result.ok) return res.status(400).json(result);
+    return res.json(result);
   });
 
   app.post("/api/install", async (req: Request, res: Response) => {

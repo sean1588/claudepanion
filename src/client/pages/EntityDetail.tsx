@@ -12,6 +12,7 @@ import BaseArtifactPanel from "../components/BaseArtifactPanel";
 import { continueEntity, fetchCompanions } from "../api";
 import type { Entity, Manifest } from "@shared/types";
 import { getArtifactRenderer } from "../../../companions/client";
+import { MarkdownArtifactPanel } from "../primitives/MarkdownArtifactPanel";
 
 const STALE_MS = 10 * 60 * 1000;
 
@@ -126,7 +127,7 @@ function CompletedBody({ entity, onContinue }: { entity: Entity; onContinue: (te
         </div>
         <div className="artifact-hero-body">
           <BaseArtifactPanel entity={entity}>
-            {Renderer ? <Renderer entity={entity} /> : <pre>{JSON.stringify(entity.artifact, null, 2)}</pre>}
+            {Renderer ? <Renderer entity={entity} /> : entity.artifact ? <MarkdownArtifactPanel artifact={entity.artifact as any} /> : <pre>{JSON.stringify(entity.artifact, null, 2)}</pre>}
           </BaseArtifactPanel>
         </div>
       </div>

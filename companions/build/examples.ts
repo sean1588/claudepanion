@@ -1,6 +1,6 @@
 export interface BuildExample {
   slug: string;
-  kind: "entity" | "tool";
+  kind: "ui" | "tool";
   displayName: string;
   icon: string;
   description: string;
@@ -16,7 +16,7 @@ export interface BuildExample {
 export const buildExamples: BuildExample[] = [
   {
     slug: "github-pr-reviewer",
-    kind: "entity",
+    kind: "ui",
     displayName: "GitHub PR reviewer",
     icon: "🔎",
     description:
@@ -24,7 +24,7 @@ export const buildExamples: BuildExample[] = [
   },
   {
     slug: "cloudwatch-investigator",
-    kind: "entity",
+    kind: "ui",
     displayName: "CloudWatch investigator",
     icon: "📊",
     description:
@@ -32,7 +32,7 @@ export const buildExamples: BuildExample[] = [
   },
   {
     slug: "linear-groomer",
-    kind: "entity",
+    kind: "ui",
     displayName: "Linear backlog groomer",
     icon: "📋",
     description:

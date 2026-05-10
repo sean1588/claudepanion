@@ -144,7 +144,7 @@ function buildSelfCheckTool(deps: McpDeps): CompanionToolDefinition {
 
 function buildAllToolDefs(deps: McpDeps, c: RegisteredCompanion): CompanionToolDefinition[] {
   const defs: CompanionToolDefinition[] = [];
-  if (c.manifest.kind === "entity") {
+  if (c.manifest.kind === "ui") {
     defs.push(...buildEntityTools(deps.store, c));
   }
   if (c.manifest.name === "build") {

@@ -20,7 +20,7 @@ export default function BuildForm({ onSubmit }: Props) {
     example ? "new-companion" : params.get("mode") === "iterate" ? "iterate-companion" : "new-companion"
   );
   const [name, setName] = useState(example?.slug ?? "");
-  const [kind, setKind] = useState<"entity" | "tool">(example?.kind ?? "entity");
+  const [kind, setKind] = useState<"ui" | "tool">(example?.kind ?? "ui");
   const [description, setDescription] = useState(example?.description ?? "");
   const [target, setTarget] = useState<string>(params.get("target") ?? "");
   const { companions } = useCompanions();
@@ -97,8 +97,8 @@ export default function BuildForm({ onSubmit }: Props) {
           </label>
           <label style={labelStyle}>
             Kind
-            <select value={kind} onChange={(e) => setKind(e.target.value as "entity" | "tool")} style={inputStyle}>
-              <option value="entity">entity — has lifecycle, form, artifacts</option>
+            <select value={kind} onChange={(e) => setKind(e.target.value as "ui" | "tool")} style={inputStyle}>
+              <option value="ui">ui — has lifecycle, form, artifacts</option>
               <option value="tool">tool — MCP tools only, auto About page</option>
             </select>
           </label>

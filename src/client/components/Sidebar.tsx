@@ -4,7 +4,7 @@ import { useCompanions } from "../hooks/useCompanions";
 export default function Sidebar() {
   const { companions } = useCompanions();
   const build = companions.find((c) => c.name === "build");
-  const entities = companions.filter((c) => c.kind === "entity" && c.name !== "build");
+  const entities = companions.filter((c) => c.kind === "ui" && c.name !== "build");
   const tools = companions.filter((c) => c.kind === "tool");
 
   return (

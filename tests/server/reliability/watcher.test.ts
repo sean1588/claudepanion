@@ -1,20 +1,20 @@
 import { describe, it, expect, beforeEach } from "vitest";
-import { createWatcher, refreshReliability } from "../../../src/server/reliability/watcher";
+import { createWatcher, refreshReliability, isDistStale, DistStaleError } from "../../../src/server/reliability/watcher";
 import { createRegistry } from "../../../src/server/companion-registry";
 import type { RegisteredCompanion } from "../../../src/server/companion-registry";
 import { tmpdir } from "node:os";
-import { mkdtempSync } from "node:fs";
+import { mkdtempSync, writeFileSync, rmSync, utimesSync } from "node:fs";
 import { join } from "node:path";
 
 function mkCompanion(name: string, version: string): RegisteredCompanion {
   return {
     manifest: {
       name,
-      kind: "entity",
+      kind: "ui",
       displayName: name,
       icon: "x",
       description: "x",
-      contractVersion: "1",
+      contractVersion: "2",
       version,
     },
     tools: [],
@@ -109,5 +109,84 @@ describe("registry onChange", () => {
     reg.onChange((n) => fired.push(n));
     reg.remount(mkCompanion("foo", "0.2.0"));
     expect(fired).toEqual(["foo"]);
+  });
+});
+
+describe("watcher dist-mtime gate", () => {
+  it("isDistStale returns true when dist is older than source", () => {
+    const testDir = mkdtempSync(join(tmpdir(), "watcher-stale-test-"));
+    const sourcePath = join(testDir, "src.ts");
+    const distPath = join(testDir, "dist.js");
+    writeFileSync(sourcePath, "");
+    writeFileSync(distPath, "");
+    const old = new Date(Date.now() - 60000);
+    utimesSync(distPath, old, old);
+
+    expect(isDistStale(sourcePath, distPath)).toBe(true);
+
+    rmSync(testDir, { recursive: true });
+  });
+
+  it("isDistStale returns false when dist is newer than source", () => {
+    const testDir = mkdtempSync(join(tmpdir(), "watcher-stale-test-"));
+    const sourcePath = join(testDir, "src.ts");
+    const distPath = join(testDir, "dist.js");
+    writeFileSync(sourcePath, "");
+    writeFileSync(distPath, "");
+    const old = new Date(Date.now() - 60000);
+    utimesSync(sourcePath, old, old);
+
+    expect(isDistStale(sourcePath, distPath)).toBe(false);
+
+    rmSync(testDir, { recursive: true });
+  });
+
+  it("isDistStale returns true when files are missing", () => {
+    expect(isDistStale("/nonexistent/source", "/nonexistent/dist")).toBe(true);
+  });
+});
+
+describe("watcher retry-on-stale", () => {
+  it("schedules retry when dist is stale, succeeds when dist catches up", async () => {
+    let staleCount = 0;
+    const fakeReimport = async (): Promise<RegisteredCompanion | null> => {
+      staleCount++;
+      if (staleCount < 3) throw new DistStaleError("src", "dist");
+      return mkCompanion("x", "0.1.0");
+    };
+    const registry = createRegistry([mkCompanion("x", "0.0.1")]);
+    const w = createWatcher({
+      registry,
+      companionsDir: dir,
+      debounceMs: 10,
+      reimport: fakeReimport,
+      retryDelaysMs: [10, 20, 40],
+      logger: { info: () => {}, warn: () => {} },
+    });
+
+    await w.triggerRemount("x");
+    // Wait for retry chain to complete (10ms + 20ms + buffer)
+    await new Promise((r) => setTimeout(r, 200));
+    expect(staleCount).toBeGreaterThanOrEqual(3);
+    expect(registry.get("x")?.manifest.version).toBe("0.1.0");
+    await w.close();
+  });
+
+  it("gives up after max retries and keeps old companion", async () => {
+    const registry = createRegistry([mkCompanion("y", "0.0.1")]);
+    const w = createWatcher({
+      registry,
+      companionsDir: dir,
+      debounceMs: 10,
+      reimport: async () => { throw new DistStaleError("src", "dist"); },
+      retryDelaysMs: [10, 20, 40],
+      logger: { info: () => {}, warn: () => {} },
+    });
+
+    await w.triggerRemount("y");
+    // Wait for all retries to exhaust (10 + 20 + 40 + buffer)
+    await new Promise((r) => setTimeout(r, 300));
+    expect(registry.get("y")?.manifest.version).toBe("0.0.1");
+    await w.close();
   });
 });

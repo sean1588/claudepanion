@@ -8,7 +8,7 @@ function mockFetch(entity: Partial<Entity>) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
     if (url.includes("/api/companions")) {
       return new Response(JSON.stringify([
-        { name: "x", kind: "entity", displayName: "X", icon: "x", description: "x", contractVersion: "1", version: "0.1.0" },
+        { name: "x", kind: "ui", displayName: "X", icon: "x", description: "x", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
     }
     return new Response(JSON.stringify({
@@ -48,13 +48,23 @@ describe("EntityDetail", () => {
     expect(screen.getByText("hi")).toBeInTheDocument();
   });
 
-  it("renders artifact JSON and continuation in completed state", async () => {
+  it("renders markdown artifact and continuation in completed state", async () => {
+    mockFetch({ status: "completed", artifact: { summary: "all good", markdown: "## Result\n\nGreat **work**." } });
+    renderAt("/c/x/x-1");
+    await vi.runOnlyPendingTimersAsync();
+    await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
+    // The markdown body renders the heading and bold text.
+    expect(screen.getByText("Result")).toBeInTheDocument();
+    expect(screen.getByText("work")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /continue/i })).toBeInTheDocument();
+  });
+
+  it("falls back to a placeholder for legacy non-markdown artifacts", async () => {
     mockFetch({ status: "completed", artifact: { total: 42 } });
     renderAt("/c/x/x-1");
     await vi.runOnlyPendingTimersAsync();
     await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
-    expect(screen.getByText(/"total": 42/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /continue/i })).toBeInTheDocument();
+    expect(screen.getByText(/no markdown report/i)).toBeInTheDocument();
   });
 
   it("renders error message and stack in error state", async () => {
@@ -69,12 +79,12 @@ describe("EntityDetail", () => {
   it("renders summary banner from artifact", async () => {
     vi.stubGlobal("fetch", vi.fn(async (url: string) => {
       if (url === "/api/companions") return new Response(JSON.stringify([
-        { name: "build", kind: "entity", displayName: "Build", icon: "🔨", description: "", contractVersion: "1", version: "0.1.0" },
+        { name: "build", kind: "ui", displayName: "Build", icon: "🔨", description: "", contractVersion: "2", version: "0.1.0" },
       ]), { status: 200 });
       if (url.startsWith("/api/entities/build-abc")) return new Response(JSON.stringify({
         id: "build-abc", companion: "build", status: "completed",
         statusMessage: null, createdAt: "2026-04-25T00:00:00Z", updatedAt: "2026-04-25T00:00:01Z",
-        input: { mode: "new-companion", name: "x", kind: "entity", description: "" },
+        input: { mode: "new-companion", name: "x", kind: "ui", description: "" },
         artifact: { summary: "Scaffolded x.", errors: ["minor warning"], filesCreated: [], filesModified: [], validatorPassed: true, smokeTestPassed: true },
         errorMessage: null, errorStack: null, logs: [],
       }), { status: 200 });

@@ -6,11 +6,11 @@ import { successResult } from "../../../src/shared/types";
 
 const baseManifest = {
   name: "expense-tracker",
-  kind: "entity" as const,
+  kind: "ui" as const,
   displayName: "Expense Tracker",
   icon: "💰",
   description: "Track expenses.",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.1.0",
 };
 
@@ -45,7 +45,7 @@ describe("validateCompanion", () => {
   });
 
   it("flags unsupported contractVersion as fatal", () => {
-    const r = validateCompanion({ manifest: { ...baseManifest, contractVersion: "2" }, module: null, companionDir: null });
+    const r = validateCompanion({ manifest: { ...baseManifest, contractVersion: "99" }, module: null, companionDir: null });
     expect(r.ok).toBe(false);
     expect(r.issues.some((i) => i.code === "manifest.contractVersion.unsupported" && i.fatal)).toBe(true);
   });

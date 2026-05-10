@@ -11,11 +11,11 @@ import { successResult } from "../../src/shared/types.js";
 
 const manifest = (name: string): Manifest => ({
   name,
-  kind: "entity",
+  kind: "ui",
   displayName: name,
   icon: "🧪",
   description: "t",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.0.1",
 });
 

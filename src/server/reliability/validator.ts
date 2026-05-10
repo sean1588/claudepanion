@@ -43,10 +43,10 @@ export function validateCompanion(args: {
     });
   }
 
-  if (m.kind !== "entity" && m.kind !== "tool") {
+  if (m.kind !== "ui" && m.kind !== "tool") {
     issues.push({
       code: "manifest.kind.invalid",
-      message: `kind must be "entity" or "tool" — got ${JSON.stringify(m.kind)}`,
+      message: `kind must be "ui" or "tool" — got ${JSON.stringify(m.kind)}`,
       fatal: true,
     });
   }
@@ -89,7 +89,8 @@ export function validateCompanion(args: {
     }
   }
 
-  if (m.kind === "entity" && args.module?.tools && typeof m.name === "string") {
+  const isUiKind = m.kind === "ui";
+  if (isUiKind && args.module?.tools && typeof m.name === "string") {
     // Tool names can't contain hyphens, so the slug's hyphens become underscores.
     // §15a: prefix = slug-with-underscores + "_". A misnamed tool means MCP
     // routing breaks for that tool — fatal, not a warning.
@@ -106,8 +107,9 @@ export function validateCompanion(args: {
   }
 
   if (args.companionDir) {
-    const required = m.kind === "entity"
-      ? ["form.tsx", "pages/List.tsx", "pages/Detail.tsx", "types.ts", "server/tools.ts"]
+    // form/Detail/List are optional overrides; types + tools are required for ui kind.
+    const required = isUiKind
+      ? ["types.ts", "server/tools.ts"]
       : ["server/tools.ts"];
     for (const rel of required) {
       if (!existsSync(join(args.companionDir, rel))) {
@@ -121,7 +123,7 @@ export function validateCompanion(args: {
   }
 
   // §16f.1 — requiredEnv declared but no proxy tools = Build did not author server/tools.ts
-  if (m.kind === "entity" && Array.isArray(m.requiredEnv) && m.requiredEnv.length > 0) {
+  if (isUiKind && Array.isArray(m.requiredEnv) && m.requiredEnv.length > 0) {
     const toolCount = args.module?.tools?.length ?? 0;
     if (toolCount === 0) {
       issues.push({

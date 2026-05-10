@@ -18,18 +18,18 @@ describe("shared types", () => {
     expectTypeOf(e.level).toEqualTypeOf<"info" | "warn" | "error">();
   });
 
-  it("CompanionKind is entity or tool", () => {
-    expectTypeOf<CompanionKind>().toEqualTypeOf<"entity" | "tool">();
+  it("CompanionKind is ui or tool", () => {
+    expectTypeOf<CompanionKind>().toEqualTypeOf<"ui" | "tool">();
   });
 
   it("Manifest has the declared fields", () => {
     const m: Manifest = {
       name: "x",
-      kind: "entity",
+      kind: "ui",
       displayName: "X",
       icon: "📦",
       description: "desc",
-      contractVersion: "1",
+      contractVersion: "2",
       version: "0.1.0",
     };
     expectTypeOf(m.kind).toEqualTypeOf<CompanionKind>();

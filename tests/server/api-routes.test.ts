@@ -13,11 +13,11 @@ import type { CompanionToolDefinition } from "../../src/shared/types";
 
 const manifest = (name: string): Manifest => ({
   name,
-  kind: "entity",
+  kind: "ui",
   displayName: name,
   icon: "🧪",
   description: "t",
-  contractVersion: "1",
+  contractVersion: "2",
   version: "0.0.1",
 });
 
@@ -220,6 +220,139 @@ describe("preflight with required env", () => {
     const res = await request(a).get("/api/companions/env-test/preflight");
     expect(res.body.ok).toBe(true);
     expect(res.body.missingOptional).toEqual(["OPT_TOKEN"]);
+  });
+});
+
+describe("POST /api/tools/:companion/:tool", () => {
+  it("allows ui-kind companions to expose READ tools to the browser", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-ui-read-"));
+    const store = createEntityStore(tmp2);
+    const readTool: CompanionToolDefinition = {
+      name: "uikind_list",
+      description: "list things",
+      schema: {},
+      sideEffect: "read",
+      async handler() { return successResult({ items: ["a", "b"] }); },
+    };
+    const m: Manifest = { ...manifest("uikind"), kind: "ui" };
+    const registry = createRegistry([{ manifest: m, tools: [readTool] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+
+    const res = await request(app2)
+      .post("/api/tools/uikind/uikind_list")
+      .send({ args: {} });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.result.content[0].text).toContain("a");
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+
+  it("also allows ui-kind tools with no sideEffect declared (defaults to read)", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-ui-noside-"));
+    const store = createEntityStore(tmp2);
+    const readTool: CompanionToolDefinition = {
+      name: "uikind_list",
+      description: "list things",
+      schema: {},
+      async handler() { return successResult({ items: [] }); },
+    };
+    const m: Manifest = { ...manifest("uikind2"), kind: "ui" };
+    const registry = createRegistry([{ manifest: m, tools: [readTool] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+
+    const res = await request(app2)
+      .post("/api/tools/uikind2/uikind_list")
+      .send({ args: {} });
+
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+
+  it("rejects ui-kind WRITE tools — those go through the skill", async () => {
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-ui-write-"));
+    const store = createEntityStore(tmp2);
+    const writeTool: CompanionToolDefinition = {
+      name: "uikind_post",
+      description: "post",
+      schema: {},
+      sideEffect: "write",
+      async handler() { return successResult({}); },
+    };
+    const m: Manifest = { ...manifest("uikind3"), kind: "ui" };
+    const registry = createRegistry([{ manifest: m, tools: [writeTool] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry });
+
+    const res = await request(app2)
+      .post("/api/tools/uikind3/uikind_post")
+      .send({});
+
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("read tools");
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+});
+
+describe("POST /api/internal/remount", () => {
+  it("returns 200 on successful remount", async () => {
+    const reMounts: string[] = [];
+    const registry = createRegistry([{
+      manifest: { name: "x", kind: "ui", displayName: "X", icon: "🧪", description: "t", contractVersion: "2", version: "0.0.1" },
+      tools: [],
+    }]);
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-"));
+    const store = createEntityStore(tmp2);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, {
+      store,
+      registry,
+      triggerRemount: async (slug) => { reMounts.push(slug); return { ok: true, version: "0.0.1" }; },
+    });
+
+    const res = await request(app2).post("/api/internal/remount?slug=x");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ ok: true, version: "0.0.1" });
+    expect(reMounts).toEqual(["x"]);
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+
+  it("returns 400 if slug query missing", async () => {
+    const registry = createRegistry([]);
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-noslug-"));
+    const store = createEntityStore(tmp2);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, triggerRemount: async () => ({ ok: true }) });
+    const res = await request(app2).post("/api/internal/remount");
+    expect(res.status).toBe(400);
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
+  });
+
+  it("returns 400 for invalid slug format (path traversal guard)", async () => {
+    const registry = createRegistry([]);
+    const tmp2 = mkdtempSync(join(tmpdir(), "claudepanion-remount-invalid-"));
+    const store = createEntityStore(tmp2);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, triggerRemount: async () => ({ ok: true }) });
+    const res = await request(app2).post("/api/internal/remount?slug=../etc/passwd");
+    expect(res.status).toBe(400);
+    expect(res.body.error).toContain("invalid");
+
+    try { rmSync(tmp2, { recursive: true, force: true }); } catch {}
   });
 });
 

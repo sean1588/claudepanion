@@ -1,16 +1,36 @@
 import chokidar from "chokidar";
 import { resolve } from "node:path";
+import { statSync } from "node:fs";
 import type { Registry, RegisteredCompanion } from "../companion-registry.js";
 import { validateCompanion } from "./validator.js";
 import { smokeCompanion } from "./smoke.js";
 import type { ValidationReport } from "./validator.js";
 import type { SmokeReport } from "./smoke.js";
 
+export class DistStaleError extends Error {
+  constructor(public sourcePath: string, public distPath: string) {
+    super(`dist file ${distPath} is older than source ${sourcePath}`);
+    this.name = "DistStaleError";
+  }
+}
+
+export function isDistStale(sourcePath: string, distPath: string): boolean {
+  try {
+    const srcStat = statSync(sourcePath);
+    const distStat = statSync(distPath);
+    return distStat.mtimeMs < srcStat.mtimeMs;
+  } catch {
+    return true; // file missing → treat as stale
+  }
+}
+
 export interface ReliabilitySnapshot {
   validator: ValidationReport;
   smoke: SmokeReport;
   ranAt: string;
 }
+
+const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
 export interface WatcherDeps {
   registry: Registry;
@@ -20,6 +40,8 @@ export interface WatcherDeps {
   snapshots?: Map<string, ReliabilitySnapshot>;
   /** Injectable for tests — returns a fresh module import for the given companion name. */
   reimport?: (companionName: string) => Promise<RegisteredCompanion | null>;
+  /** Override retry delays (ms) for tests; defaults to [1000, 2000, 4000]. */
+  retryDelaysMs?: number[];
 }
 
 export interface Watcher {
@@ -28,22 +50,54 @@ export interface Watcher {
   triggerRemount(companionName: string): Promise<void>;
 }
 
-async function defaultReimport(companionName: string, companionsDir: string): Promise<RegisteredCompanion | null> {
+/** Returns the most-recent mtime among the source files that, when changed, mean
+ *  the dist artifact is stale. Considers manifest.ts and index.ts (the codegen
+ *  output written by `claudepanion scaffold` after the file watcher fires). */
+function newestSourceMtimeMs(companionsDir: string, companionName: string): number {
   const candidates = [
-    resolve(process.cwd(), "dist/companions", companionName, "index.js"),
-    resolve(companionsDir, companionName, "index.js"),
+    resolve(companionsDir, companionName, "manifest.ts"),
+    resolve(companionsDir, companionName, "index.ts"),
+    resolve(companionsDir, companionName, "types.ts"),
+    resolve(companionsDir, companionName, "server/tools.ts"),
   ];
-  const cacheBust = `?t=${Date.now()}`;
-  for (const path of candidates) {
+  let max = 0;
+  for (const p of candidates) {
     try {
-      const mod = await import(`file://${path}${cacheBust}`);
-      const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
-      if (companion && companion.manifest) return companion;
+      const s = statSync(p);
+      if (s.mtimeMs > max) max = s.mtimeMs;
     } catch {
-      // try next
+      // missing file is fine — just don't contribute to max
     }
   }
-  return null;
+  return max;
+}
+
+async function defaultReimport(companionName: string, companionsDir: string): Promise<RegisteredCompanion | null> {
+  const distPath = resolve(process.cwd(), "dist/companions", companionName, "index.js");
+
+  // Stale gate: dist must be at least as new as the newest authored source file.
+  let distMtime: number;
+  try {
+    distMtime = statSync(distPath).mtimeMs;
+  } catch {
+    throw new DistStaleError(resolve(companionsDir, companionName, "manifest.ts"), distPath);
+  }
+  const srcMtime = newestSourceMtimeMs(companionsDir, companionName);
+  if (distMtime < srcMtime) {
+    throw new DistStaleError(resolve(companionsDir, companionName, "manifest.ts"), distPath);
+  }
+
+  // Import — surface real errors rather than swallowing them.
+  const cacheBust = `?t=${Date.now()}`;
+  const mod = await import(`file://${distPath}${cacheBust}`);
+  const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
+  if (!companion?.manifest) {
+    throw new Error(
+      `dist module at ${distPath} loaded but did not export a RegisteredCompanion ` +
+      `(expected a default export, or a named export 'default'/'${companionName}'/'${toCamel(companionName)}' with a .manifest property)`
+    );
+  }
+  return companion;
 }
 
 function toCamel(slug: string): string {
@@ -60,20 +114,33 @@ export function createWatcher(deps: WatcherDeps): Watcher {
   const debounceMs = deps.debounceMs ?? 200;
   const logger = deps.logger ?? { info: console.log.bind(console), warn: console.warn.bind(console) };
   const snapshots = deps.snapshots;
+  const retryDelays = deps.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
-  const doRemount = async (companionName: string) => {
+  const doRemount = async (companionName: string, retryAttempt = 0): Promise<void> => {
     const reimport = deps.reimport ?? ((n) => defaultReimport(n, deps.companionsDir));
-    const fresh = await reimport(companionName);
+    let fresh: RegisteredCompanion | null = null;
+    try {
+      fresh = await reimport(companionName);
+    } catch (err) {
+      if (err instanceof DistStaleError && retryAttempt < retryDelays.length) {
+        const delay = retryDelays[retryAttempt];
+        logger.info(`[watcher] ${companionName} remount retry ${retryAttempt + 1}/${retryDelays.length} at stage='dist-stale' in ${delay}ms`);
+        setTimeout(() => void doRemount(companionName, retryAttempt + 1), delay);
+        return;
+      }
+      logger.warn(`[watcher] ${companionName} remount failed at stage='import-threw': ${(err as Error).message}`);
+      return;
+    }
     if (!fresh) {
-      logger.warn(`[watcher] could not re-import ${companionName}`);
+      logger.warn(`[watcher] ${companionName} remount failed at stage='import-empty' (no module returned)`);
       return;
     }
     const companionDir = resolve(deps.companionsDir, companionName);
     const snapshot = await refreshReliability(fresh, companionDir);
     if (!snapshot.validator.ok) {
       const fatals = snapshot.validator.issues.filter((i) => i.fatal).map((i) => i.message).join("; ");
-      logger.warn(`[watcher] ${companionName} failed validation, keeping old mount: ${fatals}`);
+      logger.warn(`[watcher] ${companionName} remount failed at stage='validation-failed': ${fatals}`);
       if (snapshots) snapshots.set(companionName, snapshot);
       return;
     }

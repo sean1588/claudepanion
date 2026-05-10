@@ -1,5 +1,6 @@
 import express from "express";
 import { join, resolve } from "node:path";
+import { statSync } from "node:fs";
 import { createEntityStore } from "./entity-store.js";
 import { createRegistry } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
@@ -9,12 +10,33 @@ import { companions } from "../../companions/index.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
+import { dataPath, ensureClaudepanionDirs } from "./paths.js";
 
 const PORT = Number(process.env.PORT ?? 3001);
 const repoRoot = process.cwd();
 
+function checkTscHealth(): void {
+  const tsBuildInfo = resolve(process.cwd(), "dist/.tsbuildinfo");
+  try {
+    const stat = statSync(tsBuildInfo);
+    const ageSec = (Date.now() - stat.mtimeMs) / 1000;
+    if (ageSec > 600) {
+      console.warn(
+        `[claudepanion] dist/.tsbuildinfo is ${Math.round(ageSec)}s old. ` +
+        `If you're developing companions, run 'npm run dev:tsc' so the watcher can pick up changes.`
+      );
+    }
+  } catch {
+    console.warn(
+      `[claudepanion] dist/.tsbuildinfo not found. ` +
+      `Run 'npm run build' or 'npm run dev' before scaffolding companions.`
+    );
+  }
+}
+
 async function main() {
-  const store = createEntityStore(resolve(repoRoot, "data"));
+  ensureClaudepanionDirs();
+  const store = createEntityStore(dataPath());
   const registry = createRegistry(companions);
   const snapshots = new Map<string, ReliabilitySnapshot>();
   const companionsDir = resolve(repoRoot, "companions");
@@ -28,7 +50,20 @@ async function main() {
   const app = express();
   app.use(express.json({ limit: "10mb" }));
 
-  mountApiRoutes(app, { store, registry, reliability: snapshots });
+  mountApiRoutes(app, {
+    store,
+    registry,
+    reliability: snapshots,
+    triggerRemount: async (slug) => {
+      try {
+        await watcher.triggerRemount(slug);
+        const c = registry.get(slug);
+        return c ? { ok: true, version: c.manifest.version } : { ok: false, error: "remount completed but companion not registered" };
+      } catch (err) {
+        return { ok: false, error: (err as Error).message };
+      }
+    },
+  });
 
   const mcpServer = new McpServer({ name: "claudepanion", version: "0.2.0" });
   const registeredTools = new Set<string>();
@@ -66,6 +101,7 @@ async function main() {
 
   app.listen(PORT, () => {
     console.log(`claudepanion listening on http://localhost:${PORT}`);
+    checkTscHealth();
   });
 
   const shutdown = async () => {

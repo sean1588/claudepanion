@@ -1,6 +1,6 @@
 import type { Manifest, CompanionToolDefinition } from "../shared/types.js";
 
-export const SUPPORTED_CONTRACT_VERSION = "1";
+export const SUPPORTED_CONTRACT_VERSION = "2";
 
 export interface RegisteredCompanion {
   manifest: Manifest;

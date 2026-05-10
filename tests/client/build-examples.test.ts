@@ -12,7 +12,7 @@ describe("buildExamples", () => {
     "%s has a valid shape",
     (_slug, ex: BuildExample) => {
       expect(ex.slug).toMatch(SLUG_RE);
-      expect(["entity", "tool"]).toContain(ex.kind);
+      expect(["ui", "tool"]).toContain(ex.kind);
       expect(ex.displayName.trim()).not.toBe("");
       expect(ex.icon.trim()).not.toBe("");
       expect(ex.description.trim()).not.toBe("");
