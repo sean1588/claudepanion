@@ -10,6 +10,7 @@ import { mountApiRoutes } from "../../src/server/api-routes";
 import type { Manifest } from "@shared/types";
 import { successResult } from "../../src/shared/types";
 import type { CompanionToolDefinition } from "../../src/shared/types";
+import { bumpMcpStatus, resetMcpStatus } from "../../src/server/mcp-status";
 
 const manifest = (name: string): Manifest => ({
   name,
@@ -42,6 +43,23 @@ describe("api routes", () => {
     const res = await request(app).get("/api/companions");
     expect(res.status).toBe(200);
     expect(res.body.map((m: Manifest) => m.name)).toEqual(["x"]);
+  });
+
+  it("GET /api/mcp/status returns nulls when no MCP traffic has been observed", async () => {
+    resetMcpStatus();
+    const res = await request(app).get("/api/mcp/status");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ firstRequestAt: null, lastRequestAt: null });
+  });
+
+  it("GET /api/mcp/status returns ISO timestamps after bumpMcpStatus is called", async () => {
+    resetMcpStatus();
+    bumpMcpStatus(1_700_000_000_000);
+    bumpMcpStatus(1_700_000_005_000);
+    const res = await request(app).get("/api/mcp/status");
+    expect(res.status).toBe(200);
+    expect(res.body.firstRequestAt).toBe(new Date(1_700_000_000_000).toISOString());
+    expect(res.body.lastRequestAt).toBe(new Date(1_700_000_005_000).toISOString());
   });
 
   it("POST /api/entities creates an entity", async () => {

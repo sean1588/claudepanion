@@ -8,6 +8,7 @@ import { spawn } from "node:child_process";
 import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
 import { rewriteCompanionsIndex } from "./companions-index.js";
+import { getMcpStatus } from "./mcp-status.js";
 
 export interface ApiDeps {
   store: EntityStore;
@@ -31,6 +32,14 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
 
   app.get("/api/companions", (_req: Request, res: Response) => {
     res.json(registry.list().map((c) => c.manifest));
+  });
+
+  app.get("/api/mcp/status", (_req: Request, res: Response) => {
+    const s = getMcpStatus();
+    res.json({
+      firstRequestAt: s.firstRequestAt ? new Date(s.firstRequestAt).toISOString() : null,
+      lastRequestAt: s.lastRequestAt ? new Date(s.lastRequestAt).toISOString() : null,
+    });
   });
 
   app.get("/api/companions/:name/preflight", (req: Request, res: Response) => {

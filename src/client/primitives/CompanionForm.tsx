@@ -195,10 +195,17 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
   }
 
   if (isStringDatetime || ui.kind === "datetime") {
+    // datetime-local is timezone-naive ("YYYY-MM-DDTHH:MM"). Treat it as UTC so
+    // z.string().datetime() (which requires a Z-suffixed ISO 8601) accepts it.
+    const display = typeof value === "string" ? value.slice(0, 16) : "";
     return (
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {labelEl}
-        <input type="datetime-local" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
+        <input
+          type="datetime-local"
+          value={display}
+          onChange={(e) => onChange(e.target.value ? `${e.target.value}:00Z` : undefined)}
+        />
       </label>
     );
   }

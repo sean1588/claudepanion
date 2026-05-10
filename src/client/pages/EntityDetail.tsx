@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 import { useEntity } from "../hooks/useEntity";
+import { useMcpStatus } from "../hooks/useMcpStatus";
 import StatusPill from "../components/StatusPill";
 import SlashCommandBlock from "../components/SlashCommandBlock";
 import StatusBar from "../components/StatusBar";
@@ -87,16 +88,51 @@ function slashCommand(e: Entity): string {
   return `/${e.companion}-companion ${e.id}`;
 }
 
+// Grace period after entity creation before we trust the "no MCP traffic" signal.
+// Covers boot time for the user opening Claude Code + the initialize handshake.
+const MCP_GRACE_MS = 15_000;
+
 function PendingBody({ entity }: { entity: Entity }) {
   const note = entity.companion === "build"
     ? "Heads-up: start your Claude Code session inside the claudepanion repo, and make sure the plugin is installed (`claudepanion plugin install` in this repo, then restart Claude Code). Build scaffolds files into companions/ and skills/ relative to Claude's working directory."
     : undefined;
+  const mcp = useMcpStatus(true);
+  const ageMs = Date.now() - new Date(entity.createdAt).getTime();
+  const showStuck = !mcp.loading && mcp.firstRequestAt === null && ageMs > MCP_GRACE_MS;
   return (
     <>
       <SlashCommandBlock command={slashCommand(entity)} note={note} />
+      {showStuck && <McpStuckBanner />}
       <InputPanel entity={entity} />
       <LogsPanel logs={[]} waiting />
     </>
+  );
+}
+
+function McpStuckBanner() {
+  return (
+    <div role="alert" style={{
+      padding: "12px 16px",
+      background: "#fef3c7",
+      border: "1px solid #f59e0b",
+      borderRadius: 8,
+      fontSize: 13,
+      color: "#78350f",
+    }}>
+      <div style={{ fontWeight: 600, marginBottom: 4 }}>
+        ⚠ claudepanion hasn't seen any MCP connection
+      </div>
+      <div>
+        No MCP client has contacted this server yet. Start a Claude Code session in your repo and the
+        connection should establish on its own. If it doesn't, try these in order:
+      </div>
+      <ol style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
+        <li>Run <code>/mcp</code> in your Claude Code session — confirm <code>claudepanion</code> is listed and not errored.</li>
+        <li>Re-install the plugin in the repo Claude Code is running from: <code>claudepanion plugin install</code>.</li>
+        <li>Rebuild the claudepanion checkout: <code>npm run build</code>.</li>
+        <li>Start a <strong>new</strong> Claude Code session (plugins load at session start, not mid-session).</li>
+      </ol>
+    </div>
   );
 }
 

@@ -38,6 +38,15 @@ describe("CompanionForm — datetime/number/checkbox/textarea", () => {
     expect(inp.type).toBe("datetime-local");
   });
 
+  it("submits datetime-local input as a Z-suffixed ISO string that satisfies z.string().datetime()", () => {
+    const schema = z.object({ when: z.string().datetime().describe("When") });
+    const onSubmit = vi.fn();
+    render(<CompanionForm schema={schema} onSubmit={onSubmit} />);
+    fireEvent.change(screen.getByLabelText(/when/i), { target: { value: "2026-05-10T14:30" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+    expect(onSubmit).toHaveBeenCalledWith({ when: "2026-05-10T14:30:00Z" });
+  });
+
   it("renders number input for z.number()", () => {
     const schema = z.object({ count: z.number().describe("Count") });
     render(<CompanionForm schema={schema} onSubmit={() => {}} />);

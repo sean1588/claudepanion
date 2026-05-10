@@ -4,8 +4,11 @@ import { MemoryRouter, Routes, Route } from "react-router-dom";
 import EntityDetail from "../../src/client/pages/EntityDetail";
 import type { Entity } from "@shared/types";
 
-function mockFetch(entity: Partial<Entity>) {
+function mockFetch(entity: Partial<Entity>, mcpStatus: { firstRequestAt: string | null; lastRequestAt: string | null } = { firstRequestAt: null, lastRequestAt: null }) {
   vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+    if (url === "/api/mcp/status") {
+      return new Response(JSON.stringify(mcpStatus), { status: 200 });
+    }
     if (url.includes("/api/companions")) {
       return new Response(JSON.stringify([
         { name: "x", kind: "ui", displayName: "X", icon: "x", description: "x", contractVersion: "2", version: "0.1.0" },
@@ -65,6 +68,41 @@ describe("EntityDetail", () => {
     await vi.runOnlyPendingTimersAsync();
     await waitFor(() => expect(screen.getByText("completed")).toBeInTheDocument());
     expect(screen.getByText(/no markdown report/i)).toBeInTheDocument();
+  });
+
+  it("does not show the MCP-stuck banner when pending entity is fresh", async () => {
+    mockFetch({ status: "pending", createdAt: new Date().toISOString() });
+    renderAt("/c/x/x-1");
+    await vi.runOnlyPendingTimersAsync();
+    await waitFor(() => expect(screen.getByText("/x-companion x-1")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("does not show the MCP-stuck banner when MCP has connected (firstRequestAt set), even if entity is old", async () => {
+    const oldCreatedAt = new Date(Date.now() - 60_000).toISOString();
+    mockFetch(
+      { status: "pending", createdAt: oldCreatedAt },
+      { firstRequestAt: new Date(Date.now() - 30_000).toISOString(), lastRequestAt: new Date(Date.now() - 30_000).toISOString() }
+    );
+    renderAt("/c/x/x-1");
+    await vi.runOnlyPendingTimersAsync();
+    await waitFor(() => expect(screen.getByText("/x-companion x-1")).toBeInTheDocument());
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("shows the MCP-stuck banner when entity is past grace and MCP has never connected", async () => {
+    const oldCreatedAt = new Date(Date.now() - 30_000).toISOString();
+    mockFetch(
+      { status: "pending", createdAt: oldCreatedAt },
+      { firstRequestAt: null, lastRequestAt: null }
+    );
+    renderAt("/c/x/x-1");
+    await vi.runOnlyPendingTimersAsync();
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    const banner = screen.getByRole("alert");
+    expect(banner).toHaveTextContent(/hasn't seen any MCP connection/i);
+    expect(banner).toHaveTextContent(/claudepanion plugin install/);
+    expect(banner).toHaveTextContent(/npm run build/);
   });
 
   it("renders error message and stack in error state", async () => {
