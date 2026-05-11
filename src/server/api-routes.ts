@@ -9,6 +9,10 @@ import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
 import { rewriteCompanionsIndex } from "./companions-index.js";
 import { getMcpStatus } from "./mcp-status.js";
+import { schemaToDescriptor } from "./schema-introspect.js";
+import { pathToFileURL } from "node:url";
+import { join } from "node:path";
+import { existsSync } from "node:fs";
 
 export interface ApiDeps {
   store: EntityStore;
@@ -40,6 +44,35 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
       firstRequestAt: s.firstRequestAt ? new Date(s.firstRequestAt).toISOString() : null,
       lastRequestAt: s.lastRequestAt ? new Date(s.lastRequestAt).toISOString() : null,
     });
+  });
+
+  app.get("/api/companions/:name/input-schema", async (req: Request, res: Response) => {
+    const name = String(req.params.name);
+    const c = registry.get(name);
+    if (!c) return res.status(404).json({ error: `unknown companion: ${name}` });
+    if (c.manifest.kind !== "ui") {
+      return res.status(400).json({ error: `${name} is not a ui-kind companion; no InputSchema` });
+    }
+    // The companion's types.js (compiled from types.ts) lives in user-local
+    // dist. Dynamic-import to read the live InputSchema export.
+    const typesPath = join(process.cwd(), "dist/companions", name, "types.js");
+    if (!existsSync(typesPath)) {
+      return res.status(404).json({ error: `companion ${name} types.js not found at ${typesPath}` });
+    }
+    try {
+      // Bust Node's module cache when the source has been updated since last import.
+      // The remount path already invalidates tools; this gives schema the same freshness.
+      const { stat } = await import("node:fs/promises");
+      const fileStat = await stat(typesPath);
+      const mod = await import(`${pathToFileURL(typesPath).href}?t=${fileStat.mtimeMs}`);
+      const schema = mod.InputSchema;
+      if (!schema) {
+        return res.status(404).json({ error: `companion ${name} types.js does not export InputSchema` });
+      }
+      res.json(schemaToDescriptor(schema));
+    } catch (err) {
+      res.status(500).json({ error: `failed to load schema for ${name}: ${(err as Error).message}` });
+    }
   });
 
   app.get("/api/companions/:name/preflight", (req: Request, res: Response) => {
