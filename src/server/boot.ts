@@ -1,6 +1,6 @@
 import express from "express";
 import { join, resolve } from "node:path";
-import { statSync } from "node:fs";
+import { statSync, readFileSync } from "node:fs";
 import { createEntityStore } from "./entity-store.js";
 import { createRegistry, type RegisteredCompanion } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
@@ -22,6 +22,17 @@ export interface BootOptions {
 }
 
 function checkTscHealth(repoRoot: string): void {
+  // The .tsbuildinfo health check is framework-repo specific — it warns devs
+  // working from a clone with stale or missing tsc-incremental output. In a
+  // user-local install (~/.claudepanion/), the home's tsc is invoked by
+  // `claudepanion init`/`scaffold` directly and doesn't use incremental mode,
+  // so .tsbuildinfo is legitimately absent. Skip the check there.
+  try {
+    const pkg = JSON.parse(readFileSync(resolve(repoRoot, "package.json"), "utf-8"));
+    if (pkg.name === "claudepanion-home") return;
+  } catch {
+    // No package.json → fall through to the existing check.
+  }
   const tsBuildInfo = resolve(repoRoot, "dist/.tsbuildinfo");
   try {
     const stat = statSync(tsBuildInfo);
