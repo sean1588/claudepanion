@@ -17,7 +17,7 @@ export interface ClientDescriptor extends CompanionDescriptor {
 export function renderCompanionIndex(d: CompanionDescriptor): string {
   return [
     BANNER,
-    `import type { RegisteredCompanion } from "../../src/server/companion-registry.js";`,
+    `import type { RegisteredCompanion } from "claudepanion-host";`,
     `import { manifest } from "./manifest.js";`,
     `import { tools } from "./server/tools.js";`,
     ``,
@@ -34,7 +34,7 @@ export function renderRegistryIndex(companions: CompanionDescriptor[]): string {
   const list = sorted.map((c) => c.camelCase).join(", ");
   return [
     BANNER,
-    `import type { RegisteredCompanion } from "../src/server/companion-registry.js";`,
+    `import type { RegisteredCompanion } from "claudepanion-host";`,
     imports,
     ``,
     `export const companions: RegisteredCompanion[] = [${list}];`,

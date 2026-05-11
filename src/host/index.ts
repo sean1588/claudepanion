@@ -23,3 +23,4 @@ export type {
   CompanionToolDefinition,
   LogEntry,
 } from "../shared/types.js";
+export type { RegisteredCompanion } from "../server/companion-registry.js";

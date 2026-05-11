@@ -57,8 +57,52 @@ const DEFAULT_GITIGNORE = [
   "",
 ].join("\n");
 
+/**
+ * Idempotently (re-)creates the framework symlinks in the user-local home.
+ *
+ * `npm install` rebuilds node_modules and wipes any pre-existing symlinks
+ * that aren't declared in package.json, so scaffold's deps stage destroys
+ * `node_modules/claudepanion-host`. Both init and scaffold call this to
+ * restore the link before doing anything that depends on it (build, import).
+ *
+ * Symlinks under directories that exist as real dirs/files are refused — this
+ * catches the case where a user authored a real `companions/build/` instead of
+ * the framework one.
+ */
+export function ensureSymlinks(home: string, frameworkRoot: string):
+  | { ok: true; symlinks: { path: string; target: string }[] }
+  | { ok: false; stage: "symlinks"; error: string } {
+  const symlinks: { path: string; target: string }[] = [];
+  for (const { rel, target } of SYMLINKS) {
+    const linkPath = join(home, rel);
+    const targetPath = target(frameworkRoot);
+    try {
+      const stat = lstatSync(linkPath);
+      if (stat.isSymbolicLink()) {
+        unlinkSync(linkPath);
+      } else if (stat.isDirectory() || stat.isFile()) {
+        return {
+          ok: false,
+          stage: "symlinks",
+          error: `${linkPath} exists as a real file/dir; refusing to replace with symlink`,
+        };
+      }
+    } catch {
+      // doesn't exist; fine.
+    }
+    mkdirSync(join(linkPath, ".."), { recursive: true });
+    symlinkSync(targetPath, linkPath);
+    symlinks.push({ path: linkPath, target: targetPath });
+  }
+  return { ok: true, symlinks };
+}
+
+// tsc's `extends` field doesn't honor npm `exports` subpaths reliably across
+// versions, so we reference the symlinked file directly. The
+// claudepanion-host symlink in node_modules points at the framework root; the
+// base config lives at <framework>/src/host/tsconfig.base.json.
 const DEFAULT_TSCONFIG = {
-  extends: "claudepanion-host/tsconfig.base.json",
+  extends: "./node_modules/claudepanion-host/src/host/tsconfig.base.json",
   compilerOptions: {
     outDir: "dist",
     rootDir: ".",
@@ -111,30 +155,9 @@ export async function runInit(opts: RunInitOptions): Promise<RunInitResult> {
     filesCreated.push("tsconfig.json");
   }
 
-  // Create / refresh symlinks idempotently.
-  const symlinks: { path: string; target: string }[] = [];
-  for (const { rel, target } of SYMLINKS) {
-    const linkPath = join(opts.home, rel);
-    const targetPath = target(opts.frameworkRoot);
-    // Remove existing entry if it's a symlink (refresh) or a stale broken link.
-    try {
-      const stat = lstatSync(linkPath);
-      if (stat.isSymbolicLink()) {
-        unlinkSync(linkPath);
-      } else if (stat.isDirectory() || stat.isFile()) {
-        return {
-          ok: false,
-          stage: "symlinks",
-          error: `${linkPath} exists as a real file/dir; refusing to replace with symlink`,
-        };
-      }
-    } catch {
-      // doesn't exist; fine.
-    }
-    mkdirSync(join(linkPath, ".."), { recursive: true });
-    symlinkSync(targetPath, linkPath);
-    symlinks.push({ path: linkPath, target: targetPath });
-  }
+  const symlinkResult = ensureSymlinks(opts.home, opts.frameworkRoot);
+  if (!symlinkResult.ok) return symlinkResult;
+  const symlinks = symlinkResult.symlinks;
 
   // Generate companions/index.ts + client.ts from disk state.
   const { runRegenerate } = await import("./regenerate.js");

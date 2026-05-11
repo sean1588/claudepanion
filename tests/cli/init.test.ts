@@ -35,10 +35,12 @@ describe("runInit — fresh install", () => {
     expect(gi).toContain("dist/");
   });
 
-  it("creates tsconfig.json extending claudepanion-host/tsconfig.base.json", async () => {
+  it("creates tsconfig.json extending the framework's tsconfig.base.json via node_modules", async () => {
     await runInit({ home, frameworkRoot });
     const ts = JSON.parse(readFileSync(join(home, "tsconfig.json"), "utf-8"));
-    expect(ts.extends).toBe("claudepanion-host/tsconfig.base.json");
+    // Direct path via node_modules — bypasses npm `exports` resolution which
+    // older tsc versions don't honor for `extends` subpaths.
+    expect(ts.extends).toBe("./node_modules/claudepanion-host/src/host/tsconfig.base.json");
     expect(ts.compilerOptions.outDir).toBe("dist");
     expect(ts.include).toContain("companions/**/*.ts");
   });

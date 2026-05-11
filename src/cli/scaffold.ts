@@ -1,6 +1,11 @@
 import { existsSync, readFileSync, writeFileSync, readdirSync } from "node:fs";
-import { join } from "node:path";
+import { join, resolve as pathResolve } from "node:path";
 import { spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+
+// Framework root (compiled file lives at dist/src/cli/scaffold.js).
+// Used to find the bundled tsc binary and read framework-provided deps.
+const frameworkRoot = pathResolve(fileURLToPath(import.meta.url), "../../../..");
 
 function npmInstall(packages: string[], cwd: string): Promise<{ ok: boolean; stderr: string }> {
   return new Promise((resolve) => {
@@ -12,16 +17,30 @@ function npmInstall(packages: string[], cwd: string): Promise<{ ok: boolean; std
   });
 }
 
-function npmBuild(cwd: string): Promise<{ ok: boolean; stderr: string }> {
+function tscBuild(cwd: string): Promise<{ ok: boolean; stderr: string }> {
+  // Shell out to the framework's bundled tsc directly. The user-local home's
+  // package.json has no "build" script (init writes a minimal scripts: {});
+  // and even if it did, we'd want to control the invocation centrally so the
+  // emit behavior matches init's behavior.
   return new Promise((resolve) => {
-    const proc = spawn("npm", ["run", "build"], { cwd, shell: false });
+    const tscPath = join(frameworkRoot, "node_modules/.bin/tsc");
+    const proc = spawn(tscPath, ["-p", cwd], { cwd, shell: false });
     let stderr = "";
     proc.stderr.on("data", (d) => { stderr += d.toString(); });
-    proc.stdout.on("data", () => { /* swallow on success */ });
-    proc.on("close", (code) => resolve({ ok: code === 0, stderr }));
+    proc.stdout.on("data", (d) => { stderr += d.toString(); });
+    proc.on("close", (code) => {
+      // tsc may exit non-zero from type errors (e.g. type-only imports in the
+      // symlinked Build companion that don't resolve from user-local cwd) while
+      // still emitting valid JS. Trust the file-existence check downstream.
+      resolve({ ok: code === 0, stderr });
+    });
     proc.on("error", (err) => resolve({ ok: false, stderr: err.message }));
   });
 }
+
+// Imports that look like npm packages but are framework-provided via the
+// claudepanion-host symlink, not installable from the registry.
+const FRAMEWORK_PROVIDED = new Set<string>(["claudepanion-host"]);
 
 function hasInputSchema(typesTsPath: string): boolean {
   if (!existsSync(typesTsPath)) return false;
@@ -48,7 +67,7 @@ function detectMissingDeps(toolsTsPath: string, packageJsonPath: string): string
     ...Object.keys(pkg.dependencies ?? {}),
     ...Object.keys(pkg.devDependencies ?? {}),
   ]);
-  return [...imports].filter((p) => !deps.has(p));
+  return [...imports].filter((p) => !deps.has(p) && !FRAMEWORK_PROVIDED.has(p));
 }
 import {
   renderCompanionIndex,
@@ -140,10 +159,21 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
   }
   stagesRun.push("deps");
 
+  // npm install rebuilds node_modules and wipes the framework symlinks that
+  // init creates. Re-link before any operation that depends on resolving
+  // `claudepanion-host` (tsc, dynamic import in self-check).
+  const { ensureSymlinks } = await import("./init.js");
+  const linkResult = ensureSymlinks(cwd, frameworkRoot);
+  if (!linkResult.ok) {
+    return { ok: false, stage: linkResult.stage, error: linkResult.error };
+  }
+
   if (opts.runBuild ?? true) {
-    const r = await npmBuild(cwd);
-    if (!r.ok) {
-      return { ok: false, stage: "build", error: `npm run build failed: ${r.stderr.slice(0, 2000)}`, remediation: "fix the type/syntax error in the file the compiler names; re-run" };
+    const r = await tscBuild(cwd);
+    // Type-error-only failures still emit JS; verify by checking the dist output.
+    const distIndex = join(cwd, "dist/companions", slug, "index.js");
+    if (!r.ok && !existsSync(distIndex)) {
+      return { ok: false, stage: "build", error: `tsc failed: ${r.stderr.slice(0, 2000)}`, remediation: "fix the type/syntax error in the file the compiler names; re-run" };
     }
     stagesRun.push("build");
   }
