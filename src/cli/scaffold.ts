@@ -119,8 +119,11 @@ export async function runScaffold(slug: string, opts: ScaffoldOptions = {}): Pro
   writeFileSync(join(compDir, "index.ts"), renderCompanionIndex({ slug, camelCase }));
   filesGenerated.push(`companions/${slug}/index.ts`);
 
+  // Include symlinks too — the framework's Build companion is symlinked into
+  // user-local installs. The existsSync(.../manifest.ts) gate downstream
+  // drops broken or non-companion-shaped entries.
   const allSlugs = readdirSync(join(cwd, "companions"), { withFileTypes: true })
-    .filter((e) => e.isDirectory())
+    .filter((e) => e.isDirectory() || e.isSymbolicLink())
     .map((e) => e.name)
     .filter((name) => existsSync(join(cwd, "companions", name, "manifest.ts")));
 
