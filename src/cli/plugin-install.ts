@@ -60,11 +60,22 @@ export async function runPluginInstall(opts: PluginInstallOptions): Promise<Plug
   marketplaces.local = { source: { source: "directory", path: home } };
   settings.extraKnownMarketplaces = marketplaces;
 
+  // Grant Claude Code read/write access to the user-local install regardless
+  // of the workspace it was opened in, so /build-companion can author files
+  // at ~/.claudepanion/companions/<slug>/.
+  const additionalDirectories = (settings.additionalDirectories ?? []) as string[];
+  if (!additionalDirectories.includes(home)) {
+    additionalDirectories.push(home);
+  }
+  settings.additionalDirectories = additionalDirectories;
+
   writeJson(settingsPath, settings);
   return { ok: true, settingsPath };
 }
 
 export async function runPluginUninstall(opts: { scope: "global" | "repo"; userHome?: string; repoRoot?: string }): Promise<PluginInstallResult> {
+  const userHome = userHomeOrDefault(opts);
+  const home = claudepanionHome(userHome);
   const settingsPath = settingsPathFor(opts.scope, { scope: opts.scope, userHome: opts.userHome, repoRoot: opts.repoRoot, frameworkRoot: "" });
   if (!existsSync(settingsPath)) return { ok: true, settingsPath };
   const settings = readJson(settingsPath);
@@ -72,6 +83,10 @@ export async function runPluginUninstall(opts: { scope: "global" | "repo"; userH
   if (enabledPlugins && enabledPlugins[PLUGIN_NAME] !== undefined) delete enabledPlugins[PLUGIN_NAME];
   const marketplaces = settings.extraKnownMarketplaces as Record<string, unknown> | undefined;
   if (marketplaces && marketplaces.local) delete marketplaces.local;
+  const additionalDirectories = settings.additionalDirectories as string[] | undefined;
+  if (additionalDirectories) {
+    settings.additionalDirectories = additionalDirectories.filter((d) => d !== home);
+  }
   writeJson(settingsPath, settings);
   return { ok: true, settingsPath };
 }

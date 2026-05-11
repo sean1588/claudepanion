@@ -12,7 +12,8 @@ const USAGE = `claudepanion — localhost companion host for Claude Code
 Usage:
   claudepanion init [--force]            initialize ~/.claudepanion/ (idempotent)
   claudepanion serve                     start the server (auto-initializes if needed)
-  claudepanion plugin install [--repo]   register as a Claude Code plugin
+  claudepanion plugin install [--repo] [--yes]
+                                         register as a Claude Code plugin
   claudepanion plugin uninstall [--repo] unregister the plugin
   claudepanion companion delete <slug>   delete a scaffolded companion
   claudepanion scaffold <slug>           generate registry files, build, remount
@@ -57,21 +58,44 @@ function writeJson(path, data) {
 
 async function pluginInstall() {
   const wantRepo = process.argv.includes("--repo");
+  const skipConfirm = process.argv.includes("--yes") || process.argv.includes("-y") || !process.stdin.isTTY;
   const { runPluginInstall } = await import(join(pkgRoot, "dist/src/cli/plugin-install.js"));
+  const { homedir } = await import("node:os");
+  const home = join(process.env.HOME ?? homedir(), ".claudepanion");
+
   let opts;
+  let settingsPathPreview;
   if (wantRepo) {
     const gitRoot = findGitRoot();
     if (!gitRoot) die("Error: --repo requires a git repository");
     opts = { scope: "repo", repoRoot: gitRoot, frameworkRoot: pkgRoot };
+    settingsPathPreview = join(gitRoot, ".claude/settings.local.json");
   } else {
     opts = { scope: "global", frameworkRoot: pkgRoot };
+    settingsPathPreview = join(process.env.HOME ?? homedir(), ".claude/settings.json");
   }
+
+  // Show the user exactly what we're about to modify before doing it.
+  console.log(`About to register claudepanion with Claude Code:`);
+  console.log(`  Settings file: ${settingsPathPreview} (${opts.scope})`);
+  console.log(`  Changes:`);
+  console.log(`    • enabledPlugins["claudepanion@local"] = true`);
+  console.log(`    • extraKnownMarketplaces.local → directory marketplace at ${home}`);
+  console.log(`    • additionalDirectories += "${home}"`);
+  console.log(`        (grants Claude Code read/write access to the user-local install`);
+  console.log(`         from any workspace, so /build-companion can author files there)`);
+
+  if (!skipConfirm) {
+    const answer = await prompt(`\nProceed? [Y/n] `);
+    if (answer.trim().toLowerCase() === "n") {
+      die("Aborted. Nothing was modified.");
+    }
+  }
+
   const result = await runPluginInstall(opts);
   if (!result.ok) die(`✗ ${result.error}`);
-  console.log(`✓  Plugin installed (${result.settingsPath})`);
-  const { homedir } = await import("node:os");
-  console.log(`   Marketplace source: ${join(process.env.HOME ?? homedir(), ".claudepanion")}`);
-  console.log("\n   Start a new Claude Code session for the plugin to load.");
+  console.log(`\n✓  Plugin installed (${result.settingsPath})`);
+  console.log("   Start a new Claude Code session for the plugin to load.");
 }
 
 async function pluginUninstall() {

@@ -29,6 +29,16 @@ describe("plugin install — global default", () => {
     const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
     expect(settings.enabledPlugins["claudepanion@local"]).toBe(true);
     expect(settings.extraKnownMarketplaces.local.source.path).toBe(join(userHome, ".claudepanion"));
+    // additionalDirectories grants Claude Code access to ~/.claudepanion/ from any workspace.
+    expect(settings.additionalDirectories).toContain(join(userHome, ".claudepanion"));
+  });
+
+  it("does not duplicate ~/.claudepanion in additionalDirectories on re-install", async () => {
+    await runPluginInstall({ scope: "global", userHome, frameworkRoot: "/fake/framework" });
+    await runPluginInstall({ scope: "global", userHome, frameworkRoot: "/fake/framework" });
+    const settings = JSON.parse(readFileSync(join(userHome, ".claude/settings.json"), "utf-8"));
+    const home = join(userHome, ".claudepanion");
+    expect(settings.additionalDirectories.filter((d: string) => d === home).length).toBe(1);
   });
 
   it("refuses when ~/.claudepanion/ does not exist", async () => {
@@ -58,5 +68,7 @@ describe("plugin uninstall mirrors --repo", () => {
     expect(result.ok).toBe(true);
     const settings = JSON.parse(readFileSync(join(userHome, ".claude/settings.json"), "utf-8"));
     expect(settings.enabledPlugins?.["claudepanion@local"]).toBeUndefined();
+    expect(settings.extraKnownMarketplaces?.local).toBeUndefined();
+    expect(settings.additionalDirectories ?? []).not.toContain(join(userHome, ".claudepanion"));
   });
 });
