@@ -1,6 +1,12 @@
 import express from "express";
 import { join, resolve } from "node:path";
 import { statSync, readFileSync } from "node:fs";
+import { fileURLToPath } from "node:url";
+
+// Framework root (where this compiled file lives in dist/src/server/) — used
+// for resolving static client assets that ship with the framework, regardless
+// of the user's runtime cwd.
+const frameworkRoot = resolve(fileURLToPath(import.meta.url), "../../../..");
 import { createEntityStore } from "./entity-store.js";
 import { createRegistry, type RegisteredCompanion } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
@@ -118,7 +124,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
     res.type("text/plain").send("User-agent: *\nDisallow: /\n");
   });
 
-  const clientDir = join(repoRoot, "dist/client");
+  const clientDir = join(frameworkRoot, "dist/client");
   app.use(express.static(clientDir));
   app.get("*", (_req, res) => res.sendFile(join(clientDir, "index.html")));
 
