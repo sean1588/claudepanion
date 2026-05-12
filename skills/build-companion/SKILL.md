@@ -7,10 +7,12 @@ description: Use when the user pastes "/build-companion <entity-id>" — scaffol
 
 Build is claudepanion's companion that scaffolds other companions.
 
+> **Where files go.** Companions live at `~/.claudepanion/companions/<slug>/` and skills at `~/.claudepanion/skills/<slug>-companion/`. Below, `companions/<slug>/...` and `skills/<slug>-companion/...` are shorthand for the `~/.claudepanion/`-rooted absolute path. **Always use the absolute path in Write/Edit tool calls** — do NOT author into the framework's checkout (e.g. wherever your Claude Code session was started).
+
 > **CRITICAL — MCP tools ONLY:**
 > - All state changes go through `mcp__claudepanion__build_*` tools.
 > - NEVER curl `/api/entities/*` to mutate state.
-> - NEVER edit `data/build/*.json` directly.
+> - NEVER edit `~/.claudepanion/data/build/*.json` directly.
 > - NEVER leave a placeholder like `<<<INSERT PLAYBOOK HERE>>>` in an authored file.
 > - NEVER mark `completed` until `claudepanion scaffold`'s self-check stage passed.
 
@@ -55,7 +57,7 @@ If `entity.artifact !== null`, this is a continuation — the user clicked "Cont
 
 Reject if:
 - `name` doesn't match `/^[a-z][a-z0-9-]*$/`
-- `companions/<name>/` already exists
+- `~/.claudepanion/companions/<name>/` already exists
 - `name === "build"`
 
 Read `entity.input.description` and decide all of:
@@ -139,14 +141,18 @@ Show a summary of what was scaffolded (files created, tools, SDK) and ask:
 
 **Only commit if the user explicitly confirms.** If they say no or skip, proceed directly to Step 10 without running any `git` commands.
 
-If they confirm, then:
+If they confirm:
 
 ```bash
-git add companions/<slug> skills/<slug>-companion companions/index.ts companions/client.ts package.json package-lock.json
-git commit -m "companion: scaffold <slug>"
+cd ~/.claudepanion
+git rev-parse --git-dir 2>/dev/null && \
+  git add companions/<slug> skills/<slug>-companion companions/index.ts companions/client.ts package.json package-lock.json && \
+  git commit -m "companion: scaffold <slug>"
 ```
 
-Drop `package.json`/`package-lock.json` if no SDK was added.
+The `cd ~/.claudepanion` + `git rev-parse` check matters: the user's home is only a git repo if they've opted into the dotfile-style workflow (`git init ~/.claudepanion`). If it's not a git repo, skip the commit and tell the user. **Never commit into the framework's own checkout** — companion files don't live there in the user-local install model.
+
+Drop `package.json`/`package-lock.json` from the `git add` if no SDK was added.
 
 ## Step 10 — Save artifact + complete
 

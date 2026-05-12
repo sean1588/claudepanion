@@ -10,12 +10,14 @@ const pkgRoot = resolve(dirname(__filename), "..");
 const USAGE = `claudepanion — localhost companion host for Claude Code
 
 Usage:
-  claudepanion serve                     start the server (default port 3001)
-  claudepanion plugin install            register claudepanion as a Claude Code plugin in this repo
-  claudepanion plugin uninstall          unregister the plugin from this repo
-  claudepanion companion delete <slug>   delete a scaffolded companion and clean up registrations
-  claudepanion scaffold <slug>           generate registry files, build, remount, self-check
-  claudepanion regenerate                re-derive registry files from companions/ on disk
+  claudepanion init [--force]            initialize ~/.claudepanion/ (idempotent)
+  claudepanion serve                     start the server (auto-initializes if needed)
+  claudepanion plugin install [--repo] [--yes]
+                                         register as a Claude Code plugin
+  claudepanion plugin uninstall [--repo] unregister the plugin
+  claudepanion companion delete <slug>   delete a scaffolded companion
+  claudepanion scaffold <slug>           generate registry files, build, remount
+  claudepanion regenerate                re-derive registry files from companions/
   claudepanion remount <slug>            ask the running server to re-import a companion
   claudepanion --help                    show this help
 
@@ -23,11 +25,11 @@ Options:
   PORT=<n>                               override server port (serve only)
 
 Notes:
-  - "plugin install" writes to <repo>/.claude/settings.local.json so Claude Code
-    loads both the MCP tools AND the bundled skills at session start. It does NOT
-    modify .mcp.json. Run this in every repo where you want claudepanion available.
-  - "serve" runs the HTTP server the plugin's MCP entry points at. Run it in a
-    long-lived terminal; plugin install only configures Claude Code, not the server.
+  - "init" bootstraps ~/.claudepanion/ — a user-local directory holding your
+    companions, skills, and runtime data. Idempotent; safe to re-run.
+  - "plugin install" defaults to global (~/.claude/settings.json). --repo writes
+    per-repo settings instead.
+  - "serve" auto-initializes ~/.claudepanion/ on first run if missing.
 `;
 
 function die(msg, code = 1) {
@@ -54,51 +56,62 @@ function writeJson(path, data) {
   writeFileSync(path, JSON.stringify(data, null, 2) + "\n", "utf-8");
 }
 
-function pluginInstall() {
-  const gitRoot = findGitRoot();
-  if (!gitRoot) die("Error: not inside a git repository");
+async function pluginInstall() {
+  const wantRepo = process.argv.includes("--repo");
+  const skipConfirm = process.argv.includes("--yes") || process.argv.includes("-y") || !process.stdin.isTTY;
+  const { runPluginInstall } = await import(join(pkgRoot, "dist/src/cli/plugin-install.js"));
+  const { homedir } = await import("node:os");
+  const home = join(process.env.HOME ?? homedir(), ".claudepanion");
 
-  const settingsPath = join(gitRoot, ".claude", "settings.local.json");
-  const settings = readJson(settingsPath) ?? {};
+  let opts;
+  let settingsPathPreview;
+  if (wantRepo) {
+    const gitRoot = findGitRoot();
+    if (!gitRoot) die("Error: --repo requires a git repository");
+    opts = { scope: "repo", repoRoot: gitRoot, frameworkRoot: pkgRoot };
+    settingsPathPreview = join(gitRoot, ".claude/settings.local.json");
+  } else {
+    opts = { scope: "global", frameworkRoot: pkgRoot };
+    settingsPathPreview = join(process.env.HOME ?? homedir(), ".claude/settings.json");
+  }
 
-  settings.enabledPlugins ??= {};
-  settings.enabledPlugins["claudepanion@local"] = true;
+  // Show the user exactly what we're about to modify before doing it.
+  console.log(`About to register claudepanion with Claude Code:`);
+  console.log(`  Settings file: ${settingsPathPreview} (${opts.scope})`);
+  console.log(`  Changes:`);
+  console.log(`    • enabledPlugins["claudepanion@local"] = true`);
+  console.log(`    • extraKnownMarketplaces.local → directory marketplace at ${home}`);
+  console.log(`    • additionalDirectories += "${home}"`);
+  console.log(`        (grants Claude Code read/write access to the user-local install`);
+  console.log(`         from any workspace, so /build-companion can author files there)`);
 
-  settings.extraKnownMarketplaces ??= {};
-  settings.extraKnownMarketplaces.local = {
-    source: { source: "directory", path: pkgRoot },
-  };
-
-  // Cleanup stale disabled entry from older CLI versions. If you are enabling
-  // the plugin, its MCP server should not also be in the disable list.
-  if (Array.isArray(settings.disabledMcpjsonServers)) {
-    const filtered = settings.disabledMcpjsonServers.filter((s) => s !== "claudepanion");
-    if (filtered.length !== settings.disabledMcpjsonServers.length) {
-      if (filtered.length === 0) delete settings.disabledMcpjsonServers;
-      else settings.disabledMcpjsonServers = filtered;
+  if (!skipConfirm) {
+    const answer = await prompt(`\nProceed? [Y/n] `);
+    if (answer.trim().toLowerCase() === "n") {
+      die("Aborted. Nothing was modified.");
     }
   }
 
-  writeJson(settingsPath, settings);
-  console.log("✓  Plugin installed in Claude Code");
-  console.log(`   Plugin directory: ${pkgRoot}`);
-  console.log(`   Settings: ${settingsPath}`);
-  console.log("\n   Start a new Claude Code session for the plugin to load.");
+  const result = await runPluginInstall(opts);
+  if (!result.ok) die(`✗ ${result.error}`);
+  console.log(`\n✓  Plugin installed (${result.settingsPath})`);
+  console.log("   Start a new Claude Code session for the plugin to load.");
 }
 
-function pluginUninstall() {
-  const gitRoot = findGitRoot();
-  if (!gitRoot) die("Error: not inside a git repository");
-
-  const settingsPath = join(gitRoot, ".claude", "settings.local.json");
-  const settings = readJson(settingsPath);
-  if (!settings) { console.log("Nothing to uninstall."); return; }
-
-  if (settings.enabledPlugins) delete settings.enabledPlugins["claudepanion@local"];
-  if (settings.extraKnownMarketplaces) delete settings.extraKnownMarketplaces.local;
-
-  writeJson(settingsPath, settings);
-  console.log(`✓  Plugin removed from Claude Code (${settingsPath})`);
+async function pluginUninstall() {
+  const wantRepo = process.argv.includes("--repo");
+  const { runPluginUninstall } = await import(join(pkgRoot, "dist/src/cli/plugin-install.js"));
+  let opts;
+  if (wantRepo) {
+    const gitRoot = findGitRoot();
+    if (!gitRoot) die("Error: --repo requires a git repository");
+    opts = { scope: "repo", repoRoot: gitRoot };
+  } else {
+    opts = { scope: "global" };
+  }
+  const result = await runPluginUninstall(opts);
+  if (!result.ok) die(`✗ ${result.error}`);
+  console.log(`✓  Plugin removed (${result.settingsPath})`);
 }
 
 async function companionDelete(slug) {
@@ -107,8 +120,10 @@ async function companionDelete(slug) {
   }
   if (slug === "build") die("cannot delete the built-in Build companion");
 
-  const companionDir = join(pkgRoot, "companions", slug);
-  const skillDir = join(pkgRoot, "skills", `${slug}-companion`);
+  const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+  const home = rootPath();
+  const companionDir = join(home, "companions", slug);
+  const skillDir = join(home, "skills", `${slug}-companion`);
 
   if (!existsSync(companionDir)) die(`companion not found: companions/${slug}/`);
 
@@ -123,12 +138,9 @@ async function companionDelete(slug) {
   }
 
   // 3. Regenerate companions/index.ts and companions/client.ts from disk state.
-  //    This is more robust than regex surgery — the regenerator reads the
-  //    on-disk truth and emits whatever the codegen says is correct, so any
-  //    new exports (inputSchemas, future maps) are handled automatically.
   try {
     const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
-    const result = await runRegenerate({ cwd: pkgRoot });
+    const result = await runRegenerate({ cwd: home });
     if (!result.ok) die(`failed to regenerate registry: ${result.error}`);
     console.log(`updated ${result.filesGenerated.join(", ")}`);
   } catch (err) {
@@ -136,30 +148,53 @@ async function companionDelete(slug) {
   }
 
   // 4. Remove leftover data directory (optional — silently skip if absent)
-  const dataDir = join(pkgRoot, "data", slug);
+  const dataDir = join(home, "data", slug);
   if (existsSync(dataDir)) {
     rmSync(dataDir, { recursive: true, force: true });
     console.log(`removed data/${slug}/ (entity history)`);
   }
 
-  console.log(`\n✓  Companion "${slug}" deleted. Rebuild the app or restart the server for changes to take effect.`);
-  console.log(`   npm run build && PORT=3001 npm start`);
+  console.log(`\n✓  Companion "${slug}" deleted. Rebuild or restart the server for changes to take effect.`);
 }
 
-function serve() {
+async function serve() {
+  const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+  const home = rootPath();
+
+  if (!existsSync(join(home, "package.json"))) {
+    console.log(`~/.claudepanion/ not found.`);
+    // Interactive prompt unless --yes or non-TTY.
+    if (process.stdin.isTTY && !process.argv.includes("--yes")) {
+      const answer = await prompt(`Initialize a new claudepanion home? [Y/n] `);
+      if (answer.trim().toLowerCase() === "n") {
+        die("Aborted. Run 'claudepanion init' when ready.");
+      }
+    }
+    const { runInit } = await import(join(pkgRoot, "dist/src/cli/init.js"));
+    const result = await runInit({ home, frameworkRoot: pkgRoot });
+    if (!result.ok) die(`init failed at ${result.stage}: ${result.error}`);
+    console.log(`✓ ~/.claudepanion/ initialized`);
+  }
+
   const entry = join(pkgRoot, "dist/src/server/index.js");
   if (!existsSync(entry)) {
-    die(
-      `Build not found at ${entry}.\n` +
-      `Run \`npm run build\` in the claudepanion repo first, or reinstall.`
-    );
+    die(`Framework build not found at ${entry}.\nReinstall: npm install -g claudepanion`);
   }
   const proc = spawn(process.execPath, [entry], {
     stdio: "inherit",
-    cwd: pkgRoot,
+    cwd: home,
     env: process.env,
   });
   proc.on("exit", (code) => process.exit(code ?? 0));
+}
+
+async function prompt(q) {
+  process.stdout.write(q);
+  return new Promise((resolve) => {
+    const stdin = process.stdin;
+    stdin.resume();
+    stdin.once("data", (d) => { stdin.pause(); resolve(d.toString()); });
+  });
 }
 
 const [cmd, sub] = process.argv.slice(2);
@@ -167,19 +202,37 @@ const [cmd, sub] = process.argv.slice(2);
 if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
   console.log(USAGE);
   process.exit(cmd ? 0 : 1);
+} else if (cmd === "init") {
+  const force = process.argv.includes("--force");
+  (async () => {
+    const { runInit } = await import(join(pkgRoot, "dist/src/cli/init.js"));
+    const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+    const home = rootPath();
+    const result = await runInit({ home, frameworkRoot: pkgRoot, force });
+    if (!result.ok) {
+      console.error(`✗ init failed at ${result.stage}: ${result.error}`);
+      process.exit(1);
+    }
+    console.log(`✓ ~/.claudepanion/ initialized`);
+    for (const file of result.filesCreated) console.log(`  created  ${file}`);
+    for (const link of result.symlinks) console.log(`  linked   ${link.path.replace(home + "/", "")} → ${link.target}`);
+    console.log(`\nTip: run 'claudepanion plugin install' to expose this to Claude Code.`);
+  })();
 } else if (cmd === "scaffold") {
   const slug = process.argv[3];
   if (!slug) die("Usage: claudepanion scaffold <slug>");
   (async () => {
     const { runScaffold } = await import(join(pkgRoot, "dist/src/cli/scaffold.js"));
-    const result = await runScaffold(slug);
+    const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+    const result = await runScaffold(slug, { cwd: rootPath() });
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
   })();
 } else if (cmd === "regenerate") {
   (async () => {
     const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
-    const result = await runRegenerate();
+    const { rootPath } = await import(join(pkgRoot, "dist/src/server/paths.js"));
+    const result = await runRegenerate({ cwd: rootPath() });
     console.log(JSON.stringify(result, null, 2));
     process.exit(result.ok ? 0 : 1);
   })();
@@ -193,11 +246,11 @@ if (!cmd || cmd === "--help" || cmd === "-h" || cmd === "help") {
     process.exit(result.ok ? 0 : 1);
   })();
 } else if (cmd === "serve") {
-  serve();
+  serve().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "plugin" && sub === "install") {
-  pluginInstall();
+  pluginInstall().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "plugin" && sub === "uninstall") {
-  pluginUninstall();
+  pluginUninstall().catch((err) => die(err?.message ?? String(err)));
 } else if (cmd === "companion" && sub === "delete") {
   const slug = process.argv[4];
   if (!slug) die(`usage: claudepanion companion delete <slug>\n\n${USAGE}`);

@@ -1,12 +1,29 @@
 {
   "name": "claudepanion",
   "version": "0.2.0",
-  "private": true,
   "license": "Apache-2.0",
   "type": "module",
+  "main": "./dist/src/host/index.js",
+  "types": "./dist/src/host/index.d.ts",
+  "exports": {
+    ".": {
+      "import": "./dist/src/host/index.js",
+      "types": "./dist/src/host/index.d.ts"
+    },
+    "./tsconfig.base.json": "./src/host/tsconfig.base.json"
+  },
   "bin": {
     "claudepanion": "./bin/cli.js"
   },
+  "files": [
+    "bin/",
+    "dist/",
+    "companions/build/",
+    "skills/build-companion/",
+    "src/host/tsconfig.base.json",
+    "README.md",
+    "LICENSE"
+  ],
   "scripts": {
     "dev": "concurrently -n server,client,tsc -c blue,green,gray \"npm:dev:server\" \"npm:dev:client\" \"npm:dev:tsc\"",
     "dev:server": "tsx watch src/server/index.ts",

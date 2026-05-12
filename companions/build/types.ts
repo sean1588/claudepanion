@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { BaseArtifact } from "../../src/shared/types.js";
+import type { BaseArtifact } from "claudepanion-host";
 
 export const NewCompanionInput = z.object({
   mode: z.literal("new-companion"),

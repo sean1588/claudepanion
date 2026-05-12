@@ -1,4 +1,4 @@
-import type { Manifest } from "../../src/shared/types.js";
+import type { Manifest } from "claudepanion-host";
 
 export const manifest: Manifest = {
   name: "build",
