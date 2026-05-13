@@ -303,3 +303,39 @@ textarea:focus-visible,
   font-size: 13px;
   line-height: 1.5;
 }
+
+/* ── Editorial sidebar ─────────────────────────────────────────── */
+.editorial-sidebar {
+  width: 260px;
+  height: 100vh;
+  background: var(--soft);
+  color: var(--ink);
+  padding: 24px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+  border-right: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  position: sticky;
+  top: 0;
+}
+.editorial-sidebar .sidebar-wordmark {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: 0 4px;
+}
+.editorial-sidebar .sidebar-section { display: flex; flex-direction: column; gap: 4px; }
+.editorial-sidebar .sidebar-section-label { padding: 0 4px 4px; }
+.editorial-sidebar .sidebar-link {
+  padding: 8px 10px; display: flex; align-items: center; gap: 10px;
+  color: var(--ink); text-decoration: none; cursor: pointer;
+  font-size: 14px; min-height: 36px; border-radius: 6px;
+}
+.editorial-sidebar .sidebar-link:hover { background: color-mix(in srgb, var(--ink) 4%, transparent); }
+.editorial-sidebar .sidebar-link.active {
+  background: color-mix(in srgb, var(--ink) 8%, transparent);
+  font-weight: 500;
+}
+.editorial-sidebar .sidebar-footer {
+  margin-top: auto;
+  border-top: 1px solid color-mix(in srgb, var(--ink) 8%, transparent);
+  padding-top: 12px;
+}
