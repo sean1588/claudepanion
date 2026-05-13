@@ -31,7 +31,7 @@ export default function BuildHome() {
             <span className="t-h2" style={{ fontSize: 28 }}>Scaffold from scratch</span>
             <span className="t-caption">Describe a new companion in plain English and Build will create it.</span>
           </Link>
-          <Link to="/c/build/new?mode=iterate" className="card-hairline" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
+          <Link to="/c/build/evolve" className="card-hairline" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 8 }}>
             <span className="t-eyebrow">⟳ Iterate on existing</span>
             <span className="t-h2" style={{ fontSize: 28 }}>Evolve a companion</span>
             <span className="t-caption">Pick a companion and describe what should change.</span>

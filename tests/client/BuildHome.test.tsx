@@ -14,7 +14,7 @@ describe("BuildHome", () => {
     render(<MemoryRouter><BuildHome /></MemoryRouter>);
     expect(await screen.findByText(/Hi, I'm Build/i)).toBeInTheDocument();
     expect(screen.getByRole("link", { name: /scaffold from scratch/i })).toHaveAttribute("href", "/c/build/new");
-    expect(screen.getByRole("link", { name: /evolve a companion/i })).toHaveAttribute("href", "/c/build/new?mode=iterate");
+    expect(screen.getByRole("link", { name: /evolve a companion/i })).toHaveAttribute("href", "/c/build/evolve");
   });
 
   it("shows empty state when there are no past builds", async () => {
