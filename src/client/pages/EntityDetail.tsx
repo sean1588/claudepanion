@@ -170,7 +170,7 @@ function ErrorPanel({ entity }: { entity: Entity }) {
       {entity.errorStack && <pre className="t-mono" style={{ fontSize: 12, maxHeight: 200, overflow: "auto", marginTop: 8 }}>{entity.errorStack}</pre>}
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         <button type="button" className="btn-ink" onClick={() => void continueEntity(entity.companion, entity.id, "retry")}>Retry build</button>
-        <Link to={`/c/build/new?mode=iterate&target=${entity.companion}`} className="btn-ghost">Edit prompt</Link>
+        <Link to={`/c/build/iterate/${entity.companion}`} className="btn-ghost">Edit prompt</Link>
       </div>
     </section>
   );

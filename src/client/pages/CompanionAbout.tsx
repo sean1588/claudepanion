@@ -120,7 +120,7 @@ export default function CompanionAbout() {
 
       {/* CTAs */}
       <div style={{ display: "flex", gap: 8 }}>
-        <Link to={`/c/build/new?mode=iterate&target=${manifest.name}`} className="btn-ghost">🔨 Iterate with Build</Link>
+        <Link to={`/c/build/iterate/${manifest.name}`} className="btn-ghost">🔨 Iterate with Build</Link>
         {manifest.kind === "ui" && (
           <Link to={`/c/${manifest.name}/new`} className="btn-ink">
             + {manifest.actionLabels?.newEntity ?? "New run"}

@@ -6,6 +6,7 @@ import EntityDetail from "./pages/EntityDetail";
 import EntityList from "./pages/EntityList";
 import Install from "./pages/Install";
 import BuildEvolve from "./pages/BuildEvolve";
+import BuildIterate from "./pages/BuildIterate";
 
 export default function App() {
   return (
@@ -17,6 +18,7 @@ export default function App() {
           <Route path="/install" element={<Install />} />
           <Route path="/c/:companion" element={<CompanionRoute />} />
           <Route path="/c/build/evolve" element={<BuildEvolve />} />
+          <Route path="/c/build/iterate/:target" element={<BuildIterate />} />
           <Route path="/c/:companion/runs" element={<EntityList />} />
           <Route path="/c/:companion/new" element={<NewEntity />} />
           <Route path="/c/:companion/:id" element={<EntityDetail />} />

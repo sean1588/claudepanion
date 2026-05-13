@@ -28,14 +28,14 @@ describe("BuildEvolve", () => {
     // Tool-kind and Build should not appear as picker rows (Build appears in
     // breadcrumb only; assert via role=link to scope to picker entries).
     const links = screen.getAllByRole("link");
-    expect(links.find((l) => l.getAttribute("href") === "/c/build/new?mode=iterate&target=build")).toBeUndefined();
-    expect(links.find((l) => l.getAttribute("href") === "/c/build/new?mode=iterate&target=weather-tool")).toBeUndefined();
+    expect(links.find((l) => l.getAttribute("href") === "/c/build/iterate/build")).toBeUndefined();
+    expect(links.find((l) => l.getAttribute("href") === "/c/build/iterate/weather-tool")).toBeUndefined();
   });
 
-  it("rows link to /c/build/new?mode=iterate&target=<slug>", () => {
+  it("rows link to /c/build/iterate/<slug>", () => {
     render(<MemoryRouter><BuildEvolve /></MemoryRouter>);
     const link = screen.getByRole("link", { name: /PR reviewer/i });
-    expect(link.getAttribute("href")).toBe("/c/build/new?mode=iterate&target=pr-reviewer");
+    expect(link.getAttribute("href")).toBe("/c/build/iterate/pr-reviewer");
   });
 
   it("renders 'Which companion?' as the page heading", () => {

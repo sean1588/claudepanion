@@ -33,7 +33,7 @@ export default function EntityList() {
               <button
                 type="button"
                 className="btn-outline"
-                onClick={() => navigate(`/c/build/new?mode=iterate`)}
+                onClick={() => navigate(`/c/build/evolve`)}
               >
                 ⟳ Iterate on existing
               </button>
@@ -44,7 +44,7 @@ export default function EntityList() {
               <button
                 type="button"
                 className="btn-outline"
-                onClick={() => navigate(`/c/build/new?mode=iterate&target=${companion}`)}
+                onClick={() => navigate(`/c/build/iterate/${companion}`)}
               >
                 🔨 Iterate with Build
               </button>

@@ -60,7 +60,7 @@ export default function BuildEvolve() {
             return (
               <Link
                 key={c.name}
-                to={`/c/build/new?mode=iterate&target=${c.name}`}
+                to={`/c/build/iterate/${c.name}`}
                 style={{
                   display: "grid",
                   gridTemplateColumns: "48px minmax(0, 1fr) 120px 140px",

@@ -64,7 +64,7 @@ export default function ToolAbout() {
         <button
           type="button"
           className="btn-outline"
-          onClick={() => navigate(`/c/build/new?mode=iterate&target=${manifest.name}`)}
+          onClick={() => navigate(`/c/build/iterate/${manifest.name}`)}
           style={{ whiteSpace: "nowrap" }}
         >
           🔨 Iterate with Build
