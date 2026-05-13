@@ -9,6 +9,7 @@ import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
 import { rewriteCompanionsIndex } from "./companions-index.js";
 import { getMcpStatus } from "./mcp-status.js";
+import { computeHealth } from "./health.js";
 import { schemaToDescriptor } from "./schema-introspect.js";
 import { pathToFileURL } from "node:url";
 import { join } from "node:path";
@@ -44,6 +45,11 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
       firstRequestAt: s.firstRequestAt ? new Date(s.firstRequestAt).toISOString() : null,
       lastRequestAt: s.lastRequestAt ? new Date(s.lastRequestAt).toISOString() : null,
     });
+  });
+
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    const result = await computeHealth({ mcpSnapshot: getMcpStatus() });
+    res.json(result);
   });
 
   app.get("/api/companions/:name/input-schema", async (req: Request, res: Response) => {
