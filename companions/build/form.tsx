@@ -25,6 +25,8 @@ export default function BuildForm({ onSubmit }: Props) {
   const [target, setTarget] = useState<string>(params.get("target") ?? "");
   const { companions } = useCompanions();
   const targets = companions.filter((c) => c.name !== "build");
+  const targetManifest = mode === "iterate-companion" ? targets.find((c) => c.name === target) ?? null : null;
+  const iterating = mode === "iterate-companion" && targetManifest !== null;
 
   useEffect(() => {
     const sl = params.get("example");
@@ -63,14 +65,29 @@ export default function BuildForm({ onSubmit }: Props) {
   return (
     <div style={{ maxWidth: 1100 }}>
       <div className="t-mono" style={{ color: "var(--muted)", marginBottom: 24 }}>
-        claudepanion › <Link to="/c/build" style={{ color: "var(--muted)", textDecoration: "none" }}>Build</Link> › New companion
+        claudepanion › <Link to="/c/build" style={{ color: "var(--muted)", textDecoration: "none" }}>Build</Link>
+        {iterating ? (
+          <> › <Link to="/c/build/evolve" style={{ color: "var(--muted)", textDecoration: "none" }}>Evolve</Link> › {targetManifest!.displayName}</>
+        ) : mode === "iterate-companion" ? (
+          <> › <Link to="/c/build/evolve" style={{ color: "var(--muted)", textDecoration: "none" }}>Evolve</Link></>
+        ) : (
+          <> › New companion</>
+        )}
       </div>
 
       <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
         <div>
-          {asideExample ? (
+          {iterating ? (
+            <h1 className="t-display-sm" style={{ margin: "16px 0 8px" }}>
+              Evolving <em className="t-accent-italic">{targetManifest!.icon} {targetManifest!.displayName}</em>
+            </h1>
+          ) : asideExample ? (
             <h1 className="t-display-sm" style={{ margin: "16px 0 8px" }}>
               Scaffolding <em className="t-accent-italic">{asideExample.icon} {asideExample.displayName}</em>
+            </h1>
+          ) : mode === "iterate-companion" ? (
+            <h1 className="t-display-sm" style={{ margin: "16px 0 8px" }}>
+              Iterate on <em className="t-accent-italic">existing</em>.
             </h1>
           ) : (
             <h1 className="t-display-sm" style={{ margin: "16px 0 8px" }}>
@@ -78,9 +95,13 @@ export default function BuildForm({ onSubmit }: Props) {
             </h1>
           )}
           <p className="t-body" style={{ color: "var(--muted)", margin: 0, maxWidth: "62ch" }}>
-            {asideExample
-              ? "Prefilled from the example chip. Review the description below and adjust any details before submitting — Build will scaffold the manifest, MCP proxy tools, skill, and pages."
-              : "Describe the tool you want. Name the external service, what data to fetch, and what the output should look like. Build interprets the description and scaffolds everything from there."}
+            {iterating
+              ? `Describe what should change about ${targetManifest!.displayName}. Build will diff your description against the current manifest, MCP proxy tools, skill, and pages — and ship a focused patch.`
+              : mode === "iterate-companion"
+                ? "Pick a target companion below, then describe what should change."
+                : asideExample
+                  ? "Prefilled from the example chip. Review the description below and adjust any details before submitting — Build will scaffold the manifest, MCP proxy tools, skill, and pages."
+                  : "Describe the tool you want. Name the external service, what data to fetch, and what the output should look like. Build interprets the description and scaffolds everything from there."}
           </p>
         </div>
 
@@ -166,6 +187,18 @@ export default function BuildForm({ onSubmit }: Props) {
                   </div>
                 </div>
               </>
+            ) : iterating ? (
+              <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="t-eyebrow">Target companion</span>
+                <div className="card-hairline" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px" }}>
+                  <span style={{ fontSize: 22 }} aria-hidden>{targetManifest!.icon}</span>
+                  <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+                    <span className="t-h3">{targetManifest!.displayName}</span>
+                    <span className="t-mono" style={{ color: "var(--muted)", fontSize: 11 }}>v{targetManifest!.version}</span>
+                  </div>
+                  <Link to="/c/build/evolve" className="t-caption" style={{ color: "var(--accent)" }}>change ↗</Link>
+                </div>
+              </div>
             ) : (
               <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 <span className="t-eyebrow">Target companion</span>
