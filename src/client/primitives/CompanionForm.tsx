@@ -59,7 +59,7 @@ export function CompanionForm<T extends z.ZodObject<any>>({ schema, onSubmit, co
       const groupFields = Object.entries(shape).filter(([, f]) => uiMetaOf(f).group === g);
       elements.push(
         <div key={`group-${g}`} style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-          <span style={{ fontSize: 12, color: "var(--muted)" }}>{g}</span>
+          <span className="t-eyebrow">{g}</span>
           <div style={{ display: "flex", gap: 12 }}>
             {groupFields.map(([fn, ff]) => (
               <FieldRow key={fn} name={fn} field={ff} value={values[fn]} onChange={(v) => handleChange(fn, v)}
@@ -77,10 +77,10 @@ export function CompanionForm<T extends z.ZodObject<any>>({ schema, onSubmit, co
   }
 
   return (
-    <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
+    <form onSubmit={handleSubmit} className="editorial-form">
       {elements}
-      {submitError && <div role="alert" style={{ color: "#dc2626", fontSize: 13 }}>{submitError}</div>}
-      <button type="submit" style={{ alignSelf: "flex-start", padding: "8px 14px" }}>Submit</button>
+      {submitError && <div role="alert"><span className="t-caption" style={{ color: "var(--status-error)" }}>{submitError}</span></div>}
+      <button type="submit" className="btn-ink">Submit</button>
     </form>
   );
 }
@@ -143,8 +143,8 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
   const label = describeOf(field) || name;
   const optional = isOptional(field);
   const labelEl = (
-    <span style={{ fontSize: 13 }}>
-      {label}{!optional && <span style={{ color: "#dc2626" }}> *</span>}
+    <span className="t-eyebrow">
+      {label}{!optional && <span style={{ color: "var(--status-error)" }}> *</span>}
     </span>
   );
 
@@ -164,11 +164,11 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
     return (
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {labelEl}
-        <select value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value || undefined)}>
+        <select className="editorial-input editorial-select" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value || undefined)}>
           <option value="">{options ? "—" : "loading…"}</option>
           {options?.map((o) => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
-        {error && <span style={{ fontSize: 12, color: "#dc2626" }}>{error}</span>}
+        {error && <span className="t-caption" style={{ color: "var(--status-error)" }}>{error}</span>}
       </label>
     );
   }
@@ -177,7 +177,7 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
     return (
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {labelEl}
-        <select value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value || undefined)}>
+        <select className="editorial-input editorial-select" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value || undefined)}>
           <option value="">—</option>
           {ui.options.map((o) => <option key={o} value={o}>{o}</option>)}
         </select>
@@ -189,7 +189,7 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
     return (
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {labelEl}
-        <textarea rows={4} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
+        <textarea className="editorial-input editorial-textarea" rows={4} value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
       </label>
     );
   }
@@ -202,6 +202,7 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {labelEl}
         <input
+          className="editorial-input"
           type="datetime-local"
           value={display}
           onChange={(e) => onChange(e.target.value ? `${e.target.value}:00Z` : undefined)}
@@ -215,6 +216,7 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
       <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
         {labelEl}
         <input
+          className="editorial-input"
           type="number"
           value={typeof value === "number" ? value : ""}
           onChange={(e) => onChange(e.target.value === "" ? undefined : Number(e.target.value))}
@@ -235,7 +237,7 @@ function FieldRow({ name, field, value, onChange, companionSlug, allValues }: Fi
   return (
     <label style={{ display: "flex", flexDirection: "column", gap: 4 }}>
       {labelEl}
-      <input type="text" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
+      <input className="editorial-input" type="text" value={typeof value === "string" ? value : ""} onChange={(e) => onChange(e.target.value)} />
     </label>
   );
 }
