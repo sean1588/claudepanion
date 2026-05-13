@@ -2,7 +2,6 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import type { BuildInput } from "./types";
 import { buildExamples } from "./examples";
-import BuildAside from "../../src/client/components/BuildAside";
 
 interface Props {
   onSubmit: (input: BuildInput) => void | Promise<void>;
@@ -47,7 +46,7 @@ export default function BuildForm({ onSubmit }: Props) {
   };
 
   return (
-    <div style={{ maxWidth: 960 }}>
+    <div style={{ maxWidth: 920 }}>
       <div className="t-mono" style={{ color: "var(--muted)", marginBottom: 24 }}>
         claudepanion › <Link to="/c/build" style={{ color: "var(--muted)", textDecoration: "none" }}>Build</Link> › New companion
       </div>
@@ -70,8 +69,37 @@ export default function BuildForm({ onSubmit }: Props) {
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 32, alignItems: "start" }}>
-          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+        {asideExample ? (
+          <div className="card-hairline" style={{ display: "flex", alignItems: "center", gap: 12, padding: "12px 14px", background: "color-mix(in srgb, var(--sage) 8%, transparent)", borderColor: "color-mix(in srgb, var(--sage) 30%, transparent)" }}>
+            <span style={{ fontSize: 22 }} aria-hidden>{asideExample.icon}</span>
+            <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2 }}>
+              <span className="t-h3">Starting from example</span>
+              <span className="t-caption">{asideExample.displayName}</span>
+            </div>
+            <button type="button" onClick={() => navigate("/c/build/new")} className="t-caption" style={{ background: "transparent", border: 0, color: "var(--accent)", cursor: "pointer" }}>clear ↗</button>
+          </div>
+        ) : (
+          <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <span className="t-eyebrow">Or start from an example</span>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+              {buildExamples.map((ex) => (
+                <button
+                  key={ex.slug}
+                  type="button"
+                  className="card-hairline"
+                  onClick={() => navigate(`?example=${ex.slug}`)}
+                  style={{ textAlign: "left", cursor: "pointer", background: "transparent", display: "flex", flexDirection: "column", gap: 6 }}
+                >
+                  <span style={{ fontSize: 22 }} aria-hidden>{ex.icon}</span>
+                  <span className="t-h3">{ex.displayName}</span>
+                  <span className="t-caption">{ex.description.split(".")[0] + "."}</span>
+                </button>
+              ))}
+            </div>
+          </section>
+        )}
+
+        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label htmlFor="build-name" className="t-eyebrow">Companion name</label>
               <input
@@ -158,9 +186,6 @@ export default function BuildForm({ onSubmit }: Props) {
               <button className="btn-ink" type="submit">Build companion</button>
             </div>
           </form>
-
-          <BuildAside example={asideExample} onPick={(slug) => navigate(`?example=${slug}`)} />
-        </div>
       </div>
     </div>
   );
