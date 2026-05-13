@@ -15,14 +15,14 @@ describe("BuildAside", () => {
     const onPick = vi.fn();
     render(<BuildAside example={null} onPick={onPick} />);
     fireEvent.click(screen.getByText(/GitHub PR reviewer/i));
-    expect(onPick).toHaveBeenCalledWith("pr-reviewer");
+    expect(onPick).toHaveBeenCalledWith("github-pr-reviewer");
   });
 
   it("prefilled state lists files Build will create", () => {
-    render(<BuildAside example={{ slug: "pr-reviewer", displayName: "GitHub PR reviewer", icon: "🔎" }} onPick={vi.fn()} />);
+    render(<BuildAside example={{ slug: "github-pr-reviewer", displayName: "GitHub PR reviewer", icon: "🔎", kind: "ui", description: "Review a GitHub pull request." }} onPick={vi.fn()} />);
     expect(screen.getByText(/What Build will create/i)).toBeInTheDocument();
     expect(screen.getByText(/manifest\.ts/)).toBeInTheDocument();
-    expect(screen.getByText(/skills\/pr-reviewer\/SKILL\.md/)).toBeInTheDocument();
+    expect(screen.getByText(/skills\/github-pr-reviewer\/SKILL\.md/)).toBeInTheDocument();
     expect(screen.getByText(/After submitting/i)).toBeInTheDocument();
   });
 });

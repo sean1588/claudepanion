@@ -2,12 +2,7 @@ import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
 import { fetchEntities } from "../api";
 import type { Entity } from "@shared/types";
-
-const SUGGESTIONS = [
-  { slug: "pr-reviewer", icon: "🔎", title: "GitHub PR reviewer", blurb: "Review a PR — fetch the diff and existing comments, flag risky diffs, suggest review questions." },
-  { slug: "cloudwatch", icon: "📊", title: "CloudWatch investigator", blurb: "Tail a log group, summarize errors, surface anomalies in the last hour." },
-  { slug: "linear", icon: "📋", title: "Linear backlog groomer", blurb: "Pull the backlog, flag stale issues, suggest priority and assignee." },
-];
+import { buildExamples } from "../../../companions/build/examples";
 
 export default function BuildHome() {
   const [builds, setBuilds] = useState<Entity[] | null>(null);
@@ -47,11 +42,11 @@ export default function BuildHome() {
       <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
         <span className="t-eyebrow">Or start from an idea</span>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
-          {SUGGESTIONS.map((s) => (
-            <Link key={s.slug} to={`/c/build/new?example=${s.slug}`} className="card-hairline" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 6 }}>
-              <span style={{ fontSize: 22 }} aria-hidden>{s.icon}</span>
-              <span className="t-h3">{s.title}</span>
-              <span className="t-caption">{s.blurb}</span>
+          {buildExamples.map((ex) => (
+            <Link key={ex.slug} to={`/c/build/new?example=${ex.slug}`} className="card-hairline" style={{ textDecoration: "none", color: "inherit", display: "flex", flexDirection: "column", gap: 6 }}>
+              <span style={{ fontSize: 22 }} aria-hidden>{ex.icon}</span>
+              <span className="t-h3">{ex.displayName}</span>
+              <span className="t-caption">{ex.description.split(".")[0] + "."}</span>
               <span className="t-caption" style={{ color: "var(--accent)", marginTop: 4 }}>Try this →</span>
             </Link>
           ))}

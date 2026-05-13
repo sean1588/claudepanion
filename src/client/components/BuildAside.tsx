@@ -1,14 +1,4 @@
-interface Example {
-  slug: string;
-  displayName: string;
-  icon: string;
-}
-
-const EXAMPLES: Example[] = [
-  { slug: "pr-reviewer", displayName: "GitHub PR reviewer", icon: "🔎" },
-  { slug: "cloudwatch", displayName: "CloudWatch investigator", icon: "📊" },
-  { slug: "linear", displayName: "Linear backlog groomer", icon: "📋" },
-];
+import { buildExamples, type BuildExample } from "../../../companions/build/examples";
 
 const CREATED_FILES = (slug: string) => [
   "manifest.ts + index.ts",
@@ -20,7 +10,7 @@ const CREATED_FILES = (slug: string) => [
 ];
 
 interface Props {
-  example: Example | null;
+  example: BuildExample | null;
   onPick: (slug: string) => void;
 }
 
@@ -62,7 +52,7 @@ export default function BuildAside({ example, onPick }: Props) {
       <div className="card-soft">
         <div className="t-h3" style={{ marginBottom: 8 }}>Or start from an example</div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-          {EXAMPLES.map((ex) => (
+          {buildExamples.map((ex) => (
             <button key={ex.slug} type="button" className="btn-chip" onClick={() => onPick(ex.slug)} style={{ justifyContent: "flex-start", padding: "10px 12px", borderRadius: 6, fontSize: 13 }}>
               <span aria-hidden>{ex.icon}</span>
               <span style={{ color: "var(--ink)" }}>{ex.displayName}</span>

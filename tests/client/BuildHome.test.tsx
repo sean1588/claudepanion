@@ -35,6 +35,6 @@ describe("BuildHome", () => {
     mockEntities.mockResolvedValueOnce([]);
     render(<MemoryRouter><BuildHome /></MemoryRouter>);
     const link = await screen.findByRole("link", { name: /github pr reviewer/i });
-    expect(link.getAttribute("href")).toMatch(/\?example=pr-reviewer/);
+    expect(link.getAttribute("href")).toMatch(/\?example=github-pr-reviewer/);
   });
 });
