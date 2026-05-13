@@ -31,11 +31,11 @@ describe("BuildForm ?example= prefill", () => {
     renderAt("/c/build/new?example=github-pr-reviewer");
     const name = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
     const description = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
-    // Kind is now a radiogroup; find the "entity" radio button (maps to "ui" kind)
-    const entityRadio = await screen.findByRole("radio", { name: /entity/i });
+    // Kind is now a radiogroup; find the "ui companion" radio (maps to "ui" kind)
+    const uiRadio = await screen.findByRole("radio", { name: /ui companion/i });
     await waitFor(() => {
       expect(name.value).toBe("github-pr-reviewer");
-      expect(entityRadio).toHaveAttribute("aria-checked", "true");
+      expect(uiRadio).toHaveAttribute("aria-checked", "true");
       expect(description.value).toMatch(/flag risky diffs/i);
     });
   });

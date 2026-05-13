@@ -47,7 +47,7 @@ export default function BuildForm({ onSubmit }: Props) {
   };
 
   return (
-    <div style={{ maxWidth: 1100 }}>
+    <div style={{ maxWidth: 960 }}>
       <div className="t-mono" style={{ color: "var(--muted)", marginBottom: 24 }}>
         claudepanion › <Link to="/c/build" style={{ color: "var(--muted)", textDecoration: "none" }}>Build</Link> › New companion
       </div>
@@ -70,7 +70,7 @@ export default function BuildForm({ onSubmit }: Props) {
           </p>
         </div>
 
-        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 32, alignItems: "start" }}>
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 260px", gap: 32, alignItems: "start" }}>
           <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
               <label htmlFor="build-name" className="t-eyebrow">Companion name</label>
@@ -97,8 +97,8 @@ export default function BuildForm({ onSubmit }: Props) {
               <span className="t-eyebrow" id="kind-label">Kind</span>
               <div role="radiogroup" aria-labelledby="kind-label" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
                 {[
-                  { value: "ui" as const, label: "entity", hint: "form, lifecycle, artifacts" },
-                  { value: "tool" as const, label: "tool", hint: "MCP tools only, auto About page" },
+                  { value: "ui" as const, label: "ui companion", hint: "form, lifecycle, artifacts" },
+                  { value: "tool" as const, label: "tool companion", hint: "MCP tools only, auto About page" },
                 ].map((opt) => {
                   const selected = kind === opt.value;
                   return (
