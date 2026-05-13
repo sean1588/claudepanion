@@ -1,20 +1,20 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import type { BuildInput } from "./types";
 import { buildExamples } from "./examples";
 import { useCompanions } from "../../src/client/hooks/useCompanions";
+import BuildAside from "../../src/client/components/BuildAside";
 
 interface Props {
   onSubmit: (input: BuildInput) => void | Promise<void>;
 }
 
-const inputStyle = { padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 };
-const labelStyle = { display: "flex", flexDirection: "column" as const, gap: 4, fontSize: 13 };
-
 export default function BuildForm({ onSubmit }: Props) {
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const exampleSlug = params.get("example");
-  const example = exampleSlug ? buildExamples.find((e) => e.slug === exampleSlug) : undefined;
+  const asideExample = exampleSlug ? (buildExamples.find((e) => e.slug === exampleSlug) ?? null) : null;
+  const example = asideExample;
 
   const [mode, setMode] = useState<"new-companion" | "iterate-companion">(() =>
     example ? "new-companion" : params.get("mode") === "iterate" ? "iterate-companion" : "new-companion"
@@ -60,89 +60,181 @@ export default function BuildForm({ onSubmit }: Props) {
     }
   };
 
-  const tabStyle = (active: boolean) => ({
-    padding: "8px 14px",
-    border: `1px solid ${active ? "var(--accent, #0284c7)" : "#cbd5e1"}`,
-    background: active ? "var(--accent, #0284c7)" : "white",
-    color: active ? "white" : "#334155",
-    borderRadius: 6,
-    cursor: "pointer" as const,
-    fontSize: 13,
-    fontWeight: 500,
-  });
-
   return (
-    <form onSubmit={submit} style={{ maxWidth: 560, display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "flex", gap: 8 }}>
-        <button type="button" style={tabStyle(mode === "new-companion")} onClick={() => setMode("new-companion")}>
-          ✨ New companion
-        </button>
-        <button type="button" style={tabStyle(mode === "iterate-companion")} onClick={() => setMode("iterate-companion")}>
-          ⟳ Iterate on existing
-        </button>
+    <div style={{ maxWidth: 1100 }}>
+      <div className="t-mono" style={{ color: "var(--muted)", marginBottom: 24 }}>
+        claudepanion › <Link to="/c/build" style={{ color: "var(--muted)", textDecoration: "none" }}>Build</Link> › New companion
       </div>
 
-      {mode === "new-companion" ? (
-        <>
-          <label style={labelStyle}>
-            Companion name
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder="oncall-investigator"
-              style={inputStyle}
-              pattern="^[a-z][a-z0-9-]*$"
-            />
-            <span style={{ fontSize: 11, color: "#64748b" }}>lowercase, hyphens, starts with a letter</span>
-          </label>
-          <label style={labelStyle}>
-            Kind
-            <select value={kind} onChange={(e) => setKind(e.target.value as "ui" | "tool")} style={inputStyle}>
-              <option value="ui">ui — has lifecycle, form, artifacts</option>
-              <option value="tool">tool — MCP tools only, auto About page</option>
-            </select>
-          </label>
-        </>
-      ) : (
-        <label style={labelStyle}>
-          Target companion
-          <select value={target} onChange={(e) => setTarget(e.target.value)} style={inputStyle}>
-            <option value="">— select —</option>
-            {targets.map((t) => (
-              <option key={t.name} value={t.name}>
-                {t.icon} {t.displayName} <span>(v{t.version})</span>
-              </option>
-            ))}
-          </select>
-        </label>
-      )}
+      <div style={{ display: "flex", flexDirection: "column", gap: 32 }}>
+        <div>
+          {asideExample ? (
+            <h1 className="t-display-sm" style={{ margin: "16px 0 8px" }}>
+              Scaffolding <em className="t-accent-italic">{asideExample.icon} {asideExample.displayName}</em>
+            </h1>
+          ) : (
+            <h1 className="t-display-sm" style={{ margin: "16px 0 8px" }}>
+              Build a new <em className="t-accent-italic">companion</em>.
+            </h1>
+          )}
+          <p className="t-body" style={{ color: "var(--muted)", margin: 0, maxWidth: "62ch" }}>
+            {asideExample
+              ? "Prefilled from the example chip. Review the description below and adjust any details before submitting — Build will scaffold the manifest, MCP proxy tools, skill, and pages."
+              : "Describe the tool you want. Name the external service, what data to fetch, and what the output should look like. Build interprets the description and scaffolds everything from there."}
+          </p>
+        </div>
 
-      <div style={{ display: "flex", flexDirection: "column", gap: 4 }}>
-        <label style={labelStyle}>
-          {mode === "new-companion" ? "Description" : "What should change?"}
-          <textarea
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            rows={4}
-            placeholder={
-              mode === "new-companion"
-                ? "Describe the companion. Name the external service (GitHub, AWS, Linear, Slack, …), what data to fetch, and what the artifact should contain. Read-only by default — say explicitly if it should write back.\n\nExample: Review a GitHub PR — fetch the diff and existing comments, flag risky diffs, suggest review questions for the author. Read-only."
-                : "Add a dim() tool that sets brightness to a number between 0 and 1."
-            }
-            style={{ ...inputStyle, resize: "vertical" as const }}
-          />
-        </label>
-        {mode === "new-companion" && (
-          <span style={{ fontSize: 11, color: "#64748b", lineHeight: 1.4 }}>
-            Tip: companions get architectural value from authenticated proxy access to external systems. The form captures <strong>where</strong> to query (which repo / account / team / channel) — not "paste your text here."
-          </span>
-        )}
+        <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 320px", gap: 32, alignItems: "start" }}>
+          <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 24 }}>
+            <div style={{ display: "flex", gap: 8 }}>
+              <button
+                type="button"
+                onClick={() => setMode("new-companion")}
+                className="btn-chip"
+                style={mode === "new-companion"
+                  ? { background: "var(--ink)", color: "var(--bg)", padding: "8px 14px", borderRadius: 999, border: 0, fontSize: 13, fontWeight: 500, cursor: "pointer" }
+                  : { padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+              >
+                ✨ New companion
+              </button>
+              <button
+                type="button"
+                onClick={() => setMode("iterate-companion")}
+                className="btn-chip"
+                style={mode === "iterate-companion"
+                  ? { background: "var(--ink)", color: "var(--bg)", padding: "8px 14px", borderRadius: 999, border: 0, fontSize: 13, fontWeight: 500, cursor: "pointer" }
+                  : { padding: "8px 14px", borderRadius: 999, fontSize: 13, fontWeight: 500, cursor: "pointer" }}
+              >
+                ⟳ Iterate on existing
+              </button>
+            </div>
+
+            {mode === "new-companion" ? (
+              <>
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <label htmlFor="build-name" className="t-eyebrow">Companion name</label>
+                  <input
+                    id="build-name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="oncall-investigator"
+                    pattern="^[a-z][a-z0-9-]*$"
+                    style={{
+                      padding: "10px 12px",
+                      background: "var(--bg)",
+                      color: "var(--ink)",
+                      border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
+                      borderRadius: 8,
+                      fontFamily: "var(--font-mono)",
+                      fontSize: 14,
+                    }}
+                  />
+                  <span className="t-caption">lowercase · hyphens only · starts with a letter</span>
+                </div>
+
+                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                  <span className="t-eyebrow" id="kind-label">Kind</span>
+                  <div role="radiogroup" aria-labelledby="kind-label" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 12 }}>
+                    {[
+                      { value: "ui" as const, label: "entity", hint: "form, lifecycle, artifacts" },
+                      { value: "tool" as const, label: "tool", hint: "MCP tools only, auto About page" },
+                    ].map((opt) => {
+                      const selected = kind === opt.value;
+                      return (
+                        <button
+                          key={opt.value}
+                          type="button"
+                          role="radio"
+                          aria-checked={selected}
+                          onClick={() => setKind(opt.value)}
+                          className="card-hairline"
+                          style={{
+                            textAlign: "left",
+                            cursor: "pointer",
+                            borderColor: selected ? "var(--accent)" : undefined,
+                            background: selected ? "color-mix(in srgb, var(--accent) 6%, transparent)" : undefined,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 4,
+                          }}
+                        >
+                          <span className="t-h3">{opt.label}</span>
+                          <span className="t-caption">{opt.hint}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              </>
+            ) : (
+              <label style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+                <span className="t-eyebrow">Target companion</span>
+                <select
+                  value={target}
+                  onChange={(e) => setTarget(e.target.value)}
+                  style={{
+                    padding: "10px 12px",
+                    background: "var(--bg)",
+                    color: "var(--ink)",
+                    border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
+                    borderRadius: 8,
+                    fontFamily: "var(--font-body)",
+                    fontSize: 14,
+                  }}
+                >
+                  <option value="">— select —</option>
+                  {targets.map((t) => (
+                    <option key={t.name} value={t.name}>
+                      {t.icon} {t.displayName} (v{t.version})
+                    </option>
+                  ))}
+                </select>
+              </label>
+            )}
+
+            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+              <label htmlFor="build-description" className="t-eyebrow">
+                {mode === "new-companion" ? "Description" : "What should change?"}
+              </label>
+              <textarea
+                id="build-description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={6}
+                placeholder={mode === "new-companion"
+                  ? "Describe the companion. Name the external service (GitHub, AWS, Linear, Slack, …), what data to fetch, and what the artifact should contain. Read-only by default — say explicitly if it should write back.\n\nExample: Review a GitHub PR — fetch the diff and existing comments, flag risky diffs, suggest review questions for the author. Read-only."
+                  : "Add a dim() tool that sets brightness to a number between 0 and 1."}
+                style={{
+                  padding: "10px 12px",
+                  background: "var(--bg)",
+                  color: "var(--ink)",
+                  border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
+                  borderRadius: 8,
+                  fontFamily: "var(--font-body)",
+                  fontSize: 14,
+                  lineHeight: 1.55,
+                  resize: "vertical",
+                  minHeight: 160,
+                }}
+              />
+              {mode === "new-companion" && (
+                <span className="t-caption">
+                  Tip: companions get architectural value from authenticated proxy access to external systems. The form captures <strong>where</strong> to query (which repo / account / team / channel) — not "paste your text here."
+                </span>
+              )}
+            </div>
+
+            {error && <div className="form-error" role="alert" style={{ color: "var(--status-error)" }}>{error}</div>}
+            <div style={{ display: "flex", gap: 8, marginTop: 8 }}>
+              <button className="btn-ink" type="submit">
+                {mode === "new-companion" ? "Build companion" : "Iterate"}
+              </button>
+            </div>
+          </form>
+
+          <BuildAside example={asideExample} onPick={(slug) => navigate(`?example=${slug}`)} />
+        </div>
       </div>
-
-      {error && <div className="form-error" role="alert">{error}</div>}
-      <button className="btn" type="submit" style={{ alignSelf: "flex-start" }}>
-        {mode === "new-companion" ? "Build companion" : "Iterate"}
-      </button>
-    </form>
+    </div>
   );
 }
