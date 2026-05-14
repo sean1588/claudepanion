@@ -91,10 +91,35 @@ function StatusMonoBlock({ text }: { text: string }) {
 
 function SlashRow({ entity }: { entity: Entity }) {
   const cmd = `/${entity.companion}-companion ${entity.id}`;
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(cmd);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    } catch { /* clipboard blocked — leave the code visible */ }
+  };
   return (
     <div className="card-hairline" style={{ display: "flex", alignItems: "center", gap: 12 }}>
       <span className="t-caption" style={{ color: "var(--muted)" }}>Slash command</span>
-      <code className="t-mono" style={{ background: "var(--ink)", color: "var(--bg)", padding: "6px 12px", borderRadius: 6 }}>{cmd}</code>
+      <code className="t-mono" style={{ background: "var(--ink)", color: "var(--bg)", padding: "6px 12px", borderRadius: 6, flex: 1 }}>{cmd}</code>
+      <button
+        type="button"
+        onClick={copy}
+        aria-label={copied ? "Copied" : "Copy slash command"}
+        className="t-caption"
+        style={{
+          background: "transparent",
+          border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
+          color: copied ? "var(--status-success)" : "var(--ink)",
+          padding: "6px 10px",
+          borderRadius: 6,
+          cursor: "pointer",
+          fontFamily: "var(--font-mono)",
+        }}
+      >
+        {copied ? "✓ copied" : "copy"}
+      </button>
     </div>
   );
 }
