@@ -88,11 +88,11 @@ export default function BuildForm({ onSubmit }: Props) {
                   type="button"
                   className="card-hairline"
                   onClick={() => navigate(`?example=${ex.slug}`)}
-                  style={{ textAlign: "left", cursor: "pointer", background: "transparent", display: "flex", flexDirection: "column", gap: 6 }}
+                  title={ex.description.split(".")[0] + "."}
+                  style={{ textAlign: "left", cursor: "pointer", background: "transparent", display: "flex", flexDirection: "row", alignItems: "center", gap: 10 }}
                 >
-                  <span style={{ fontSize: 22 }} aria-hidden>{ex.icon}</span>
+                  <span style={{ fontSize: 20 }} aria-hidden>{ex.icon}</span>
                   <span className="t-h3">{ex.displayName}</span>
-                  <span className="t-caption">{ex.description.split(".")[0] + "."}</span>
                 </button>
               ))}
             </div>
