@@ -1,8 +1,29 @@
 import type { Entity, Manifest } from "@shared/types";
 
+export type MountRemedy = "restart" | "rebuild" | "fix-code";
+
+export interface MountFailure {
+  slug: string;
+  stage: "import-threw" | "import-empty" | "dist-stale" | "validation-failed";
+  message: string;
+  remedy: MountRemedy;
+  at: string;
+}
+
+export interface MountStatus {
+  mounted: boolean;
+  failure: MountFailure | null;
+}
+
 export async function fetchCompanions(): Promise<Manifest[]> {
   const res = await fetch("/api/companions");
   if (!res.ok) throw new Error(`GET /api/companions failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchMountStatus(slug: string): Promise<MountStatus> {
+  const res = await fetch(`/api/companions/${encodeURIComponent(slug)}/mount-status`);
+  if (!res.ok) throw new Error(`GET mount-status failed: ${res.status}`);
   return res.json();
 }
 

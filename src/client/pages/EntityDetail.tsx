@@ -171,6 +171,9 @@ function PendingBanner({ entity }: { entity: Entity }) {
         <li><code>claudepanion plugin install</code> in your repo.</li>
         <li>Restart your Claude Code session.</li>
       </ol>
+      <p className="t-caption" style={{ margin: "8px 0 0", color: "var(--muted)" }}>
+        Still stuck? The claudepanion server itself may have died — stop <code>claudepanion serve</code> and run it again.
+      </p>
     </div>
   );
 }
@@ -193,6 +196,9 @@ function ErrorPanel({ entity }: { entity: Entity }) {
       <span className="t-eyebrow" style={{ color: "var(--status-error)" }}>Error</span>
       <p style={{ marginTop: 4 }}>{entity.errorMessage ?? "Unknown error"}</p>
       {entity.errorStack && <pre className="t-mono" style={{ fontSize: 12, maxHeight: 200, overflow: "auto", marginTop: 8 }}>{entity.errorStack}</pre>}
+      <p className="t-caption" style={{ margin: "8px 0 0", color: "var(--muted)" }}>
+        If this started failing after a rebuild or new companion, the claudepanion server may need a restart — stop <code>claudepanion serve</code> and run it again.
+      </p>
       <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
         <button type="button" className="btn-ink" onClick={() => void continueEntity(entity.companion, entity.id, "retry")}>Retry build</button>
         <Link to={`/c/build/iterate/${entity.companion}`} className="btn-ghost">Edit prompt</Link>
