@@ -11,9 +11,36 @@ import { rewriteCompanionsIndex } from "./companions-index.js";
 import { getMcpStatus } from "./mcp-status.js";
 import { computeHealth } from "./health.js";
 import { schemaToDescriptor } from "./schema-introspect.js";
-import { pathToFileURL } from "node:url";
-import { join } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { join, resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
+
+/**
+ * Absolute path to the framework's `bin/cli.js`.
+ *
+ * Walks up from this module's own location until it finds `bin/cli.js`. This
+ * is robust to running from either the compiled tree
+ * (`<frameworkRoot>/dist/src/server/api-routes.js`) or the TS source
+ * (`<frameworkRoot>/src/server/api-routes.ts`), which sit at different depths.
+ *
+ * It must NOT be resolved relative to `process.cwd()`: in a user-local install
+ * cwd is `~/.claudepanion/`, which has no `bin/` — only a
+ * `node_modules/claudepanion-host` symlink — so a cwd-relative `bin/cli.js`
+ * fails with MODULE_NOT_FOUND.
+ */
+export function resolveFrameworkCliPath(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8; i++) {
+    const candidate = join(dir, "bin", "cli.js");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fall back to the production (compiled) layout so we still return a
+  // deterministic path even if bin/cli.js is absent (e.g. before a build).
+  return resolve(fileURLToPath(import.meta.url), "../../../..", "bin/cli.js");
+}
 
 export interface ApiDeps {
   store: EntityStore;
@@ -260,7 +287,7 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, mou
 
 async function defaultDeleteCompanionFiles(slug: string): Promise<{ ok: true } | { ok: false; error: string }> {
   return new Promise((resolve) => {
-    const proc = spawn("node", ["bin/cli.js", "companion", "delete", slug], { cwd: process.cwd(), shell: false });
+    const proc = spawn("node", [resolveFrameworkCliPath(), "companion", "delete", slug], { cwd: process.cwd(), shell: false });
     let stderr = "";
     proc.stderr.on("data", (d) => { stderr += d.toString(); });
     proc.on("close", (code) => {

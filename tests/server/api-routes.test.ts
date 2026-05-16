@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import express from "express";
 import request from "supertest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEntityStore } from "../../src/server/entity-store";
 import { createRegistry } from "../../src/server/companion-registry";
-import { mountApiRoutes } from "../../src/server/api-routes";
+import { mountApiRoutes, resolveFrameworkCliPath } from "../../src/server/api-routes";
 import type { Manifest } from "@shared/types";
 import { successResult } from "../../src/shared/types";
 import type { CompanionToolDefinition } from "../../src/shared/types";
@@ -36,6 +36,27 @@ beforeEach(() => {
 
 afterEach(() => {
   try { rmSync(tmp, { recursive: true, force: true }); } catch {}
+});
+
+describe("resolveFrameworkCliPath", () => {
+  it("resolves bin/cli.js from the framework root, not process.cwd()", () => {
+    const p = resolveFrameworkCliPath();
+    expect(p.endsWith("/bin/cli.js")).toBe(true);
+    // Must point at a real file — regression guard for the MODULE_NOT_FOUND
+    // bug where the path was cwd-relative (~/.claudepanion has no bin/).
+    expect(existsSync(p)).toBe(true);
+  });
+
+  it("returns a stable path regardless of process.cwd()", () => {
+    const before = resolveFrameworkCliPath();
+    const origCwd = process.cwd();
+    try {
+      process.chdir(tmpdir());
+      expect(resolveFrameworkCliPath()).toBe(before);
+    } finally {
+      process.chdir(origCwd);
+    }
+  });
 });
 
 describe("api routes", () => {
