@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { EntityStore } from "./entity-store.js";
 import type { Registry } from "./companion-registry.js";
-import type { ReliabilitySnapshot } from "./reliability/watcher.js";
+import type { ReliabilitySnapshot, MountFailure } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
 import type { CompanionToolDefinition } from "../shared/types.js";
 import { spawn } from "node:child_process";
@@ -19,14 +19,29 @@ export interface ApiDeps {
   store: EntityStore;
   registry: Registry;
   reliability?: Map<string, ReliabilitySnapshot>;
+  /** Remount failures recorded by the watcher — lets the UI explain a companion
+   *  that built but isn't loaded. Keyed by slug. */
+  mountFailures?: Map<string, MountFailure>;
   /** Override for tests — defaults to spawning `node bin/cli.js companion delete <slug>`. */
   deleteCompanionFiles?: (slug: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Triggers a fresh re-import of the companion module. Wired to the watcher in production. */
   triggerRemount?: (slug: string) => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
 }
 
-export function mountApiRoutes(app: Express, { store, registry, reliability, deleteCompanionFiles, triggerRemount }: ApiDeps): void {
+export function mountApiRoutes(app: Express, { store, registry, reliability, mountFailures, deleteCompanionFiles, triggerRemount }: ApiDeps): void {
   const runDelete = deleteCompanionFiles ?? defaultDeleteCompanionFiles;
+
+  // Works even when the companion is NOT registered — that's the whole point:
+  // a freshly-built companion whose remount failed (e.g. a new npm dep that the
+  // running process can't resolve) is absent from the registry, and the client
+  // needs to know it exists-but-didn't-load so it can tell the user what to do.
+  app.get("/api/companions/:slug/mount-status", (req: Request, res: Response) => {
+    const slug = String(req.params.slug);
+    res.json({
+      mounted: registry.get(slug) != null,
+      failure: mountFailures?.get(slug) ?? null,
+    });
+  });
   app.get("/api/reliability/:companion", (req: Request, res: Response) => {
     const name = String(req.params.companion);
     if (!registry.get(name)) return res.status(404).json({ error: `unknown companion: ${name}` });

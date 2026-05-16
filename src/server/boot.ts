@@ -11,7 +11,7 @@ import { createEntityStore } from "./entity-store.js";
 import { createRegistry, type RegisteredCompanion } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
 import { buildMcpServer } from "./mcp.js";
-import { createWatcher, type ReliabilitySnapshot } from "./reliability/watcher.js";
+import { createWatcher, type ReliabilitySnapshot, type MountFailure } from "./reliability/watcher.js";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
 import { z } from "zod";
@@ -65,12 +65,14 @@ export async function bootServer(opts: BootOptions): Promise<void> {
   const store = createEntityStore(dataPath());
   const registry = createRegistry(opts.companions);
   const snapshots = new Map<string, ReliabilitySnapshot>();
+  const mountFailures = new Map<string, MountFailure>();
   const companionsDir = resolve(repoRoot, "companions");
   const mcp = buildMcpServer({ store, registry, companionsDir, snapshots });
   const watcher = createWatcher({
     registry,
     companionsDir,
     snapshots,
+    mountFailures,
   });
 
   const app = express();
@@ -80,6 +82,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
     store,
     registry,
     reliability: snapshots,
+    mountFailures,
     triggerRemount: async (slug) => {
       try {
         await watcher.triggerRemount(slug);
