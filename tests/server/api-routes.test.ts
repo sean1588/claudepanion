@@ -1,12 +1,12 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
 import express from "express";
 import request from "supertest";
-import { mkdtempSync, rmSync } from "node:fs";
+import { mkdtempSync, rmSync, existsSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { createEntityStore } from "../../src/server/entity-store";
 import { createRegistry } from "../../src/server/companion-registry";
-import { mountApiRoutes } from "../../src/server/api-routes";
+import { mountApiRoutes, resolveFrameworkCliPath } from "../../src/server/api-routes";
 import type { Manifest } from "@shared/types";
 import { successResult } from "../../src/shared/types";
 import type { CompanionToolDefinition } from "../../src/shared/types";
@@ -38,11 +38,60 @@ afterEach(() => {
   try { rmSync(tmp, { recursive: true, force: true }); } catch {}
 });
 
+describe("resolveFrameworkCliPath", () => {
+  it("resolves bin/cli.js from the framework root, not process.cwd()", () => {
+    const p = resolveFrameworkCliPath();
+    expect(p.endsWith("/bin/cli.js")).toBe(true);
+    // Must point at a real file — regression guard for the MODULE_NOT_FOUND
+    // bug where the path was cwd-relative (~/.claudepanion has no bin/).
+    expect(existsSync(p)).toBe(true);
+  });
+
+  it("returns a stable path regardless of process.cwd()", () => {
+    const before = resolveFrameworkCliPath();
+    const origCwd = process.cwd();
+    try {
+      process.chdir(tmpdir());
+      expect(resolveFrameworkCliPath()).toBe(before);
+    } finally {
+      process.chdir(origCwd);
+    }
+  });
+});
+
 describe("api routes", () => {
   it("GET /api/companions returns manifests", async () => {
     const res = await request(app).get("/api/companions");
     expect(res.status).toBe(200);
     expect(res.body.map((m: Manifest) => m.name)).toEqual(["x"]);
+  });
+
+  it("GET /api/companions/:slug/mount-status reports mounted for a registered companion", async () => {
+    const res = await request(app).get("/api/companions/x/mount-status");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ mounted: true, failure: null });
+  });
+
+  it("GET /api/companions/:slug/mount-status reports an unmounted companion with its failure (no registry gate)", async () => {
+    const store = createEntityStore(tmp);
+    const registry = createRegistry([{ manifest: manifest("x"), tools: [] }]);
+    const mountFailures = new Map([
+      ["github-pr-reviewer", { slug: "github-pr-reviewer", stage: "import-threw" as const, message: "Cannot find package '@octokit/rest'", remedy: "restart" as const, at: "2026-05-16T00:00:00.000Z" }],
+    ]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, mountFailures });
+    const res = await request(app2).get("/api/companions/github-pr-reviewer/mount-status");
+    expect(res.status).toBe(200);
+    expect(res.body.mounted).toBe(false);
+    expect(res.body.failure.remedy).toBe("restart");
+    expect(res.body.failure.slug).toBe("github-pr-reviewer");
+  });
+
+  it("GET /api/companions/:slug/mount-status returns mounted:false, failure:null for a genuinely unknown companion", async () => {
+    const res = await request(app).get("/api/companions/never-existed/mount-status");
+    expect(res.status).toBe(200);
+    expect(res.body).toEqual({ mounted: false, failure: null });
   });
 
   it("GET /api/mcp/status returns nulls when no MCP traffic has been observed", async () => {

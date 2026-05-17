@@ -1,7 +1,7 @@
 import type { Express, Request, Response } from "express";
 import type { EntityStore } from "./entity-store.js";
 import type { Registry } from "./companion-registry.js";
-import type { ReliabilitySnapshot } from "./reliability/watcher.js";
+import type { ReliabilitySnapshot, MountFailure } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
 import type { CompanionToolDefinition } from "../shared/types.js";
 import { spawn } from "node:child_process";
@@ -9,23 +9,66 @@ import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
 import { rewriteCompanionsIndex } from "./companions-index.js";
 import { getMcpStatus } from "./mcp-status.js";
+import { computeHealth } from "./health.js";
 import { schemaToDescriptor } from "./schema-introspect.js";
-import { pathToFileURL } from "node:url";
-import { join } from "node:path";
+import { pathToFileURL, fileURLToPath } from "node:url";
+import { join, resolve, dirname } from "node:path";
 import { existsSync } from "node:fs";
+
+/**
+ * Absolute path to the framework's `bin/cli.js`.
+ *
+ * Walks up from this module's own location until it finds `bin/cli.js`. This
+ * is robust to running from either the compiled tree
+ * (`<frameworkRoot>/dist/src/server/api-routes.js`) or the TS source
+ * (`<frameworkRoot>/src/server/api-routes.ts`), which sit at different depths.
+ *
+ * It must NOT be resolved relative to `process.cwd()`: in a user-local install
+ * cwd is `~/.claudepanion/`, which has no `bin/` — only a
+ * `node_modules/claudepanion-host` symlink — so a cwd-relative `bin/cli.js`
+ * fails with MODULE_NOT_FOUND.
+ */
+export function resolveFrameworkCliPath(): string {
+  let dir = dirname(fileURLToPath(import.meta.url));
+  for (let i = 0; i < 8; i++) {
+    const candidate = join(dir, "bin", "cli.js");
+    if (existsSync(candidate)) return candidate;
+    const parent = dirname(dir);
+    if (parent === dir) break;
+    dir = parent;
+  }
+  // Fall back to the production (compiled) layout so we still return a
+  // deterministic path even if bin/cli.js is absent (e.g. before a build).
+  return resolve(fileURLToPath(import.meta.url), "../../../..", "bin/cli.js");
+}
 
 export interface ApiDeps {
   store: EntityStore;
   registry: Registry;
   reliability?: Map<string, ReliabilitySnapshot>;
+  /** Remount failures recorded by the watcher — lets the UI explain a companion
+   *  that built but isn't loaded. Keyed by slug. */
+  mountFailures?: Map<string, MountFailure>;
   /** Override for tests — defaults to spawning `node bin/cli.js companion delete <slug>`. */
   deleteCompanionFiles?: (slug: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Triggers a fresh re-import of the companion module. Wired to the watcher in production. */
   triggerRemount?: (slug: string) => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
 }
 
-export function mountApiRoutes(app: Express, { store, registry, reliability, deleteCompanionFiles, triggerRemount }: ApiDeps): void {
+export function mountApiRoutes(app: Express, { store, registry, reliability, mountFailures, deleteCompanionFiles, triggerRemount }: ApiDeps): void {
   const runDelete = deleteCompanionFiles ?? defaultDeleteCompanionFiles;
+
+  // Works even when the companion is NOT registered — that's the whole point:
+  // a freshly-built companion whose remount failed (e.g. a new npm dep that the
+  // running process can't resolve) is absent from the registry, and the client
+  // needs to know it exists-but-didn't-load so it can tell the user what to do.
+  app.get("/api/companions/:slug/mount-status", (req: Request, res: Response) => {
+    const slug = String(req.params.slug);
+    res.json({
+      mounted: registry.get(slug) != null,
+      failure: mountFailures?.get(slug) ?? null,
+    });
+  });
   app.get("/api/reliability/:companion", (req: Request, res: Response) => {
     const name = String(req.params.companion);
     if (!registry.get(name)) return res.status(404).json({ error: `unknown companion: ${name}` });
@@ -44,6 +87,11 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
       firstRequestAt: s.firstRequestAt ? new Date(s.firstRequestAt).toISOString() : null,
       lastRequestAt: s.lastRequestAt ? new Date(s.lastRequestAt).toISOString() : null,
     });
+  });
+
+  app.get("/api/health", async (_req: Request, res: Response) => {
+    const result = await computeHealth({ mcpSnapshot: getMcpStatus() });
+    res.json(result);
   });
 
   app.get("/api/companions/:name/input-schema", async (req: Request, res: Response) => {
@@ -222,7 +270,10 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
 
     registry.unregister(name);
     reliability?.delete(name);
-    res.json({ ok: true, rebuildHint: "npm run build && restart the server to refresh the client bundle" });
+    mountFailures?.delete(name);
+    // Fully effective with no rebuild/restart: the running registry is updated
+    // here, and the CLI delete keeps dist/companions/ coherent for future boots.
+    res.json({ ok: true });
   });
 
   app.post("/api/entities/:id/continue", async (req: Request, res: Response) => {
@@ -239,7 +290,7 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, del
 
 async function defaultDeleteCompanionFiles(slug: string): Promise<{ ok: true } | { ok: false; error: string }> {
   return new Promise((resolve) => {
-    const proc = spawn("node", ["bin/cli.js", "companion", "delete", slug], { cwd: process.cwd(), shell: false });
+    const proc = spawn("node", [resolveFrameworkCliPath(), "companion", "delete", slug], { cwd: process.cwd(), shell: false });
     let stderr = "";
     proc.stderr.on("data", (d) => { stderr += d.toString(); });
     proc.on("close", (code) => {

@@ -1,8 +1,29 @@
 import type { Entity, Manifest } from "@shared/types";
 
+export type MountRemedy = "restart" | "rebuild" | "fix-code";
+
+export interface MountFailure {
+  slug: string;
+  stage: "import-threw" | "import-empty" | "dist-stale" | "validation-failed";
+  message: string;
+  remedy: MountRemedy;
+  at: string;
+}
+
+export interface MountStatus {
+  mounted: boolean;
+  failure: MountFailure | null;
+}
+
 export async function fetchCompanions(): Promise<Manifest[]> {
   const res = await fetch("/api/companions");
   if (!res.ok) throw new Error(`GET /api/companions failed: ${res.status}`);
+  return res.json();
+}
+
+export async function fetchMountStatus(slug: string): Promise<MountStatus> {
+  const res = await fetch(`/api/companions/${encodeURIComponent(slug)}/mount-status`);
+  if (!res.ok) throw new Error(`GET mount-status failed: ${res.status}`);
   return res.json();
 }
 
@@ -28,13 +49,12 @@ export async function createEntity(companion: string, input: unknown): Promise<E
   return res.json();
 }
 
-export async function deleteCompanion(name: string): Promise<{ rebuildHint?: string }> {
+export async function deleteCompanion(name: string): Promise<void> {
   const res = await fetch(`/api/companions/${encodeURIComponent(name)}`, { method: "DELETE" });
   const body = await res.json().catch(() => ({}));
   if (!res.ok || body?.ok === false) {
     throw new Error(body?.error ?? `DELETE /api/companions/${name} failed: ${res.status}`);
   }
-  return { rebuildHint: body?.rebuildHint };
 }
 
 export async function continueEntity(companion: string, id: string, continuation: string): Promise<Entity> {

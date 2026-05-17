@@ -11,12 +11,9 @@ import { createEntityStore } from "./entity-store.js";
 import { createRegistry, type RegisteredCompanion } from "./companion-registry.js";
 import { mountApiRoutes } from "./api-routes.js";
 import { buildMcpServer } from "./mcp.js";
-import { createWatcher, type ReliabilitySnapshot } from "./reliability/watcher.js";
-import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { z } from "zod";
+import { createMcpHttp } from "./mcp-http.js";
+import { createWatcher, type ReliabilitySnapshot, type MountFailure } from "./reliability/watcher.js";
 import { dataPath, ensureClaudepanionDirs } from "./paths.js";
-import { bumpMcpStatus } from "./mcp-status.js";
 
 export interface BootOptions {
   /** Pre-resolved list of companions to register. Caller is responsible for loading these from user-local dist. */
@@ -65,12 +62,14 @@ export async function bootServer(opts: BootOptions): Promise<void> {
   const store = createEntityStore(dataPath());
   const registry = createRegistry(opts.companions);
   const snapshots = new Map<string, ReliabilitySnapshot>();
+  const mountFailures = new Map<string, MountFailure>();
   const companionsDir = resolve(repoRoot, "companions");
   const mcp = buildMcpServer({ store, registry, companionsDir, snapshots });
   const watcher = createWatcher({
     registry,
     companionsDir,
     snapshots,
+    mountFailures,
   });
 
   const app = express();
@@ -80,6 +79,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
     store,
     registry,
     reliability: snapshots,
+    mountFailures,
     triggerRemount: async (slug) => {
       try {
         await watcher.triggerRemount(slug);
@@ -91,34 +91,10 @@ export async function bootServer(opts: BootOptions): Promise<void> {
     },
   });
 
-  const mcpServer = new McpServer({ name: "claudepanion", version: "0.2.0" });
-  const registeredTools = new Set<string>();
-  const registerToolDef = (name: string) => {
-    if (registeredTools.has(name)) return;
-    registeredTools.add(name);
-    const def = mcp.toolDefs.get(name)!;
-    mcpServer.registerTool(
-      name,
-      { description: def.description, inputSchema: z.object(def.schema) },
-      async (args) => {
-        // Look up current def so handler updates survive a companion hot-reload.
-        const current = mcp.toolDefs.get(name);
-        if (!current) throw new Error(`tool ${name} no longer registered`);
-        return await current.handler(args as any);
-      }
-    );
-  };
-  for (const name of mcp.toolDefs.keys()) registerToolDef(name);
-  registry.onChange(() => {
-    for (const name of mcp.toolDefs.keys()) registerToolDef(name);
-  });
-
-  const transport = new StreamableHTTPServerTransport({ sessionIdGenerator: () => crypto.randomUUID() });
-  await mcpServer.connect(transport);
-  app.all("/mcp", (req, res) => {
-    bumpMcpStatus();
-    transport.handleRequest(req, res, req.body);
-  });
+  // One transport + McpServer per session (see mcp-http.ts). A single shared
+  // transport only ever accepts one client for the process lifetime.
+  const mcpHttp = createMcpHttp(mcp, registry);
+  mcpHttp.mount(app, "/mcp");
 
   app.get("/robots.txt", (_req, res) => {
     res.type("text/plain").send("User-agent: *\nDisallow: /\n");
@@ -134,6 +110,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
   });
 
   const shutdown = async () => {
+    await mcpHttp.closeAll();
     await watcher.close();
     process.exit(0);
   };

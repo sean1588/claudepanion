@@ -1,5 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { z } from "zod";
+import { tmpdir } from "node:os";
+import { mkdtempSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
 import { validateCompanion } from "../../../src/server/reliability/validator";
 import type { CompanionToolDefinition } from "../../../src/shared/types";
 import { successResult } from "../../../src/shared/types";
@@ -122,5 +125,23 @@ describe("validateCompanion", () => {
       companionDir: null,
     });
     expect(r.issues.some((i) => i.code === "manifest.requiredEnv.invalid")).toBe(true);
+  });
+
+  it("accepts the correct camelCase export for a numeric-suffix slug (regression: github-pr-reviewer-3)", () => {
+    // Bug: the validator computed the expected export with a /-([a-z])/g
+    // conversion that skipped digits, so for slug `github-pr-reviewer-3` it
+    // looked for `githubPrReviewer-3` and rejected the valid (codegen-emitted)
+    // `githubPrReviewer3` with a fatal index.export.missing.
+    const dir = mkdtempSync(join(tmpdir(), "cp-val-"));
+    writeFileSync(
+      join(dir, "index.ts"),
+      `export const githubPrReviewer3: RegisteredCompanion = { manifest, tools };\n`,
+    );
+    const r = validateCompanion({
+      manifest: { ...baseManifest, name: "github-pr-reviewer-3" },
+      module: null,
+      companionDir: dir,
+    });
+    expect(r.issues.some((i) => i.code === "index.export.missing")).toBe(false);
   });
 });

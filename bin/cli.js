@@ -137,24 +137,35 @@ async function companionDelete(slug) {
     console.log(`removed skills/${slug}-companion/`);
   }
 
-  // 3. Regenerate companions/index.ts and companions/client.ts from disk state.
+  // 3. Remove the compiled output. The server boots from dist/companions/, so
+  //    leaving this behind resurrects the companion on the next restart.
+  const distCompanionDir = join(home, "dist", "companions", slug);
+  if (existsSync(distCompanionDir)) {
+    rmSync(distCompanionDir, { recursive: true, force: true });
+    console.log(`removed dist/companions/${slug}/`);
+  }
+
+  // 4. Regenerate the registry from disk state. runRegenerate rewrites both
+  //    the TS source index and the compiled dist/companions/index.js, so the
+  //    boot loader stays coherent without a tsc pass (npm-install users have
+  //    no build step).
   try {
     const { runRegenerate } = await import(join(pkgRoot, "dist/src/cli/regenerate.js"));
     const result = await runRegenerate({ cwd: home });
     if (!result.ok) die(`failed to regenerate registry: ${result.error}`);
     console.log(`updated ${result.filesGenerated.join(", ")}`);
   } catch (err) {
-    die(`failed to regenerate registry: ${err?.message ?? err}\n(if dist/ is missing, run 'npm run build' once and retry)`);
+    die(`failed to regenerate registry: ${err?.message ?? err}`);
   }
 
-  // 4. Remove leftover data directory (optional — silently skip if absent)
+  // 5. Remove leftover data directory (optional — silently skip if absent)
   const dataDir = join(home, "data", slug);
   if (existsSync(dataDir)) {
     rmSync(dataDir, { recursive: true, force: true });
     console.log(`removed data/${slug}/ (entity history)`);
   }
 
-  console.log(`\n✓  Companion "${slug}" deleted. Rebuild or restart the server for changes to take effect.`);
+  console.log(`\n✓  Companion "${slug}" deleted.`);
 }
 
 async function serve() {

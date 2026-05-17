@@ -42,6 +42,31 @@ export function renderRegistryIndex(companions: CompanionDescriptor[]): string {
   ].join("\n");
 }
 
+/**
+ * The compiled (post-tsc) form of {@link renderRegistryIndex}, written
+ * directly to `dist/companions/index.js`.
+ *
+ * The server boots from `dist/companions/index.js`, not the TS source. Adds go
+ * through scaffold's tsc pass which keeps that file coherent, but deletes and
+ * standalone `regenerate` have no tsc step — and npm-install users have no way
+ * to run one. Emitting the compiled module directly keeps the boot loader
+ * correct without depending on a build. Mirrors tsc output: value imports with
+ * `.js` extensions, no `import type`, no type annotation.
+ */
+export function renderRegistryIndexJs(companions: CompanionDescriptor[]): string {
+  const sorted = [...companions].sort((a, b) => a.slug.localeCompare(b.slug));
+  const imports = sorted
+    .map((c) => `import { ${c.camelCase} } from "./${c.slug}/index.js";`)
+    .join("\n");
+  const list = sorted.map((c) => c.camelCase).join(", ");
+  return [
+    imports,
+    ``,
+    `export const companions = [${list}];`,
+    ``,
+  ].join("\n");
+}
+
 export function renderClientIndex(companions: ClientDescriptor[]): string {
   const sorted = [...companions].sort((a, b) => a.slug.localeCompare(b.slug));
   const imports: string[] = [];
@@ -100,6 +125,8 @@ export function renderClientIndex(companions: ClientDescriptor[]): string {
   ].join("\n");
 }
 
-export function slugToCamelCase(slug: string): string {
-  return slug.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase());
-}
+// Single source of truth lives in src/shared/slug.ts so codegen, the registry
+// rewriter, the validator, and the watcher can never disagree about a
+// companion's identifier. Re-exported here to preserve the public surface
+// that regenerate.ts and the codegen tests import.
+export { slugToCamelCase } from "../shared/slug.js";

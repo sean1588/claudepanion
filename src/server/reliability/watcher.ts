@@ -2,6 +2,7 @@ import chokidar from "chokidar";
 import { resolve } from "node:path";
 import { statSync } from "node:fs";
 import type { Registry, RegisteredCompanion } from "../companion-registry.js";
+import { slugToCamelCase } from "../../shared/slug.js";
 import { validateCompanion } from "./validator.js";
 import { smokeCompanion } from "./smoke.js";
 import type { ValidationReport } from "./validator.js";
@@ -30,6 +31,42 @@ export interface ReliabilitySnapshot {
   ranAt: string;
 }
 
+/** What the user should do to recover a companion that failed to mount. */
+export type MountRemedy = "restart" | "rebuild" | "fix-code";
+
+export interface MountFailure {
+  slug: string;
+  /** Where in the remount pipeline it failed — for debugging, not user-facing. */
+  stage: "import-threw" | "import-empty" | "dist-stale" | "validation-failed";
+  message: string;
+  /** Drives the UI's recovery instruction so the client doesn't string-match. */
+  remedy: MountRemedy;
+  /** ISO timestamp of the failure. */
+  at: string;
+}
+
+/**
+ * Maps a remount error message to the action that actually fixes it.
+ *
+ * - Node ESM module-resolution failures ("Cannot find package/module",
+ *   ERR_MODULE_NOT_FOUND) mean the companion imports a dependency that isn't
+ *   resolvable in the *running* process — typically npm-installed after the
+ *   server booted. A fresh `claudepanion serve` re-resolves it → "restart".
+ * - A stale dist artifact (source newer than compiled output) needs a
+ *   recompile → "rebuild".
+ * - Anything else (syntax error, bad export, validation failure) is a problem
+ *   in the companion's own code the user must fix → "fix-code".
+ */
+export function classifyMountFailure(message: string): MountRemedy {
+  if (/ERR_MODULE_NOT_FOUND|Cannot find package|Cannot find module/i.test(message)) {
+    return "restart";
+  }
+  if (/is older than source|DistStaleError/i.test(message)) {
+    return "rebuild";
+  }
+  return "fix-code";
+}
+
 const DEFAULT_RETRY_DELAYS_MS = [1000, 2000, 4000];
 
 export interface WatcherDeps {
@@ -38,6 +75,9 @@ export interface WatcherDeps {
   debounceMs?: number;
   logger?: { info: (msg: string) => void; warn: (msg: string) => void };
   snapshots?: Map<string, ReliabilitySnapshot>;
+  /** Records remount failures so the UI can tell the user a companion built
+   *  but isn't loaded (and what to do about it). Cleared on success. */
+  mountFailures?: Map<string, MountFailure>;
   /** Injectable for tests — returns a fresh module import for the given companion name. */
   reimport?: (companionName: string) => Promise<RegisteredCompanion | null>;
   /** Override retry delays (ms) for tests; defaults to [1000, 2000, 4000]. */
@@ -90,18 +130,14 @@ async function defaultReimport(companionName: string, companionsDir: string): Pr
   // Import — surface real errors rather than swallowing them.
   const cacheBust = `?t=${Date.now()}`;
   const mod = await import(`file://${distPath}${cacheBust}`);
-  const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
+  const companion = mod.default ?? mod[companionName] ?? mod[slugToCamelCase(companionName)];
   if (!companion?.manifest) {
     throw new Error(
       `dist module at ${distPath} loaded but did not export a RegisteredCompanion ` +
-      `(expected a default export, or a named export 'default'/'${companionName}'/'${toCamel(companionName)}' with a .manifest property)`
+      `(expected a default export, or a named export 'default'/'${companionName}'/'${slugToCamelCase(companionName)}' with a .manifest property)`
     );
   }
   return companion;
-}
-
-function toCamel(slug: string): string {
-  return slug.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
 export async function refreshReliability(companion: RegisteredCompanion, companionDir: string | null): Promise<ReliabilitySnapshot> {
@@ -117,6 +153,16 @@ export function createWatcher(deps: WatcherDeps): Watcher {
   const retryDelays = deps.retryDelaysMs ?? DEFAULT_RETRY_DELAYS_MS;
   const timers = new Map<string, ReturnType<typeof setTimeout>>();
 
+  const recordFailure = (slug: string, stage: MountFailure["stage"], message: string) => {
+    deps.mountFailures?.set(slug, {
+      slug,
+      stage,
+      message,
+      remedy: classifyMountFailure(message),
+      at: new Date().toISOString(),
+    });
+  };
+
   const doRemount = async (companionName: string, retryAttempt = 0): Promise<void> => {
     const reimport = deps.reimport ?? ((n) => defaultReimport(n, deps.companionsDir));
     let fresh: RegisteredCompanion | null = null;
@@ -129,11 +175,14 @@ export function createWatcher(deps: WatcherDeps): Watcher {
         setTimeout(() => void doRemount(companionName, retryAttempt + 1), delay);
         return;
       }
-      logger.warn(`[watcher] ${companionName} remount failed at stage='import-threw': ${(err as Error).message}`);
+      const stage = err instanceof DistStaleError ? "dist-stale" : "import-threw";
+      logger.warn(`[watcher] ${companionName} remount failed at stage='${stage}': ${(err as Error).message}`);
+      recordFailure(companionName, stage, (err as Error).message);
       return;
     }
     if (!fresh) {
       logger.warn(`[watcher] ${companionName} remount failed at stage='import-empty' (no module returned)`);
+      recordFailure(companionName, "import-empty", "module loaded but did not export a RegisteredCompanion");
       return;
     }
     const companionDir = resolve(deps.companionsDir, companionName);
@@ -142,10 +191,12 @@ export function createWatcher(deps: WatcherDeps): Watcher {
       const fatals = snapshot.validator.issues.filter((i) => i.fatal).map((i) => i.message).join("; ");
       logger.warn(`[watcher] ${companionName} remount failed at stage='validation-failed': ${fatals}`);
       if (snapshots) snapshots.set(companionName, snapshot);
+      recordFailure(companionName, "validation-failed", fatals);
       return;
     }
     deps.registry.remount(fresh);
     if (snapshots) snapshots.set(companionName, snapshot);
+    deps.mountFailures?.delete(companionName);
     logger.info(`[watcher] remounted ${companionName} (v${fresh.manifest.version})`);
   };
 

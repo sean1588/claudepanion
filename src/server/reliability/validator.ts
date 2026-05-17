@@ -3,10 +3,7 @@ import { join, resolve } from "node:path";
 import type { Manifest } from "../../shared/types.js";
 import type { RegisteredCompanion } from "../companion-registry.js";
 import { SUPPORTED_CONTRACT_VERSION } from "../companion-registry.js";
-
-function camelize(slug: string): string {
-  return slug.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-}
+import { slugToCamelCase } from "../../shared/slug.js";
 
 export interface ValidationIssue {
   code: string;
@@ -227,7 +224,7 @@ export function validateCompanion(args: {
     if (existsSync(indexPath)) {
       try {
         const indexSrc = readFileSync(indexPath, "utf8");
-        const camel = camelize(m.name);
+        const camel = slugToCamelCase(m.name);
         const exportRe = new RegExp(`\\bexport\\s+const\\s+${camel}\\b`);
         if (!exportRe.test(indexSrc)) {
           issues.push({

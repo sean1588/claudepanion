@@ -1,10 +1,9 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import type { Manifest } from "@shared/types";
-import Breadcrumb from "../components/Breadcrumb";
+import type { Entity, Manifest } from "@shared/types";
 import PreflightBanner from "../components/PreflightBanner";
-import BuildChips from "../components/BuildChips";
-import { fetchCompanions, deleteCompanion } from "../api";
+import { fetchCompanions, fetchEntities, deleteCompanion } from "../api";
+import { Sketch } from "../icons/Sketch";
 
 interface ToolDescriptor {
   name: string;
@@ -24,6 +23,7 @@ export default function CompanionAbout() {
   const navigate = useNavigate();
   const [manifest, setManifest] = useState<Manifest | null>(null);
   const [payload, setPayload] = useState<AboutPayload | null>(null);
+  const [entities, setEntities] = useState<Entity[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -35,8 +35,7 @@ export default function CompanionAbout() {
     if (!ok) return;
     setDeleting(true);
     try {
-      const { rebuildHint } = await deleteCompanion(manifest.name);
-      if (rebuildHint) window.alert(`Removed. ${rebuildHint}`);
+      await deleteCompanion(manifest.name);
       navigate("/");
     } catch (e) {
       setError((e as Error).message);
@@ -64,7 +63,6 @@ export default function CompanionAbout() {
       try {
         const r = await fetch(`/api/tools/${encodeURIComponent(companion)}`);
         if (r.status === 400 || r.status === 404) {
-          // Entity-kind doesn't have /api/tools; build payload from manifest only.
           if (!cancelled) setPayload({ manifest, tools: [] });
           return;
         }
@@ -77,92 +75,138 @@ export default function CompanionAbout() {
     return () => { cancelled = true; };
   }, [companion, manifest]);
 
-  if (error) return <div style={{ color: "#dc2626" }}>Failed to load: {error}</div>;
+  useEffect(() => {
+    let cancelled = false;
+    void fetchEntities(companion).then((rows) => { if (!cancelled) setEntities(rows); }).catch(() => {});
+    return () => { cancelled = true; };
+  }, [companion]);
+
+  if (error) return <div style={{ color: "var(--status-error)" }}>Failed to load: {error}</div>;
   if (!manifest || !payload) return <div style={{ color: "var(--muted)" }}>Loading…</div>;
 
   const writeTools = payload.tools.filter((t) => t.sideEffect === "write");
   const readTools = payload.tools.filter((t) => t.sideEffect === "read");
   const hasWrites = writeTools.length > 0;
+  const runCount = entities?.length ?? 0;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <Breadcrumb manifest={manifest} />
-      <header style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 40 }} aria-hidden="true">{manifest.icon}</span>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <h1 style={{ margin: 0 }}>{manifest.displayName}</h1>
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-            claudepanion-{manifest.name} · v{manifest.version}
-            {hasWrites
-              ? <span className="badge badge-write" style={{ marginLeft: 8 }}>writes</span>
-              : payload.tools.length > 0 && <span className="badge badge-read" style={{ marginLeft: 8 }}>read-only</span>}
-          </div>
-          <p style={{ marginTop: 8, marginBottom: 0 }}>{manifest.description}</p>
+    <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 32 }}>
+      {/* Breadcrumb */}
+      <div className="t-mono" style={{ color: "var(--muted)" }}>
+        <Link to="/" style={{ color: "var(--muted)", textDecoration: "none" }}>claudepanion</Link>
+        {" › "}
+        <span>{manifest.displayName}</span>
+      </div>
+
+      {/* Header */}
+      <header style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
+        <div style={{ width: 96, height: 96, background: "var(--soft)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
+          <span style={{ fontSize: 48 }} aria-hidden>{manifest.icon}</span>
         </div>
+        <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
+          <h1 className="t-h2" style={{ margin: 0 }}>{manifest.displayName}</h1>
+          <p className="t-body" style={{ color: "var(--muted)", margin: 0, maxWidth: "62ch" }}>{manifest.description}</p>
+          <div className="t-mono" style={{ color: "var(--muted)", fontSize: 11, display: "flex", gap: 16 }}>
+            <span>v{manifest.version}</span>
+            <span>·</span>
+            <span>{manifest.kind}</span>
+            <span>·</span>
+            <span>{runCount} run{runCount === 1 ? "" : "s"}</span>
+            {hasWrites ? <><span>·</span><span style={{ color: "var(--status-warning)" }}>writes</span></> : payload.tools.length > 0 ? <><span>·</span><span>read-only</span></> : null}
+          </div>
+        </div>
+      </header>
+
+      {/* CTAs */}
+      <div style={{ display: "flex", gap: 8 }}>
+        <Link to={`/c/build/iterate/${manifest.name}`} className="btn-ghost">🔨 Iterate with Build</Link>
         {manifest.kind === "ui" && (
-          <Link to={`/c/${manifest.name}/new`} className="btn" style={{ whiteSpace: "nowrap" }}>
-            {manifest.actionLabels?.newEntity ?? "Start a new run"}
+          <Link to={`/c/${manifest.name}/new`} className="btn-ink">
+            + {manifest.actionLabels?.newEntity ?? "New run"}
           </Link>
         )}
-        <Link to={`/c/${manifest.name}/runs`} className="btn-outline" style={{ whiteSpace: "nowrap" }}>
-          {manifest.actionLabels?.listEntities ?? "View runs"}
-        </Link>
-      </header>
+      </div>
 
       <PreflightBanner companion={companion} />
 
+      {/* Write-tools warning */}
       {hasWrites && (
-        <div role="alert" className="write-tools-warning">
+        <div role="alert" className="card-hairline" style={{ borderColor: "var(--status-warning)", background: "color-mix(in srgb, var(--status-warning) 6%, transparent)" }}>
           <strong>⚠️ This companion writes to external systems.</strong>
-          <ul style={{ margin: "8px 0 0 20px", fontSize: 13 }}>
+          <ul style={{ margin: "8px 0 0 20px" }}>
             {writeTools.map((t) => (
-              <li key={t.name}>
+              <li key={t.name} className="t-caption" style={{ color: "var(--ink)" }}>
                 <code>{t.name}</code> — {t.description}
               </li>
             ))}
           </ul>
-          <div style={{ marginTop: 8, fontSize: 12, color: "var(--muted)" }}>
+          <div className="t-caption" style={{ marginTop: 8 }}>
             The skill will ask for your permission before each write action.
           </div>
         </div>
       )}
 
+      {/* Runs table or empty state */}
+      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+        <span className="t-eyebrow">Recent runs</span>
+        {entities === null ? (
+          <span className="t-caption">Loading…</span>
+        ) : entities.length === 0 ? (
+          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: 48, gap: 12 }}>
+            <span style={{ color: "color-mix(in srgb, var(--ink) 15%, transparent)" }}>
+              <Sketch.Plant size={120} />
+            </span>
+            <span className="t-caption">Past runs will live here.</span>
+          </div>
+        ) : (
+          <div className="card-hairline" style={{ padding: 0 }}>
+            {entities.slice(0, 10).map((e) => (
+              <Link key={e.id} to={`/c/${manifest.name}/${e.id}`} style={{ display: "grid", gridTemplateColumns: "120px 1fr 140px", gap: 12, padding: "12px 16px", borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)", color: "var(--ink)", textDecoration: "none", alignItems: "center" }}>
+                <span className="t-caption" style={{ color: statusColor(e.status) }}>● {e.status}</span>
+                <span>{summarize(e)}</span>
+                <span className="t-mono" style={{ color: "var(--muted)", fontSize: 11 }}>{timeAgo(e.createdAt)}</span>
+              </Link>
+            ))}
+            {entities.length > 10 && (
+              <div style={{ padding: "10px 16px", borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)" }}>
+                <Link to={`/c/${manifest.name}/runs`} className="t-caption" style={{ color: "var(--accent)" }}>
+                  Showing 10 of {entities.length} · show all →
+                </Link>
+              </div>
+            )}
+          </div>
+        )}
+      </section>
+
+      {/* MCP tools list */}
       {payload.tools.length > 0 && (
-        <section>
-          <h2 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>MCP tools</h2>
+        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+          <span className="t-eyebrow">MCP tools</span>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[...readTools, ...writeTools].map((t) => (
-              <div key={t.name} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
+              <div key={t.name} className="card-hairline" style={{ padding: 12 }}>
                 <code style={{ fontSize: 13, fontWeight: 600 }}>{t.name}</code>
-                {t.sideEffect === "write" && <span className="badge badge-write" style={{ marginLeft: 8 }}>write</span>}
-                {t.description && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>{t.description}</div>}
+                {t.sideEffect === "write" && <span className="pill" style={{ marginLeft: 8, background: "color-mix(in srgb, var(--status-warning) 20%, transparent)", color: "var(--status-warning)" }}>write</span>}
+                {t.description && <div className="t-caption" style={{ marginTop: 4 }}>{t.description}</div>}
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {manifest.name === "build" && <BuildChips />}
-
+      {/* Danger zone (not for Build, which is handled by BuildHome) */}
       {manifest.name !== "build" && (
-        <section style={{ borderTop: "1px solid #e2e8f0", paddingTop: 16, marginTop: 8 }}>
-          <h2 style={{ marginTop: 0, marginBottom: 8, fontSize: 16 }}>Danger zone</h2>
-          <div style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
-            Deletes <code>companions/{manifest.name}/</code>, its skill, and saved entities. A rebuild is needed to fully remove it from the client bundle.
-          </div>
+        <section style={{ borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)", paddingTop: 24, marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
+          <span className="t-eyebrow">Danger zone</span>
+          <p className="t-caption" style={{ margin: 0 }}>
+            Deletes <code>companions/{manifest.name}/</code>, its skill, its compiled output, and saved entities. Takes effect immediately — no rebuild or restart needed.
+          </p>
           <button
             type="button"
             onClick={onRemove}
             disabled={deleting}
-            style={{
-              padding: "8px 14px",
-              border: "1px solid #dc2626",
-              color: "#dc2626",
-              background: "white",
-              borderRadius: 6,
-              cursor: deleting ? "not-allowed" : "pointer",
-              opacity: deleting ? 0.5 : 1,
-            }}
+            className="btn-ghost"
+            style={{ alignSelf: "flex-start", borderColor: "var(--status-error)", color: "var(--status-error)", opacity: deleting ? 0.5 : 1, cursor: deleting ? "not-allowed" : "pointer" }}
           >
             {deleting ? "Removing…" : "Remove companion"}
           </button>
@@ -170,4 +214,25 @@ export default function CompanionAbout() {
       )}
     </div>
   );
+}
+
+function summarize(e: Entity): string {
+  const input = e.input as Record<string, unknown>;
+  const raw = (input.title ?? input.name ?? input.target ?? input.description ?? e.id) as string;
+  return raw.length > 80 ? raw.slice(0, 77) + "…" : raw;
+}
+
+function timeAgo(iso: string): string {
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return `${Math.floor(diff / 1000)}s ago`;
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m ago`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h ago`;
+  return `${Math.floor(diff / 86_400_000)}d ago`;
+}
+
+function statusColor(status: Entity["status"]): string {
+  if (status === "completed") return "var(--status-success)";
+  if (status === "running") return "var(--status-info)";
+  if (status === "error") return "var(--status-error)";
+  return "var(--status-warning)";
 }
