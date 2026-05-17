@@ -52,7 +52,8 @@ describe("CompanionRoute mount-failure handling", () => {
     }));
     renderAt("foo");
     await waitFor(() => {
-      expect(screen.getByText(/npm run build/)).toBeInTheDocument();
+      expect(screen.getByText(/claudepanion scaffold foo/)).toBeInTheDocument();
+      expect(screen.queryByText(/npm run build/)).not.toBeInTheDocument();
     });
   });
 

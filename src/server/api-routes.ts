@@ -270,7 +270,10 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, mou
 
     registry.unregister(name);
     reliability?.delete(name);
-    res.json({ ok: true, rebuildHint: "npm run build && restart the server to refresh the client bundle" });
+    mountFailures?.delete(name);
+    // Fully effective with no rebuild/restart: the running registry is updated
+    // here, and the CLI delete keeps dist/companions/ coherent for future boots.
+    res.json({ ok: true });
   });
 
   app.post("/api/entities/:id/continue", async (req: Request, res: Response) => {

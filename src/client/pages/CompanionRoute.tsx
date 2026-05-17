@@ -77,8 +77,8 @@ function remedyCopy(slug: string, remedy: MountFailure["remedy"]): { headline: s
     return {
       headline: `${slug} was built, but its compiled output is stale`,
       steps: [
-        "Run `npm run build` so the server can pick up the latest code.",
-        `${slug} will load automatically once the rebuild finishes — no restart needed.`,
+        `Ask Build to iterate on ${slug} (or run \`claudepanion scaffold ${slug}\`) — that recompiles it.`,
+        `${slug} will load automatically once the recompile finishes — no restart needed.`,
       ],
     };
   }

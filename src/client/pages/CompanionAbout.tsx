@@ -35,8 +35,7 @@ export default function CompanionAbout() {
     if (!ok) return;
     setDeleting(true);
     try {
-      const { rebuildHint } = await deleteCompanion(manifest.name);
-      if (rebuildHint) window.alert(`Removed. ${rebuildHint}`);
+      await deleteCompanion(manifest.name);
       navigate("/");
     } catch (e) {
       setError((e as Error).message);
@@ -200,7 +199,7 @@ export default function CompanionAbout() {
         <section style={{ borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)", paddingTop: 24, marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
           <span className="t-eyebrow">Danger zone</span>
           <p className="t-caption" style={{ margin: 0 }}>
-            Deletes <code>companions/{manifest.name}/</code>, its skill, and saved entities. A rebuild is needed to fully remove it from the client bundle.
+            Deletes <code>companions/{manifest.name}/</code>, its skill, its compiled output, and saved entities. Takes effect immediately — no rebuild or restart needed.
           </p>
           <button
             type="button"
