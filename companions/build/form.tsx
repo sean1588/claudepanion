@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import type { BuildInput } from "./types";
 import { buildExamples } from "./examples";
+import { useCompanions } from "../../src/client/hooks/useCompanions";
 
 interface Props {
   onSubmit: (input: BuildInput) => void | Promise<void>;
@@ -33,6 +34,10 @@ export default function BuildForm({ onSubmit }: Props) {
     }
   }, [exampleSlug]);
 
+  const { companions } = useCompanions();
+  const trimmedName = name.trim();
+  const nameTaken = trimmedName.length > 0 && companions.some((c) => c.name === trimmedName);
+
   const [error, setError] = useState<string | null>(null);
   const submit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -41,6 +46,7 @@ export default function BuildForm({ onSubmit }: Props) {
     const nm = name.trim();
     if (!nm) { setError("Companion name is required."); return; }
     if (!/^[a-z][a-z0-9-]*$/.test(nm)) { setError("Name must be lowercase letters, digits, hyphens; starts with a letter."); return; }
+    if (nameTaken) { setError(`A companion named "${nm}" already exists. Pick a different name.`); return; }
     setError(null);
     void onSubmit({ mode: "new-companion", name: nm, kind, description: desc });
   };
@@ -118,7 +124,13 @@ export default function BuildForm({ onSubmit }: Props) {
                   fontSize: 14,
                 }}
               />
-              <span className="t-caption">lowercase · hyphens only · starts with a letter</span>
+              {nameTaken ? (
+                <span className="t-caption" role="alert" style={{ color: "var(--status-error)" }}>
+                  A companion named “{trimmedName}” already exists — pick a different name.
+                </span>
+              ) : (
+                <span className="t-caption">lowercase · hyphens only · starts with a letter</span>
+              )}
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>

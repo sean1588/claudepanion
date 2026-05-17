@@ -71,6 +71,53 @@ describe("BuildForm ?example= prefill", () => {
     expect((submitted as { example?: string }).example).toBeUndefined();
   });
 
+  it("blocks submit and shows an error when the companion name is already taken", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => {
+      if (url.startsWith("/api/companions")) {
+        return new Response(JSON.stringify([
+          { name: "build", kind: "ui", displayName: "Build", icon: "🔨", description: "", contractVersion: "2", version: "0.1.0" },
+          { name: "github-pr-reviewer", kind: "ui", displayName: "GitHub PR Reviewer", icon: "🔍", description: "", contractVersion: "2", version: "0.1.0" },
+        ]), { status: 200 });
+      }
+      throw new Error(`unexpected ${url}`);
+    }));
+    let submitted: BuildInput | null = null;
+    render(
+      <MemoryRouter initialEntries={["/c/build/new"]}>
+        <Routes>
+          <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const nameInput = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
+    const descInput = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
+    fireEvent.change(nameInput, { target: { value: "github-pr-reviewer" } });
+    fireEvent.change(descInput, { target: { value: "another reviewer" } });
+    await waitFor(() => {
+      expect(screen.getByText(/already exists/i)).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
+    expect(submitted).toBeNull();
+  });
+
+  it("allows submit when the name is unique", async () => {
+    let submitted: BuildInput | null = null;
+    render(
+      <MemoryRouter initialEntries={["/c/build/new"]}>
+        <Routes>
+          <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    const nameInput = await screen.findByLabelText(/companion name/i) as HTMLInputElement;
+    const descInput = await screen.findByLabelText(/^description$/i) as HTMLTextAreaElement;
+    fireEvent.change(nameInput, { target: { value: "totally-new-thing" } });
+    fireEvent.change(descInput, { target: { value: "fresh companion" } });
+    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
+    await waitFor(() => expect(submitted).not.toBeNull());
+    expect(submitted!).toMatchObject({ mode: "new-companion", name: "totally-new-thing" });
+  });
+
   it("omits example field in submitted input when URL has no ?example=", async () => {
     let submitted: BuildInput | null = null;
     render(
