@@ -1,10 +1,7 @@
 import { readFile, writeFile } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { Registry } from "./companion-registry.js";
-
-function toCamel(slug: string): string {
-  return slug.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
-}
+import { slugToCamelCase } from "../shared/slug.js";
 
 /**
  * Rewrite companions/index.ts so in-memory registry entries are re-exported
@@ -17,7 +14,7 @@ export async function rewriteCompanionsIndex(repoRoot: string, registry: Registr
     `import type { RegisteredCompanion } from "../src/server/companion-registry.js";`,
   ];
   for (const c of entries) {
-    const ident = toCamel(c.manifest.name);
+    const ident = slugToCamelCase(c.manifest.name);
     const source = (c as { source?: "local" | "installed" }).source ?? "local";
     if (source === "installed") {
       lines.push(`import { ${ident} } from "claudepanion-${c.manifest.name}";`);
@@ -26,7 +23,7 @@ export async function rewriteCompanionsIndex(repoRoot: string, registry: Registr
     }
   }
   lines.push("");
-  lines.push(`export const companions: RegisteredCompanion[] = [${entries.map((c) => toCamel(c.manifest.name)).join(", ")}];`);
+  lines.push(`export const companions: RegisteredCompanion[] = [${entries.map((c) => slugToCamelCase(c.manifest.name)).join(", ")}];`);
   lines.push("");
   const contents = lines.join("\n");
   const path = resolve(repoRoot, "companions/index.ts");

@@ -2,6 +2,7 @@ import chokidar from "chokidar";
 import { resolve } from "node:path";
 import { statSync } from "node:fs";
 import type { Registry, RegisteredCompanion } from "../companion-registry.js";
+import { slugToCamelCase } from "../../shared/slug.js";
 import { validateCompanion } from "./validator.js";
 import { smokeCompanion } from "./smoke.js";
 import type { ValidationReport } from "./validator.js";
@@ -129,18 +130,14 @@ async function defaultReimport(companionName: string, companionsDir: string): Pr
   // Import — surface real errors rather than swallowing them.
   const cacheBust = `?t=${Date.now()}`;
   const mod = await import(`file://${distPath}${cacheBust}`);
-  const companion = mod.default ?? mod[companionName] ?? mod[toCamel(companionName)];
+  const companion = mod.default ?? mod[companionName] ?? mod[slugToCamelCase(companionName)];
   if (!companion?.manifest) {
     throw new Error(
       `dist module at ${distPath} loaded but did not export a RegisteredCompanion ` +
-      `(expected a default export, or a named export 'default'/'${companionName}'/'${toCamel(companionName)}' with a .manifest property)`
+      `(expected a default export, or a named export 'default'/'${companionName}'/'${slugToCamelCase(companionName)}' with a .manifest property)`
     );
   }
   return companion;
-}
-
-function toCamel(slug: string): string {
-  return slug.replace(/-([a-z])/g, (_, c) => c.toUpperCase());
 }
 
 export async function refreshReliability(companion: RegisteredCompanion, companionDir: string | null): Promise<ReliabilitySnapshot> {

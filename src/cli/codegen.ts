@@ -125,11 +125,8 @@ export function renderClientIndex(companions: ClientDescriptor[]): string {
   ].join("\n");
 }
 
-export function slugToCamelCase(slug: string): string {
-  // Match a hyphen followed by any alnum, not just [a-z]: a digit after a
-  // hyphen (e.g. the `-2` in `github-pr-reviewer-2`) must drop the hyphen too,
-  // else the literal `-` lands in the generated identifier and breaks the
-  // build ("githubPrReviewer-2" → "Missing initializer in const declaration").
-  // "2".toUpperCase() === "2", so digits pass through unchanged.
-  return slug.replace(/-([a-z0-9])/g, (_m, ch) => ch.toUpperCase());
-}
+// Single source of truth lives in src/shared/slug.ts so codegen, the registry
+// rewriter, the validator, and the watcher can never disagree about a
+// companion's identifier. Re-exported here to preserve the public surface
+// that regenerate.ts and the codegen tests import.
+export { slugToCamelCase } from "../shared/slug.js";

@@ -49,4 +49,14 @@ describe("rewriteCompanionsIndex", () => {
     expect(out).toContain(`import { expenseTracker } from "./expense-tracker/index.js";`);
     expect(out).toContain(`import { oncallInvestigator } from "claudepanion-oncall-investigator";`);
   });
+
+  it("emits a valid identifier for a numeric-suffix slug (regression: github-pr-reviewer-3)", async () => {
+    const reg = createRegistry([mk("github-pr-reviewer-3")]);
+    await rewriteCompanionsIndex(repoRoot, reg);
+    const out = readFileSync(resolve(repoRoot, "companions/index.ts"), "utf-8");
+    expect(out).toContain(`import { githubPrReviewer3 } from "./github-pr-reviewer-3/index.js";`);
+    expect(out).toContain(`[githubPrReviewer3]`);
+    // The buggy conversion left the literal hyphen → invalid JS identifier.
+    expect(out).not.toContain("githubPrReviewer-3]");
+  });
 });
