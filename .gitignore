@@ -6,6 +6,9 @@ dist
 # per-machine Claude Code state — contains absolute paths + permission grants
 .claude/settings.local.json
 
+# npm auth (env-interpolated; never commit)
+.npmrc
+
 # runtime data — contents gitignored, directory kept via .gitkeep
 data/*
 !data/.gitkeep

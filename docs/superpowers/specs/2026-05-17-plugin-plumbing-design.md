@@ -116,7 +116,9 @@ Neither generated file is added to `~/.claudepanion/.gitignore`; they are durabl
 
 ## Version Reconciliation
 
-Framework `package.json` is `0.2.0` but the framework `.claude-plugin/plugin.json` is `0.3.0`. Single source of truth = `package.json`. **This PR bumps `package.json` `0.2.0` → `0.3.0`** so it agrees with the existing `.claude-plugin/plugin.json` and the npm-publish plan, and the generated manifests derive their version from `package.json`. No hardcoded version remains to drift. The bump is in-scope because a generated manifest is incoherent without a correct authoritative version.
+Framework `package.json` is `0.2.0` but the framework `.claude-plugin/plugin.json` is `0.3.0`. Single source of truth = `package.json`; the generated manifests derive their version from it, so no hardcoded version remains to drift. Reconciling all sources is in-scope because a generated manifest is incoherent without a correct authoritative version.
+
+> **Superseded for first publish (2026-05-17):** rather than `0.3.0`, all version sources (`package.json`, framework `.claude-plugin/{plugin,marketplace}.json`) are set to **`0.0.1`** — nothing has been published to npm yet, so the first public release starts at `0.0.1`. The single-source-of-truth principle is unchanged; only the chosen number differs.
 
 ## Data Flow (end-to-end, npm-install user)
 

@@ -1,8 +1,30 @@
 {
   "name": "claudepanion",
-  "version": "0.3.0",
+  "version": "0.0.1",
+  "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
   "license": "Apache-2.0",
   "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/sean1588/claudepanion.git"
+  },
+  "homepage": "https://github.com/sean1588/claudepanion#readme",
+  "bugs": {
+    "url": "https://github.com/sean1588/claudepanion/issues"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "mcp",
+    "companion",
+    "reference-architecture"
+  ],
+  "engines": {
+    "node": ">=18"
+  },
+  "publishConfig": {
+    "access": "public"
+  },
   "main": "./dist/src/host/index.js",
   "types": "./dist/src/host/index.d.ts",
   "exports": {
@@ -30,6 +52,7 @@
     "dev:client": "vite",
     "dev:tsc": "tsc -p tsconfig.json --watch --preserveWatchOutput",
     "build": "tsc -p tsconfig.json && vite build",
+    "prepublishOnly": "npm run build",
     "start": "node dist/src/server/index.js",
     "test": "vitest run",
     "test:watch": "vitest",

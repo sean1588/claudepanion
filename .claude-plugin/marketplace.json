@@ -8,7 +8,7 @@
     {
       "name": "claudepanion",
       "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
-      "version": "0.3.0",
+      "version": "0.0.1",
       "source": "./",
       "author": {
         "name": "claudepanion"
