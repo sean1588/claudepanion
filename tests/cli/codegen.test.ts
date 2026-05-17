@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { renderCompanionIndex, renderRegistryIndex, renderRegistryIndexJs, renderClientIndex } from "../../src/cli/codegen.js";
+import { renderCompanionIndex, renderRegistryIndex, renderRegistryIndexJs, renderClientIndex, slugToCamelCase } from "../../src/cli/codegen.js";
 
 describe("codegen", () => {
   it("renderCompanionIndex emits exports binding manifest + tools", () => {
@@ -31,6 +31,31 @@ describe("codegen", () => {
     expect(out).toContain("export const companions = [alpha, zebra];");
     expect(out).not.toContain("import type");
     expect(out).not.toContain("RegisteredCompanion");
+  });
+
+  it("slugToCamelCase handles digit-after-hyphen (regression: github-pr-reviewer-2)", () => {
+    // Bug: /-([a-z])/ skipped digits, emitting the literal `githubPrReviewer-2`
+    // which is invalid JS ("Missing initializer in const declaration").
+    expect(slugToCamelCase("github-pr-reviewer-2")).toBe("githubPrReviewer2");
+    expect(slugToCamelCase("a-2-b")).toBe("a2B");
+    expect(slugToCamelCase("x-2y")).toBe("x2y");
+    expect(slugToCamelCase("plain")).toBe("plain");
+    // Output must be a valid JS identifier (no leftover hyphen).
+    expect(slugToCamelCase("github-pr-reviewer-2")).not.toMatch(/-/);
+  });
+
+  it("renderRegistryIndex emits a valid identifier for a numeric-suffix slug", () => {
+    const slug = "github-pr-reviewer-2";
+    const out = renderRegistryIndex([{ slug, camelCase: slugToCamelCase(slug) }]);
+    expect(out).toContain("export const companions: RegisteredCompanion[] = [githubPrReviewer2];");
+    expect(out).not.toContain("githubPrReviewer-2");
+  });
+
+  it("renderRegistryIndexJs emits a valid identifier for a numeric-suffix slug", () => {
+    const slug = "github-pr-reviewer-2";
+    const out = renderRegistryIndexJs([{ slug, camelCase: slugToCamelCase(slug) }]);
+    expect(out).toContain("export const companions = [githubPrReviewer2];");
+    expect(out).not.toContain("githubPrReviewer-2");
   });
 
   it("renderClientIndex registers null for missing override files", () => {

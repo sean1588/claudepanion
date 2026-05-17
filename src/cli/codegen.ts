@@ -126,5 +126,10 @@ export function renderClientIndex(companions: ClientDescriptor[]): string {
 }
 
 export function slugToCamelCase(slug: string): string {
-  return slug.replace(/-([a-z])/g, (_m, ch) => ch.toUpperCase());
+  // Match a hyphen followed by any alnum, not just [a-z]: a digit after a
+  // hyphen (e.g. the `-2` in `github-pr-reviewer-2`) must drop the hyphen too,
+  // else the literal `-` lands in the generated identifier and breaks the
+  // build ("githubPrReviewer-2" → "Missing initializer in const declaration").
+  // "2".toUpperCase() === "2", so digits pass through unchanged.
+  return slug.replace(/-([a-z0-9])/g, (_m, ch) => ch.toUpperCase());
 }
