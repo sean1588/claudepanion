@@ -1,6 +1,6 @@
 import { existsSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { renderRegistryIndex, renderClientIndex, slugToCamelCase } from "./codegen.js";
+import { renderRegistryIndex, renderRegistryIndexJs, renderClientIndex, slugToCamelCase } from "./codegen.js";
 
 function hasInputSchema(typesTsPath: string): boolean {
   if (!existsSync(typesTsPath)) return false;
@@ -24,6 +24,18 @@ export async function runRegenerate(opts: { cwd?: string } = {}): Promise<
   const descriptors = allSlugs.map((s) => ({ slug: s, camelCase: slugToCamelCase(s) }));
   writeFileSync(join(compsDir, "index.ts"), renderRegistryIndex(descriptors));
 
+  // The server boots from dist/companions/index.js, not the TS source. Adds go
+  // through scaffold's tsc pass which keeps that file coherent, but deletes and
+  // standalone `regenerate` have no tsc step (and npm-install users can't run
+  // one). Rewrite the compiled module directly so a deleted companion can't be
+  // resurrected on the next boot. Only when a build already exists.
+  const filesGenerated = ["companions/index.ts", "companions/client.ts"];
+  const distCompsDir = join(cwd, "dist", "companions");
+  if (existsSync(distCompsDir)) {
+    writeFileSync(join(distCompsDir, "index.js"), renderRegistryIndexJs(descriptors));
+    filesGenerated.push("dist/companions/index.js");
+  }
+
   const clientDescriptors = allSlugs.map((s) => ({
     slug: s,
     camelCase: slugToCamelCase(s),
@@ -34,5 +46,5 @@ export async function runRegenerate(opts: { cwd?: string } = {}): Promise<
   }));
   writeFileSync(join(compsDir, "client.ts"), renderClientIndex(clientDescriptors));
 
-  return { ok: true, filesGenerated: ["companions/index.ts", "companions/client.ts"] };
+  return { ok: true, filesGenerated };
 }
