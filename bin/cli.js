@@ -94,8 +94,49 @@ async function pluginInstall() {
 
   const result = await runPluginInstall(opts);
   if (!result.ok) die(`✗ ${result.error}`);
-  console.log(`\n✓  Plugin installed (${result.settingsPath})`);
-  console.log("   Start a new Claude Code session for the plugin to load.");
+  console.log(`\n✓  Settings written (${result.settingsPath})`);
+
+  // settings.json alone does NOT activate a directory-marketplace plugin
+  // (Claude Code bug #32606), so drive activation via the `claude` CLI and
+  // self-report the whole chain. A degraded result is actionable, not fatal.
+  const { activateAndReport } = await import(join(pkgRoot, "dist/src/cli/plugin-install.js"));
+  const report = await activateAndReport({ home });
+  const mark = (b) => (b ? "✓" : "✗");
+
+  console.log(`\nPlugin plumbing self-check:`);
+  console.log(`  ${mark(true)} settings.json written`);
+  const manifests =
+    existsSync(join(home, ".claude-plugin/plugin.json")) && existsSync(join(home, ".mcp.json"));
+  console.log(
+    `  ${mark(manifests)} .claude-plugin/ + .mcp.json present` +
+      (manifests ? "" : " — run 'claudepanion init'")
+  );
+  if (report.activation.activated) {
+    console.log(`  ${mark(true)} plugin activated via the claude CLI`);
+  } else {
+    console.log(`  ${mark(false)} plugin NOT activated (${report.activation.reason})`);
+  }
+  if (report.server.reachable) {
+    console.log(
+      `  ${mark(true)} server reachable at :${report.server.port}` +
+        (report.server.mcpOk ? " (MCP up)" : " (MCP status unknown)")
+    );
+  } else {
+    console.log(`  ${mark(false)} ${report.server.detail ?? "server not reachable"}`);
+  }
+
+  console.log(
+    `\nNext: restart your Claude Code session, then run /<name>-companion <entity-id>.`
+  );
+
+  if (!report.activation.activated) {
+    console.log(`\n⚠  ACTION REQUIRED — finish activation manually:`);
+    for (const c of report.activation.commands) console.log(`     ${c}`);
+    console.log(
+      `   (or inside a Claude Code session: '/plugin marketplace add ${home}'` +
+        ` then '/plugin install claudepanion@local')`
+    );
+  }
 }
 
 async function pluginUninstall() {

@@ -14,6 +14,7 @@ import { buildMcpServer } from "./mcp.js";
 import { createMcpHttp } from "./mcp-http.js";
 import { createWatcher, type ReliabilitySnapshot, type MountFailure } from "./reliability/watcher.js";
 import { dataPath, ensureClaudepanionDirs } from "./paths.js";
+import { writeMcpConfig, DEFAULT_MCP_PORT } from "./mcp-config.js";
 
 export interface BootOptions {
   /** Pre-resolved list of companions to register. Caller is responsible for loading these from user-local dist. */
@@ -54,11 +55,21 @@ function checkTscHealth(repoRoot: string): void {
   }
 }
 
+/** The effective port: explicit option > `PORT` env > shared default. Pure so
+ *  the `.mcp.json` port-correction seam is unit-testable without booting. */
+export function resolveServerPort(opts: { port?: number }): number {
+  return opts.port ?? Number(process.env.PORT ?? DEFAULT_MCP_PORT);
+}
+
 export async function bootServer(opts: BootOptions): Promise<void> {
-  const port = opts.port ?? Number(process.env.PORT ?? 3001);
+  const port = resolveServerPort(opts);
   const repoRoot = opts.cwd ?? process.cwd();
 
   ensureClaudepanionDirs();
+
+  // Keep ~/.claudepanion/.mcp.json pointing at the actually-bound port (init
+  // wrote the default). Idempotent — only rewrites if the port changed.
+  writeMcpConfig(repoRoot, port);
   const store = createEntityStore(dataPath());
   const registry = createRegistry(opts.companions);
   const snapshots = new Map<string, ReliabilitySnapshot>();
