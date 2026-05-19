@@ -2,6 +2,8 @@
 
 Build companion apps for Claude Code! A localhost host for personal companions, with Claude Code as the runtime backend.
 
+Traditional frameworks give humans abstractions to write code against. Claudepanion inverts that — it gives the agent a scaffold and lets it build the software itself. You describe what you want. Claude fills in the rest. A localhost host for personal companions, with Claude Code as the runtime backend.
+
 Build small single-user web apps — *companions* — whose backend work is performed by Claude Code over MCP. The browser UI is a launcher and per-companion interface; Claude Code — guided by skills loaded from `~/.claudepanion/` — is the agent that picks up pending work and streams progress back to the UI.
 
 Packaged as a Claude Code plugin — once installed, Claude automatically discovers claudepanion's MCP tools and skills in every session (global install) or per repo (`--repo`).
