@@ -4,6 +4,9 @@ A localhost companion host for [Claude Code](https://claude.com/claude-code). Bu
 
 Packaged as a Claude Code plugin — once installed, Claude automatically discovers claudepanion's MCP tools and skills in every session (global install) or per repo (`--repo`).
 
+<img width="3814" height="1854" alt="image" src="https://github.com/user-attachments/assets/ea64ad66-0e0b-4e4b-8fe0-a605390c2179" />
+
+
 ---
 
 ## Quick start
