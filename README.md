@@ -1,4 +1,4 @@
-# claudepanion
+# claudepanion [IN DEVELOPMENT]
 
 Build companion apps for Claude Code! A localhost host for personal companions, with Claude Code as the runtime backend.
 
