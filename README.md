@@ -30,6 +30,8 @@ claudepanion plugin install          # global: loads in every Claude Code sessio
 claudepanion plugin install --repo   # per-repo: writes to <repo>/.claude/settings.local.json
 ```
 
+This writes the Claude Code settings file, shells out to the `claude` CLI to activate the plugin (settings alone aren't enough — see [claude-code#32606](https://github.com/anthropics/claude-code/issues/32606)), and prints a self-check covering settings, plugin manifests, activation, and server reachability. If `claude` isn't on `PATH` it falls back to printing the exact commands to run by hand.
+
 Start the server:
 
 ```bash
@@ -48,7 +50,17 @@ git add . && git commit -m "initial"
 git push -u origin main
 ```
 
-On a new machine: `npm install -g claudepanion && git clone <your-repo> ~/.claudepanion && cd ~/.claudepanion && npm install`.
+On a new machine:
+
+```bash
+npm install -g claudepanion
+claudepanion init                                # creates ~/.claudepanion/ + symlinks + .claude-plugin/ + .mcp.json
+cd ~/.claudepanion
+git remote add origin git@github.com:you/my-claudepanion.git
+git pull origin main                             # layers your tracked companions/, skills/ on top
+```
+
+`init` is what restores the framework symlinks (`node_modules/claudepanion-host`, `companions/build`, `skills/build-companion`) — they're gitignored, so a plain `git clone` won't bring them back.
 
 ### Uninstall
 
@@ -124,7 +136,8 @@ The full contract reference is at [`docs/scaffold-spec.md`](./docs/scaffold-spec
 
 - [Concept](./docs/concept.md) — thesis, owned tensions, near-term unresolved questions
 - [Companion contract reference](./docs/scaffold-spec.md) — the authoritative spec for the v2 companion shape
-- [Latest design spec](./docs/superpowers/specs/2026-05-09-scaffold-consistency-design.md) — the v2 redesign that produced the current contract (schema-driven forms, markdown artifacts, scaffold CLI)
+- [v2 design spec](./docs/superpowers/specs/2026-05-09-scaffold-consistency-design.md) — the v2 redesign that produced the current contract (schema-driven forms, markdown artifacts, scaffold CLI)
+- [Plugin plumbing design](./docs/superpowers/specs/2026-05-17-plugin-plumbing-design.md) — how `init` lays down `.claude-plugin/` + a port-aware `.mcp.json`, and how `plugin install` activates via the `claude` CLI so claudepanion loads in any cwd
 - [Implementation plans](./docs/superpowers/plans/) — historical plan docs in build order
 - [Troubleshooting](./docs/troubleshooting.md) — common issues
 
