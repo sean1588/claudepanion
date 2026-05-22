@@ -36,7 +36,7 @@ describe("BuildForm ?example= prefill", () => {
     await waitFor(() => {
       expect(name.value).toBe("github-pr-reviewer");
       expect(uiRadio).toHaveAttribute("aria-checked", "true");
-      expect(description.value).toMatch(/flag risky diffs/i);
+      expect(description.value).toMatch(/structured code-review report/i);
     });
   });
 
