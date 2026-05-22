@@ -2,7 +2,7 @@
 
 Build companion apps for Claude Code! A localhost host for personal companions, with Claude Code as the runtime backend.
 
-Traditional frameworks give humans abstractions to write code against. Claudepanion inverts that — it gives the agent a scaffold and lets it build the software itself. You describe what you want. Claude fills in the rest. A localhost host for personal companions, with Claude Code as the runtime backend.
+Traditional frameworks give humans abstractions to write code against. Claudepanion inverts that — it gives the agent a scaffold and lets it build the software itself. You describe what you want. Claude fills in the rest.
 
 Build small single-user web apps — *companions* — whose backend work is performed by Claude Code over MCP. The browser UI is a launcher and per-companion interface; Claude Code — guided by skills loaded from `~/.claudepanion/` — is the agent that picks up pending work and streams progress back to the UI.
 
@@ -15,10 +15,10 @@ Packaged as a Claude Code plugin — once installed, Claude automatically discov
 
 ## Quick start
 
-Install the framework globally:
+Install the framework globally (currently in beta — the `@beta` tag is required until a stable release):
 
 ```bash
-npm install -g claudepanion
+npm install -g claudepanion@beta
 ```
 
 Initialize your personal install (one-time, idempotent):
@@ -60,7 +60,7 @@ git push -u origin main
 On a new machine:
 
 ```bash
-npm install -g claudepanion
+npm install -g claudepanion@beta
 claudepanion init                                # creates ~/.claudepanion/ + symlinks + .claude-plugin/ + .mcp.json
 cd ~/.claudepanion
 git remote add origin git@github.com:you/my-claudepanion.git
