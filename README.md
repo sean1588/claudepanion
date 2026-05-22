@@ -126,12 +126,6 @@ Reference companion: `~/.claudepanion/companions/build/` (the only one shipped b
 
 The full contract reference is at [`docs/scaffold-spec.md`](./docs/scaffold-spec.md). The design that produced the current (v2) contract is captured in [`docs/superpowers/specs/2026-05-09-scaffold-consistency-design.md`](./docs/superpowers/specs/2026-05-09-scaffold-consistency-design.md).
 
-## Philosophy
-
-- **Reference architecture first, framework second.** Fork it, strip Build, adapt to your needs. Or keep Build and use it to grow your own company of companions.
-- **Claude Code is the backend.** claudepanion doesn't call an LLM API. Everything intelligent happens in Claude Code sessions connected via MCP.
-- **Localhost only, single user.** No auth, no multi-tenancy, no marketplace. This is developer tooling.
-
 ## Documentation
 
 - [Concept](./docs/concept.md) — thesis, owned tensions, near-term unresolved questions
