@@ -1,0 +1,43 @@
+name: Publish
+
+on:
+  workflow_dispatch:
+    inputs:
+      dist-tag:
+        description: 'npm dist-tag (e.g. beta, next, latest). Pre-release versions (0.0.1-beta.0) should use "beta".'
+        required: true
+        default: 'beta'
+        type: string
+  push:
+    tags:
+      - 'v*'
+
+concurrency:
+  group: publish-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Publish to npm
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+          registry-url: https://registry.npmjs.org
+      - run: npm ci
+      - run: npm run check
+      - run: npm test
+      - run: npm run build
+      - name: Publish
+        run: |
+          TAG="${{ github.event.inputs.dist-tag || 'beta' }}"
+          echo "Publishing $(node -p "require('./package.json').version") with --tag $TAG"
+          npm publish --tag "$TAG"
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
