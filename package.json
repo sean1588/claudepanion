@@ -1,6 +1,6 @@
 {
   "name": "claudepanion",
-  "version": "0.0.1-beta.0",
+  "version": "0.0.1-beta.1",
   "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
   "license": "Apache-2.0",
   "type": "module",
@@ -70,6 +70,7 @@
     "react-dom": "^18.3.1",
     "react-markdown": "^10.1.0",
     "react-router-dom": "^6.26.0",
+    "typescript": "^5.7.2",
     "zod": "^4.3.6"
   },
   "devDependencies": {
@@ -90,7 +91,6 @@
     "jsdom": "^25.0.0",
     "supertest": "^7.0.0",
     "tsx": "^4.19.2",
-    "typescript": "^5.7.2",
     "typescript-eslint": "^8.59.0",
     "vite": "^6.0.0",
     "vitest": "^4.1.4"

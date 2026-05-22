@@ -1,7 +1,7 @@
 {
   "name": "claudepanion",
   "description": "Localhost companion host for Claude Code — build small web apps whose backend is Claude Code over MCP.",
-  "version": "0.0.1-beta.0",
+  "version": "0.0.1-beta.1",
   "author": { "name": "claudepanion" },
   "license": "Apache-2.0",
   "keywords": ["mcp", "claude", "companion", "reference-architecture"]
