@@ -17,7 +17,10 @@ afterEach(() => {
   try { rmSync(home, { recursive: true, force: true }); } catch {}
 });
 
-describe("runInit — fresh install", () => {
+// Each test spawns a real `tsc` compile (runInit); under full-suite parallel
+// CPU contention that exceeds vitest's 5s default. Mirror the explicit
+// long-timeout convention used by end-to-end.test.ts.
+describe("runInit — fresh install", { timeout: 60_000 }, () => {
   it("creates package.json with name 'claudepanion-home'", async () => {
     const result = await runInit({ home, frameworkRoot });
     expect(result.ok).toBe(true);
@@ -74,7 +77,47 @@ describe("runInit — fresh install", () => {
   });
 });
 
-describe("runInit — idempotent", () => {
+describe("runInit — plugin plumbing", { timeout: 60_000 }, () => {
+  it("generates .claude-plugin/ + .mcp.json so the plugin works in any cwd", async () => {
+    const result = await runInit({ home, frameworkRoot });
+    expect(result.ok).toBe(true);
+
+    const fwVersion = JSON.parse(
+      readFileSync(join(frameworkRoot, "package.json"), "utf-8"),
+    ).version;
+
+    // .claude-plugin/ is a REAL dir (not a symlink) so marketplace.json's
+    // source:"./" resolves to ~/.claudepanion, not the framework checkout.
+    const cpDir = join(home, ".claude-plugin");
+    expect(lstatSync(cpDir).isDirectory()).toBe(true);
+    expect(lstatSync(cpDir).isSymbolicLink()).toBe(false);
+
+    const plugin = JSON.parse(readFileSync(join(cpDir, "plugin.json"), "utf-8"));
+    expect(plugin.name).toBe("claudepanion");
+    expect(plugin.version).toBe(fwVersion);
+
+    const mkt = JSON.parse(readFileSync(join(cpDir, "marketplace.json"), "utf-8"));
+    expect(mkt.name).toBe("local");
+    expect(mkt.plugins[0].version).toBe(fwVersion);
+    expect(mkt.plugins[0].source).toBe("./");
+
+    const mcp = JSON.parse(readFileSync(join(home, ".mcp.json"), "utf-8"));
+    expect(mcp.mcpServers.claudepanion.type).toBe("http");
+    expect(mcp.mcpServers.claudepanion.url).toBe("http://localhost:3001/mcp");
+
+    if (result.ok) {
+      expect(result.filesCreated).toEqual(
+        expect.arrayContaining([
+          ".claude-plugin/plugin.json",
+          ".claude-plugin/marketplace.json",
+          ".mcp.json",
+        ]),
+      );
+    }
+  });
+});
+
+describe("runInit — idempotent", { timeout: 60_000 }, () => {
   it("running twice does not error and refreshes symlinks", async () => {
     await runInit({ home, frameworkRoot });
     const result2 = await runInit({ home, frameworkRoot });
@@ -96,7 +139,7 @@ describe("runInit — idempotent", () => {
   });
 });
 
-describe("runInit — clobber refusal", () => {
+describe("runInit — clobber refusal", { timeout: 60_000 }, () => {
   it("returns error if existing package.json has a non-claudepanion-home name", async () => {
     const result = await runInit({ home, frameworkRoot });
     expect(result.ok).toBe(true);

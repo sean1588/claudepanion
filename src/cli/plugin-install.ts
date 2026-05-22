@@ -1,6 +1,7 @@
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "node:fs";
 import { join, dirname } from "node:path";
 import { homedir } from "node:os";
+import { activatePlugin, type ActivateResult, type RunClaude } from "./claude-plugin.js";
 
 export interface PluginInstallOptions {
   scope: "global" | "repo";
@@ -71,6 +72,90 @@ export async function runPluginInstall(opts: PluginInstallOptions): Promise<Plug
 
   writeJson(settingsPath, settings);
   return { ok: true, settingsPath };
+}
+
+export type ProbeFn = (url: string) => Promise<{ ok: boolean; status?: number }>;
+
+export interface ServerProbe {
+  /** Port parsed from ~/.claudepanion/.mcp.json, or null if missing/unparseable. */
+  port: number | null;
+  reachable: boolean;
+  /** /api/mcp/status responded ok (only meaningful when reachable). */
+  mcpOk?: boolean;
+  detail?: string;
+}
+
+export interface ActivateReport {
+  activation: ActivateResult;
+  server: ServerProbe;
+}
+
+const defaultProbe: ProbeFn = async (url) => {
+  const ctrl = new AbortController();
+  const timer = setTimeout(() => ctrl.abort(), 1500);
+  try {
+    const res = await fetch(url, { signal: ctrl.signal });
+    return { ok: res.ok, status: res.status };
+  } catch {
+    return { ok: false };
+  } finally {
+    clearTimeout(timer);
+  }
+};
+
+function parseMcpPort(home: string): number | null {
+  try {
+    const j = JSON.parse(readFileSync(join(home, ".mcp.json"), "utf-8"));
+    const url: string = j?.mcpServers?.claudepanion?.url ?? "";
+    const m = url.match(/:(\d+)\/mcp\b/);
+    return m ? Number(m[1]) : null;
+  } catch {
+    return null;
+  }
+}
+
+/**
+ * Activates the plugin via the `claude` CLI and probes the running server, so
+ * `claudepanion plugin install` can self-report whether the chain actually
+ * works (settings.json alone is insufficient — Claude Code bug #32606).
+ *
+ * Separate from {@link runPluginInstall} (which only writes settings.json, and
+ * must stay side-effect-light for its tests) so this — the part that shells out
+ * and hits the network — is unit-tested only with injected fakes and never runs
+ * the real `claude` CLI / `fetch` in the suite.
+ */
+export async function activateAndReport(opts: {
+  home: string;
+  runClaude?: RunClaude;
+  probe?: ProbeFn;
+  log?: (line: string) => void;
+}): Promise<ActivateReport> {
+  const activation = await activatePlugin({
+    home: opts.home,
+    runClaude: opts.runClaude,
+    log: opts.log,
+  });
+
+  const port = parseMcpPort(opts.home);
+  const probe = opts.probe ?? defaultProbe;
+  let server: ServerProbe;
+  if (port == null) {
+    server = { port: null, reachable: false, detail: ".mcp.json missing or unparseable" };
+  } else {
+    const health = await probe(`http://localhost:${port}/api/health`);
+    if (!health.ok) {
+      server = {
+        port,
+        reachable: false,
+        detail: `server not reachable at :${port} — run 'claudepanion serve'`,
+      };
+    } else {
+      const mcp = await probe(`http://localhost:${port}/api/mcp/status`);
+      server = { port, reachable: true, mcpOk: mcp.ok };
+    }
+  }
+
+  return { activation, server };
 }
 
 export async function runPluginUninstall(opts: { scope: "global" | "repo"; userHome?: string; repoRoot?: string }): Promise<PluginInstallResult> {

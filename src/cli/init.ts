@@ -9,6 +9,8 @@ import {
 } from "node:fs";
 import { join } from "node:path";
 import { spawn } from "node:child_process";
+import { ensureClaudePluginManifest } from "./claude-plugin.js";
+import { writeMcpConfig, DEFAULT_MCP_PORT } from "../server/mcp-config.js";
 
 export interface RunInitOptions {
   home: string;
@@ -189,6 +191,22 @@ export async function runInit(opts: RunInitOptions): Promise<RunInitResult> {
       error: `tsc failed: ${tscResult.stderr.slice(0, 500)}`,
     };
   }
+
+  // Plugin plumbing: generate the plugin-root manifest + MCP config so the
+  // companion slash commands AND the MCP connection work in ANY cwd (not just
+  // inside the framework checkout). Version is the framework's single source
+  // of truth; `serve` later corrects the .mcp.json port if it differs.
+  let frameworkVersion = "0.0.0";
+  try {
+    frameworkVersion =
+      JSON.parse(readFileSync(join(opts.frameworkRoot, "package.json"), "utf-8")).version ?? "0.0.0";
+  } catch {
+    // unreadable framework package.json — fall back to a placeholder version;
+    // the manifest is still structurally valid and CC only needs it to parse.
+  }
+  ensureClaudePluginManifest(opts.home, frameworkVersion);
+  writeMcpConfig(opts.home, DEFAULT_MCP_PORT);
+  filesCreated.push(".claude-plugin/plugin.json", ".claude-plugin/marketplace.json", ".mcp.json");
 
   return { ok: true, symlinks, filesCreated };
 }

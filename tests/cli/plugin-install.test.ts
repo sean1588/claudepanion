@@ -1,8 +1,8 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { mkdtempSync, rmSync, readFileSync, existsSync, mkdirSync } from "node:fs";
+import { mkdtempSync, rmSync, readFileSync, writeFileSync, existsSync, mkdirSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { runPluginInstall, runPluginUninstall } from "../../src/cli/plugin-install";
+import { runPluginInstall, runPluginUninstall, activateAndReport } from "../../src/cli/plugin-install";
 
 let userHome: string;       // simulates $HOME
 let repoRoot: string;       // simulates a git repo with a .git/
@@ -58,6 +58,69 @@ describe("plugin install — --repo", () => {
     const settings = JSON.parse(readFileSync(settingsPath, "utf-8"));
     expect(settings.enabledPlugins["claudepanion@local"]).toBe(true);
     expect(settings.extraKnownMarketplaces.local.source.path).toBe(join(userHome, ".claudepanion"));
+  });
+});
+
+describe("activateAndReport", () => {
+  let home: string;
+  beforeEach(() => { home = join(userHome, ".claudepanion"); });
+
+  const allOk = async (args: string[]) =>
+    args[0] === "--version"
+      ? { code: 0, stdout: "2.1.143", stderr: "" }
+      : { code: 0, stdout: "", stderr: "" };
+
+  const writeMcp = (port: number) =>
+    writeFileSync(
+      join(home, ".mcp.json"),
+      JSON.stringify({ mcpServers: { claudepanion: { type: "http", url: `http://localhost:${port}/mcp` } } }),
+    );
+
+  it("activates and reports a reachable server", async () => {
+    writeMcp(3001);
+    const r = await activateAndReport({
+      home,
+      runClaude: allOk,
+      probe: async () => ({ ok: true, status: 200 }),
+    });
+    expect(r.activation.activated).toBe(true);
+    expect(r.server.port).toBe(3001);
+    expect(r.server.reachable).toBe(true);
+    expect(r.server.mcpOk).toBe(true);
+  });
+
+  it("reports claude-not-found without throwing, still probes the server", async () => {
+    writeMcp(3001);
+    const r = await activateAndReport({
+      home,
+      runClaude: async (args) =>
+        args[0] === "--version" ? { code: 127, stdout: "", stderr: "not found" } : { code: 0, stdout: "", stderr: "" },
+      probe: async () => ({ ok: true }),
+    });
+    expect(r.activation.activated).toBe(false);
+    if (!r.activation.activated) expect(r.activation.reason).toBe("claude-not-found");
+    expect(r.server.reachable).toBe(true);
+  });
+
+  it("reports an unreachable server with serve guidance", async () => {
+    writeMcp(3001);
+    const r = await activateAndReport({
+      home,
+      runClaude: allOk,
+      probe: async () => ({ ok: false }),
+    });
+    expect(r.server.reachable).toBe(false);
+    expect(r.server.detail).toMatch(/claudepanion serve/);
+  });
+
+  it("handles a missing .mcp.json (port null, not reachable)", async () => {
+    const r = await activateAndReport({
+      home,
+      runClaude: allOk,
+      probe: async () => ({ ok: true }),
+    });
+    expect(r.server.port).toBeNull();
+    expect(r.server.reachable).toBe(false);
   });
 });
 
