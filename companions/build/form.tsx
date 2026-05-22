@@ -24,13 +24,13 @@ export default function BuildForm({ onSubmit }: Props) {
 
   const [name, setName] = useState(asideExample?.slug ?? "");
   const [kind, setKind] = useState<"ui" | "tool">(asideExample?.kind ?? "ui");
-  const [description, setDescription] = useState(asideExample?.description ?? "");
+  const [description, setDescription] = useState(asideExample?.prompt ?? asideExample?.description ?? "");
 
   useEffect(() => {
     if (asideExample) {
       setName(asideExample.slug);
       setKind(asideExample.kind);
-      setDescription(asideExample.description);
+      setDescription(asideExample.prompt ?? asideExample.description);
     }
   }, [exampleSlug]);
 
