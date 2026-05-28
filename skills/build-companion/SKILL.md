@@ -133,28 +133,7 @@ It emits one JSON object on stdout. On success: `{ ok: true, stagesRun, filesGen
 
 On any failure call `mcp__claudepanion__build_fail` with `errorMessage: "[<prefix>] <stage>: <error>"`. Do NOT proceed to Step 9.
 
-## Step 9 — Ask the user whether to commit
-
-Show a summary of what was scaffolded (files created, tools, SDK) and ask:
-
-> "Companion `<slug>` scaffolded and self-check passed. Should I commit it to git? (yes / no / skip)"
-
-**Only commit if the user explicitly confirms.** If they say no or skip, proceed directly to Step 10 without running any `git` commands.
-
-If they confirm:
-
-```bash
-cd ~/.claudepanion
-git rev-parse --git-dir 2>/dev/null && \
-  git add companions/<slug> skills/<slug>-companion companions/index.ts companions/client.ts package.json package-lock.json && \
-  git commit -m "companion: scaffold <slug>"
-```
-
-The `cd ~/.claudepanion` + `git rev-parse` check matters: the user's home is only a git repo if they've opted into the dotfile-style workflow (`git init ~/.claudepanion`). If it's not a git repo, skip the commit and tell the user. **Never commit into the framework's own checkout** — companion files don't live there in the user-local install model.
-
-Drop `package.json`/`package-lock.json` from the `git add` if no SDK was added.
-
-## Step 10 — Save artifact + complete
+## Step 9 — Save artifact + complete
 
 The artifact is markdown — what was built, where it lives, what to do next. A good shape:
 
@@ -200,8 +179,7 @@ mcp__claudepanion__build_update_status({ id, status: "completed" })
 5. Bump version in `manifest.ts` — patch for fix/typo, minor for additions, major for breaking.
 6. `claudepanion scaffold <target>`.
 7. Branch on result (Step 8 table above).
-8. Ask the user whether to commit (same gate as Step 9 in new-companion mode). Only run `git add companions/<target> skills/<target>-companion` (+ `package.json` if changed) and commit if they confirm.
-9. `build_save_artifact` (markdown of what changed) + `build_update_status` completed.
+8. `build_save_artifact` (markdown of what changed) + `build_update_status` completed.
 
 ---
 
@@ -496,8 +474,7 @@ Start a new Claude Code session in this repo and paste:
 - About to leave `<<<INSERT PLAYBOOK HERE>>>` (or any placeholder) in the authored SKILL.md.
 - About to mark `completed` without `claudepanion scaffold`'s self-check having passed.
 
-### Hygiene — fix before commit
-- `git add` missed `package.json` (and `package-lock.json`) after a dependency change.
+### Hygiene
 - Skill description is generic ("Helps with X") instead of specific (what data, what action, what credentials).
 - `ArtifactExtras` has fields no list-row override consumes — delete them; rendering is markdown.
 
