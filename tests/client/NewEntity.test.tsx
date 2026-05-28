@@ -33,7 +33,7 @@ describe("NewEntity", () => {
     );
     await waitFor(() => expect(screen.getByLabelText(/companion name/i)).toBeInTheDocument());
     fireEvent.change(screen.getByLabelText(/companion name/i), { target: { value: "my-companion" } });
-    fireEvent.change(screen.getByLabelText(/^description$/i), { target: { value: "a test companion" } });
+    fireEvent.change(screen.getByLabelText(/^goal$/i), { target: { value: "a test companion" } });
     fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
     await waitFor(() => expect(screen.getByText("detail-page")).toBeInTheDocument());
   });
