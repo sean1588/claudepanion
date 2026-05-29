@@ -3,7 +3,6 @@ import { Link, useNavigate, useParams } from "react-router-dom";
 import type { Entity, Manifest } from "@shared/types";
 import PreflightBanner from "../components/PreflightBanner";
 import { fetchCompanions, fetchEntities, deleteCompanion } from "../api";
-import { Sketch } from "../icons/Sketch";
 
 interface ToolDescriptor {
   name: string;
@@ -81,8 +80,8 @@ export default function CompanionAbout() {
     return () => { cancelled = true; };
   }, [companion]);
 
-  if (error) return <div style={{ color: "var(--status-error)" }}>Failed to load: {error}</div>;
-  if (!manifest || !payload) return <div style={{ color: "var(--muted)" }}>Loading…</div>;
+  if (error) return <div style={{ padding: 24, color: "var(--status-error)" }}>Failed to load: {error}</div>;
+  if (!manifest || !payload) return <div style={{ padding: 24, color: "var(--muted)" }}>Loading…</div>;
 
   const writeTools = payload.tools.filter((t) => t.sideEffect === "write");
   const readTools = payload.tools.filter((t) => t.sideEffect === "read");
@@ -90,129 +89,268 @@ export default function CompanionAbout() {
   const runCount = entities?.length ?? 0;
 
   return (
-    <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 32 }}>
-      {/* Breadcrumb */}
-      <div className="t-mono" style={{ color: "var(--muted)" }}>
-        <Link to="/" style={{ color: "var(--muted)", textDecoration: "none" }}>claudepanion</Link>
-        {" › "}
-        <span>{manifest.displayName}</span>
-      </div>
-
+    <div style={{ padding: "24px 28px 60px", maxWidth: 1100 }}>
       {/* Header */}
-      <header style={{ display: "flex", gap: 20, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <div style={{ width: 96, height: 96, background: "var(--soft)", borderRadius: 8, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>
-          <span style={{ fontSize: 48 }} aria-hidden>{manifest.icon}</span>
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          alignItems: "flex-start",
+          marginBottom: 24,
+          paddingBottom: 20,
+          borderBottom: "1px dashed color-mix(in srgb, var(--ink) 20%, transparent)",
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            background: "var(--soft)",
+            border: "var(--app-border)",
+            display: "grid",
+            placeItems: "center",
+            fontSize: 22,
+            flexShrink: 0,
+          }}
+          aria-hidden
+        >
+          {manifest.icon}
         </div>
-        <div style={{ flex: 1, minWidth: 220, display: "flex", flexDirection: "column", gap: 8 }}>
-          <h1 className="t-h2" style={{ margin: 0 }}>{manifest.displayName}</h1>
-          <p className="t-body" style={{ color: "var(--muted)", margin: 0, maxWidth: "62ch" }}>{manifest.description}</p>
-          <div className="t-mono" style={{ color: "var(--muted)", fontSize: 11, display: "flex", gap: 16 }}>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <h1 className="wb-serif" style={{ fontSize: 38, lineHeight: 1.0, margin: "0 0 6px" }}>
+            {manifest.displayName}
+          </h1>
+          <p className="wb-sans" style={{ margin: "0 0 8px", fontSize: 13, color: "var(--muted)", lineHeight: 1.55, maxWidth: 640 }}>
+            {manifest.description}
+          </p>
+          <div style={{ display: "flex", gap: 14, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>
             <span>v{manifest.version}</span>
             <span>·</span>
             <span>{manifest.kind}</span>
             <span>·</span>
-            <span>{runCount} run{runCount === 1 ? "" : "s"}</span>
+            <span>{runCount} {runCount === 1 ? "run" : "runs"}</span>
             {hasWrites ? <><span>·</span><span style={{ color: "var(--status-warning)" }}>writes</span></> : payload.tools.length > 0 ? <><span>·</span><span>read-only</span></> : null}
           </div>
         </div>
-      </header>
-
-      {/* CTAs */}
-      <div style={{ display: "flex", gap: 8 }}>
-        <Link to={`/c/build/iterate/${manifest.name}`} className="btn-ghost">🔨 Iterate with Build</Link>
-        {manifest.kind === "ui" && (
-          <Link to={`/c/${manifest.name}/new`} className="btn-ink">
-            + {manifest.actionLabels?.newEntity ?? "New run"}
+        <div style={{ display: "flex", gap: 8, flexShrink: 0 }}>
+          <Link to={`/c/build/iterate/${manifest.name}`} className="wb-btn wb-btn-ghost wb-btn-sm" style={{ textDecoration: "none" }}>
+            🔨 iterate with build
           </Link>
-        )}
+          {manifest.kind === "ui" && (
+            <Link to={`/c/${manifest.name}/new`} className="wb-btn wb-btn-sm" style={{ textDecoration: "none" }}>
+              $ {manifest.actionLabels?.newEntity ?? "new run"}
+            </Link>
+          )}
+        </div>
       </div>
 
       <PreflightBanner companion={companion} />
 
-      {/* Write-tools warning */}
       {hasWrites && (
-        <div role="alert" className="card-hairline" style={{ borderColor: "var(--status-warning)", background: "color-mix(in srgb, var(--status-warning) 6%, transparent)" }}>
-          <strong>⚠️ This companion writes to external systems.</strong>
-          <ul style={{ margin: "8px 0 0 20px" }}>
-            {writeTools.map((t) => (
-              <li key={t.name} className="t-caption" style={{ color: "var(--ink)" }}>
-                <code>{t.name}</code> — {t.description}
-              </li>
-            ))}
-          </ul>
-          <div className="t-caption" style={{ marginTop: 8 }}>
-            The skill will ask for your permission before each write action.
+        <div role="alert" className="wb-card" style={{ marginBottom: 16, borderColor: "var(--status-warning)" }}>
+          <div className="wb-card-header wb-section-label" style={{ color: "var(--status-warning)", background: "color-mix(in srgb, var(--status-warning) 10%, transparent)", borderBottomColor: "color-mix(in srgb, var(--status-warning) 40%, transparent)" }}>
+            // this companion writes to external systems
+          </div>
+          <div style={{ padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.7 }}>
+            <ul style={{ margin: 0, paddingLeft: 20 }}>
+              {writeTools.map((t) => (
+                <li key={t.name}>
+                  <code>{t.name}</code> — <span style={{ color: "var(--muted)" }}>{t.description}</span>
+                </li>
+              ))}
+            </ul>
+            <div style={{ marginTop: 8, color: "var(--muted)" }}>
+              // the skill asks for your permission before each write.
+            </div>
           </div>
         </div>
       )}
 
-      {/* Runs table or empty state */}
-      <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-        <span className="t-eyebrow">Recent runs</span>
+      {/* Runs table / empty state */}
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 10 }}>
+          <span className="wb-section-label">recent runs</span>
+        </div>
         {entities === null ? (
-          <span className="t-caption">Loading…</span>
+          <span className="wb-sans" style={{ fontSize: 12, color: "var(--muted)" }}>Loading…</span>
         ) : entities.length === 0 ? (
-          <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: 48, gap: 12 }}>
-            <span style={{ color: "color-mix(in srgb, var(--ink) 15%, transparent)" }}>
-              <Sketch.Plant size={120} />
-            </span>
-            <span className="t-caption">Past runs will live here.</span>
-          </div>
+          <EmptyRuns manifest={manifest} />
         ) : (
-          <div className="card-hairline" style={{ padding: 0 }}>
-            {entities.slice(0, 10).map((e) => (
-              <Link key={e.id} to={`/c/${manifest.name}/${e.id}`} style={{ display: "grid", gridTemplateColumns: "120px 1fr 140px", gap: 12, padding: "12px 16px", borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)", color: "var(--ink)", textDecoration: "none", alignItems: "center" }}>
-                <span className="t-caption" style={{ color: statusColor(e.status) }}>● {e.status}</span>
-                <span>{summarize(e)}</span>
-                <span className="t-mono" style={{ color: "var(--muted)", fontSize: 11 }}>{timeAgo(e.createdAt)}</span>
-              </Link>
-            ))}
-            {entities.length > 10 && (
-              <div style={{ padding: "10px 16px", borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)" }}>
-                <Link to={`/c/${manifest.name}/runs`} className="t-caption" style={{ color: "var(--accent)" }}>
-                  Showing 10 of {entities.length} · show all →
-                </Link>
-              </div>
-            )}
+          <RunsTable manifest={manifest} entities={entities} />
+        )}
+        {entities && entities.length > 10 && (
+          <div style={{ marginTop: 10, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>
+            {entities.length} runs ·{" "}
+            <Link to={`/c/${manifest.name}/runs`} style={{ color: "var(--accent)", textDecoration: "none" }}>
+              show all →
+            </Link>
           </div>
         )}
       </section>
 
       {/* MCP tools list */}
       {payload.tools.length > 0 && (
-        <section style={{ display: "flex", flexDirection: "column", gap: 12 }}>
-          <span className="t-eyebrow">MCP tools</span>
+        <section style={{ marginBottom: 24 }}>
+          <div style={{ marginBottom: 10 }}>
+            <span className="wb-section-label">mcp tools</span>
+          </div>
           <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
             {[...readTools, ...writeTools].map((t) => (
-              <div key={t.name} className="card-hairline" style={{ padding: 12 }}>
-                <code style={{ fontSize: 13, fontWeight: 600 }}>{t.name}</code>
-                {t.sideEffect === "write" && <span className="pill" style={{ marginLeft: 8, background: "color-mix(in srgb, var(--status-warning) 20%, transparent)", color: "var(--status-warning)" }}>write</span>}
-                {t.description && <div className="t-caption" style={{ marginTop: 4 }}>{t.description}</div>}
+              <div key={t.name} className="wb-card" style={{ padding: "10px 14px" }}>
+                <code style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-mono)" }}>{t.name}</code>
+                {t.sideEffect === "write" && (
+                  <span className="wb-tag" style={{ marginLeft: 8, color: "var(--status-warning)", borderColor: "var(--status-warning)" }}>
+                    write
+                  </span>
+                )}
+                {t.description && (
+                  <div className="wb-sans" style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                    {t.description}
+                  </div>
+                )}
               </div>
             ))}
           </div>
         </section>
       )}
 
-      {/* Danger zone (not for Build, which is handled by BuildHome) */}
+      {/* Danger zone */}
       {manifest.name !== "build" && (
-        <section style={{ borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)", paddingTop: 24, marginTop: 16, display: "flex", flexDirection: "column", gap: 12 }}>
-          <span className="t-eyebrow">Danger zone</span>
-          <p className="t-caption" style={{ margin: 0 }}>
+        <section
+          style={{
+            borderTop: "1px dashed color-mix(in srgb, var(--ink) 20%, transparent)",
+            paddingTop: 20,
+            marginTop: 24,
+          }}
+        >
+          <div style={{ marginBottom: 8 }}>
+            <span className="wb-section-label">danger zone</span>
+          </div>
+          <p className="wb-sans" style={{ margin: "0 0 12px", fontSize: 12, color: "var(--muted)", maxWidth: 600 }}>
             Deletes <code>companions/{manifest.name}/</code>, its skill, its compiled output, and saved entities. Takes effect immediately — no rebuild or restart needed.
           </p>
           <button
             type="button"
             onClick={onRemove}
             disabled={deleting}
-            className="btn-ghost"
-            style={{ alignSelf: "flex-start", borderColor: "var(--status-error)", color: "var(--status-error)", opacity: deleting ? 0.5 : 1, cursor: deleting ? "not-allowed" : "pointer" }}
+            className="wb-btn wb-btn-ghost wb-btn-sm"
+            style={{ borderColor: "var(--status-error)", color: "var(--status-error)" }}
           >
-            {deleting ? "Removing…" : "Remove companion"}
+            {deleting ? "removing…" : "remove companion"}
           </button>
         </section>
       )}
     </div>
+  );
+}
+
+function EmptyRuns({ manifest }: { manifest: Manifest }) {
+  return (
+    <div
+      style={{
+        border: "1px dashed color-mix(in srgb, var(--ink) 30%, transparent)",
+        padding: "40px 24px",
+        textAlign: "center",
+      }}
+    >
+      <div style={{ fontSize: 32, marginBottom: 12 }} aria-hidden>{manifest.icon}</div>
+      <div className="wb-serif" style={{ fontSize: 28, marginBottom: 8 }}>No runs yet.</div>
+      <p
+        className="wb-sans"
+        style={{ fontSize: 13, color: "var(--muted)", margin: "0 auto 20px", lineHeight: 1.55, maxWidth: 400 }}
+      >
+        Start a new run and fill out the form. Claude picks it up when you paste the slash command.
+      </p>
+      <div style={{ display: "flex", gap: 8, justifyContent: "center" }}>
+        {manifest.kind === "ui" && (
+          <Link to={`/c/${manifest.name}/new`} className="wb-btn wb-btn-sm" style={{ textDecoration: "none" }}>
+            $ {manifest.actionLabels?.newEntity ?? "new run"}
+          </Link>
+        )}
+        <Link to={`/c/build/iterate/${manifest.name}`} className="wb-btn wb-btn-ghost wb-btn-sm" style={{ textDecoration: "none" }}>
+          🔨 iterate with build
+        </Link>
+      </div>
+    </div>
+  );
+}
+
+function RunsTable({ manifest, entities }: { manifest: Manifest; entities: Entity[] }) {
+  const rows = entities.slice(0, 10);
+  return (
+    <div className="wb-card">
+      <div
+        style={{
+          display: "grid",
+          gridTemplateColumns: "100px 1fr 110px 80px",
+          padding: "8px 14px",
+          background: "var(--ink)",
+          color: "var(--bg)",
+          fontFamily: "var(--font-mono)",
+          fontSize: 10,
+          letterSpacing: "0.1em",
+          textTransform: "uppercase",
+        }}
+      >
+        <span>status</span>
+        <span>description</span>
+        <span>id</span>
+        <span style={{ textAlign: "right" }}>updated</span>
+      </div>
+      {rows.map((e, i) => {
+        const last = i === rows.length - 1;
+        return (
+          <Link
+            key={e.id}
+            to={`/c/${manifest.name}/${e.id}`}
+            className="wb-row"
+            style={{
+              display: "grid",
+              gridTemplateColumns: "100px 1fr 110px 80px",
+              padding: "12px 14px",
+              gap: 12,
+              alignItems: "center",
+              fontFamily: "var(--font-mono)",
+              fontSize: 12,
+              color: "var(--ink)",
+              textDecoration: "none",
+              borderBottom: last ? 0 : "1px dashed color-mix(in srgb, var(--ink) 20%, transparent)",
+            }}
+          >
+            <StatusPillMini status={e.status} />
+            <span
+              className="wb-sans"
+              style={{ overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", color: e.status === "error" ? "var(--muted)" : "var(--ink)" }}
+            >
+              {summarize(e)}
+            </span>
+            <span style={{ color: "var(--muted)", fontSize: 11 }}>{e.id.slice(0, 14)}</span>
+            <span className="wb-sans" style={{ fontSize: 11, color: "var(--muted)", textAlign: "right" }}>
+              {timeAgo(e.createdAt)}
+            </span>
+          </Link>
+        );
+      })}
+    </div>
+  );
+}
+
+function StatusPillMini({ status }: { status: Entity["status"] }) {
+  const color = statusColor(status);
+  return (
+    <span
+      style={{
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        color,
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: color }} />
+      {status}
+    </span>
   );
 }
 
@@ -231,8 +369,8 @@ function timeAgo(iso: string): string {
 }
 
 function statusColor(status: Entity["status"]): string {
-  if (status === "completed") return "var(--status-success)";
-  if (status === "running") return "var(--status-info)";
+  if (status === "completed") return "var(--sage)";
+  if (status === "running") return "var(--accent)";
   if (status === "error") return "var(--status-error)";
   return "var(--status-warning)";
 }

@@ -1,9 +1,7 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import type { Entity, Manifest } from "@shared/types";
 import { useCompanions } from "../hooks/useCompanions";
 import { fetchEntities } from "../api";
-import { Sketch } from "../icons/Sketch";
 
 export default function BuildEvolve() {
   const { companions, loading } = useCompanions();
@@ -30,58 +28,50 @@ export default function BuildEvolve() {
   }, [targets.map((c) => c.name).join(",")]);
 
   return (
-    <div style={{ maxWidth: 920, display: "flex", flexDirection: "column", gap: 32 }}>
-      <div className="t-mono" style={{ color: "var(--muted)" }}>
-        <Link to="/" style={{ color: "var(--muted)", textDecoration: "none" }}>claudepanion</Link>
-        {" › "}
-        <Link to="/c/build" style={{ color: "var(--muted)", textDecoration: "none" }}>Build</Link>
-        {" › "}
-        <span>Evolve</span>
-      </div>
-
-      <section style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <span className="pill pill-eyebrow" style={{ alignSelf: "flex-start" }}>⟳ ITERATE ON EXISTING</span>
-        <h1 className="t-display-sm" style={{ margin: 0 }}>
-          Which <em className="t-accent-italic">companion</em>?
+    <div style={{ padding: "22px 28px 60px", maxWidth: 1100 }}>
+      <div style={{ marginBottom: 24 }}>
+        <div className="wb-section-label" style={{ marginBottom: 8 }}>iterate on existing</div>
+        <h1 className="wb-serif" style={{ fontSize: 44, lineHeight: 1.05, margin: "0 0 10px" }}>
+          Which <em>companion</em>?
         </h1>
-        <p className="t-body" style={{ color: "var(--muted)", margin: 0, maxWidth: "62ch" }}>
+        <p className="wb-sans" style={{ color: "var(--muted)", margin: 0, fontSize: 13, lineHeight: 1.55, maxWidth: 640 }}>
           Pick a companion to evolve. Build will load its current shape so you can describe what should change.
         </p>
-      </section>
+      </div>
 
       {loading ? (
-        <span className="t-caption">Loading…</span>
+        <span className="wb-sans" style={{ fontSize: 12, color: "var(--muted)" }}>Loading…</span>
       ) : targets.length === 0 ? (
         <EmptyState />
       ) : (
-        <div className="card-hairline" style={{ padding: 0 }}>
+        <div className="wb-card">
           {targets.map((c, i) => {
             const stats = runCounts[c.name] ?? { count: 0, lastRun: null };
+            const last = i === targets.length - 1;
             return (
               <Link
                 key={c.name}
                 to={`/c/build/iterate/${c.name}`}
+                className="wb-row"
                 style={{
                   display: "grid",
                   gridTemplateColumns: "48px minmax(0, 1fr) 120px 140px",
                   gap: 16,
                   padding: "14px 16px",
-                  borderTop: i === 0 ? "none" : "1px solid color-mix(in srgb, var(--ink) 8%, transparent)",
                   color: "var(--ink)",
                   textDecoration: "none",
                   alignItems: "center",
+                  borderBottom: last ? 0 : "1px dashed color-mix(in srgb, var(--ink) 20%, transparent)",
                 }}
               >
                 <span style={{ fontSize: 28 }} aria-hidden>{c.icon}</span>
-                <div style={{ display: "flex", flexDirection: "column", gap: 2 }}>
-                  <span className="t-h3">{c.displayName}</span>
-                  <span className="t-caption" style={{ margin: 0 }}>{c.description}</span>
+                <div style={{ display: "flex", flexDirection: "column", gap: 2, minWidth: 0 }}>
+                  <span className="wb-sans" style={{ fontSize: 14, fontWeight: 600 }}>{c.displayName}</span>
+                  <span className="wb-sans" style={{ fontSize: 12, color: "var(--muted)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{c.description}</span>
                 </div>
-                <span className="t-mono" style={{ color: "var(--muted)", fontSize: 11 }}>
-                  v{c.version}
-                </span>
-                <span className="t-caption" style={{ color: "var(--muted)" }}>
-                  {stats.count} run{stats.count === 1 ? "" : "s"}{stats.lastRun ? ` · ${timeAgo(stats.lastRun)}` : ""}
+                <span style={{ fontFamily: "var(--font-mono)", color: "var(--muted)", fontSize: 11 }}>v{c.version}</span>
+                <span style={{ fontFamily: "var(--font-mono)", color: "var(--muted)", fontSize: 11 }}>
+                  {stats.count} {stats.count === 1 ? "run" : "runs"}{stats.lastRun ? ` · ${timeAgo(stats.lastRun)}` : ""}
                 </span>
               </Link>
             );
@@ -94,12 +84,20 @@ export default function BuildEvolve() {
 
 function EmptyState() {
   return (
-    <div style={{ display: "flex", flexDirection: "column", alignItems: "center", padding: 48, gap: 16 }}>
-      <span style={{ color: "color-mix(in srgb, var(--ink) 15%, transparent)" }}>
-        <Sketch.Plant size={120} />
-      </span>
-      <span className="t-caption">Nothing to evolve yet — scaffold a companion first.</span>
-      <Link to="/c/build/new" className="btn-ink">+ Scaffold from scratch</Link>
+    <div
+      style={{
+        border: "1px dashed color-mix(in srgb, var(--ink) 30%, transparent)",
+        padding: "40px 24px",
+        textAlign: "center",
+      }}
+    >
+      <div className="wb-serif" style={{ fontSize: 28, marginBottom: 8 }}>Nothing to evolve yet.</div>
+      <p className="wb-sans" style={{ fontSize: 13, color: "var(--muted)", margin: "0 auto 16px", maxWidth: 400, lineHeight: 1.55 }}>
+        Scaffold a companion first, then come back to iterate on it.
+      </p>
+      <Link to="/c/build/new" className="wb-btn wb-btn-sm" style={{ textDecoration: "none" }}>
+        $ scaffold from scratch
+      </Link>
     </div>
   );
 }

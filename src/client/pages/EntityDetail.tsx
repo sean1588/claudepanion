@@ -4,8 +4,6 @@ import { useEntityPolling } from "../hooks/useEntityPolling";
 import { useMcpStatus } from "../hooks/useMcpStatus";
 import { fetchCompanions, continueEntity } from "../api";
 import { deriveSteps, type DerivedStep } from "../lib/buildSteps";
-import BaseArtifactPanel from "../components/BaseArtifactPanel";
-import ContinuationForm from "../components/ContinuationForm";
 import { MarkdownArtifactPanel } from "../primitives/MarkdownArtifactPanel";
 import { getArtifactRenderer } from "../../../companions/client";
 import type { Entity, Manifest } from "@shared/types";
@@ -16,80 +14,106 @@ export default function EntityDetail() {
   const { companion = "", id = "" } = useParams();
   const { entity } = useEntityPolling(companion, id);
   const [manifest, setManifest] = useState<Manifest | null>(null);
-  useEffect(() => { void fetchCompanions().then((all) => setManifest(all.find((m) => m.name === companion) ?? null)); }, [companion]);
+  useEffect(() => {
+    void fetchCompanions().then((all) => setManifest(all.find((m) => m.name === companion) ?? null));
+  }, [companion]);
 
-  if (!entity) return <div style={{ color: "var(--muted)" }}>Loading…</div>;
+  if (!entity) return <div style={{ padding: 24, color: "var(--muted)" }}>Loading…</div>;
 
   const isBuild = entity.companion === "build";
   const steps = isBuild ? deriveSteps(entity) : null;
-  const latestLine = entity.logs?.at(-1)?.message;
 
   return (
-    <div style={{ maxWidth: 980, display: "flex", flexDirection: "column", gap: 32 }}>
-      <Breadcrumb manifest={manifest} entityId={entity.id} />
+    <div style={{ padding: "22px 28px 60px", maxWidth: 1100 }}>
+      <Title entity={entity} />
 
-      <Header entity={entity} />
-
-      {entity.status === "pending" && <PendingBanner entity={entity} />}
-      {latestLine && entity.status !== "completed" && entity.status !== "error" && (
-        <StatusMonoBlock text={latestLine} />
+      {entity.status === "pending" && (
+        <>
+          <PendingBanner entity={entity} />
+          <SlashHero entity={entity} />
+          <LogsCard entity={entity} pending />
+        </>
       )}
 
-      <SlashRow entity={entity} />
+      {entity.status === "running" && (
+        <>
+          <RunningStatus entity={entity} steps={steps} />
+          <SlashCollapsed entity={entity} />
+          <LogsCard entity={entity} />
+          {steps && <StepsCard steps={steps} />}
+        </>
+      )}
 
-      {steps && <StepList steps={steps} />}
+      {entity.status === "completed" && (
+        <>
+          <CompletedArtifact entity={entity} manifest={manifest} />
+          <ContinueCard entity={entity} />
+        </>
+      )}
 
-      <LogPane logs={(entity.logs ?? []).map((l) => l.message)} polling={entity.status === "running" || entity.status === "pending"} />
-
-      {entity.status === "completed" && <CompletedArtifact entity={entity} />}
-      {entity.status === "error" && <ErrorPanel entity={entity} />}
-
-      <FooterBar entity={entity} />
-
-      <ContinuationFormSection entity={entity} />
+      {entity.status === "error" && (
+        <>
+          <ErrorCard entity={entity} />
+          <RetryCard entity={entity} />
+          <LogsCard entity={entity} />
+        </>
+      )}
     </div>
   );
 }
 
-function Breadcrumb({ manifest, entityId }: { manifest: Manifest | null; entityId: string }) {
+function Title({ entity }: { entity: Entity }) {
+  const subline = (() => {
+    if (entity.status === "pending") return `waiting for handoff`;
+    if (entity.status === "running") return `claude is working`;
+    if (entity.status === "completed") return `scaffold complete`;
+    return `build failed`;
+  })();
+  const sub = entity.status === "pending" ? `created ${timeAgo(entity.createdAt)} · ${entity.id}`
+    : entity.status === "running" ? `started ${timeAgo(entity.createdAt)} · ${entity.id}`
+    : entity.status === "completed" ? `completed · took ${duration(entity.createdAt, entity.updatedAt)} · ${entity.id}`
+    : `failed · ran for ${duration(entity.createdAt, entity.updatedAt)} · ${entity.id}`;
   return (
-    <div className="t-mono" style={{ color: "var(--muted)" }}>
-      <Link to="/" style={{ color: "var(--muted)", textDecoration: "none" }}>claudepanion</Link>
-      {manifest && <> › <Link to={`/c/${manifest.name}`} style={{ color: "var(--muted)", textDecoration: "none" }}>{manifest.displayName}</Link></>}
-      {" › "}
-      <span>{entityId}</span>
-    </div>
-  );
-}
-
-function Header({ entity }: { entity: Entity }) {
-  return (
-    <header style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-      <h1 className="t-display-sm" style={{ margin: 0 }}>{titleOf(entity)}</h1>
-      <div className="t-caption">
-        {subtitleOf(entity)} · ID <code>{entity.id}</code>
-        <StatusInline status={entity.status} />
+    <header style={{ marginBottom: 22, display: "flex", justifyContent: "space-between", alignItems: "flex-start", gap: 16, flexWrap: "wrap" }}>
+      <div>
+        <div className="wb-section-label" style={{ marginBottom: 8 }}>{subline}</div>
+        <h1 className="wb-serif" style={{ fontSize: 44, lineHeight: 1.05, margin: "0 0 6px" }}>
+          {titleOf(entity)}
+        </h1>
+        <div style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>{sub}</div>
       </div>
+      <StatusPill status={entity.status} />
     </header>
   );
 }
 
-function StatusInline({ status }: { status: Entity["status"] }) {
-  const color = statusColor(status);
-  return <span style={{ marginLeft: 12, color }}>● {status}</span>;
-}
-
-function StatusMonoBlock({ text }: { text: string }) {
+function StatusPill({ status }: { status: Entity["status"] }) {
+  const color =
+    status === "pending" ? "var(--status-warning)"
+    : status === "running" ? "var(--accent)"
+    : status === "completed" ? "var(--sage)"
+    : "var(--status-error)";
   return (
-    <div className="panel-mono" style={{ display: "flex", alignItems: "center", gap: 10 }}>
-      <span style={{ width: 6, height: 6, borderRadius: "50%", background: "var(--status-info)" }} />
-      <span className="t-eyebrow" style={{ color: "var(--bg)" }}>Running</span>
-      <span style={{ opacity: 0.8 }}>{text}</span>
-    </div>
+    <span
+      style={{
+        padding: "4px 12px",
+        fontFamily: "var(--font-mono)",
+        fontSize: 11,
+        display: "inline-flex",
+        alignItems: "center",
+        gap: 6,
+        border: `1px solid ${color}`,
+        color,
+        background: `color-mix(in srgb, ${color} 8%, transparent)`,
+      }}
+    >
+      <span style={{ width: 7, height: 7, borderRadius: 999, background: color }} />
+      {status}
+    </span>
   );
 }
 
-function SlashRow({ entity }: { entity: Entity }) {
+function SlashHero({ entity }: { entity: Entity }) {
   const cmd = `/${entity.companion}-companion ${entity.id}`;
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -97,64 +121,382 @@ function SlashRow({ entity }: { entity: Entity }) {
       await navigator.clipboard.writeText(cmd);
       setCopied(true);
       setTimeout(() => setCopied(false), 1500);
-    } catch { /* clipboard blocked — leave the code visible */ }
+    } catch { /* clipboard blocked */ }
   };
   return (
-    <div className="card-hairline" style={{ display: "flex", alignItems: "center", gap: 12 }}>
-      <span className="t-caption" style={{ color: "var(--muted)" }}>Slash command</span>
-      <code className="t-mono" style={{ background: "var(--ink)", color: "var(--bg)", padding: "6px 12px", borderRadius: 6, flex: 1 }}>{cmd}</code>
-      <button
-        type="button"
-        onClick={copy}
-        aria-label={copied ? "Copied" : "Copy slash command"}
-        className="t-caption"
+    <div className="wb-card" style={{ marginBottom: 12, borderColor: "var(--sage)" }}>
+      <div
+        className="wb-card-header wb-section-label"
         style={{
-          background: "transparent",
-          border: "1px solid color-mix(in srgb, var(--ink) 14%, transparent)",
-          color: copied ? "var(--status-success)" : "var(--ink)",
-          padding: "6px 10px",
-          borderRadius: 6,
-          cursor: "pointer",
-          fontFamily: "var(--font-mono)",
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          color: "var(--sage)",
+          background: "color-mix(in srgb, var(--sage) 10%, transparent)",
+          borderBottomColor: "var(--sage)",
         }}
       >
-        {copied ? "✓ copied" : "copy"}
-      </button>
+        <span>hand off to claude</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="wb-pulse" style={{ background: "var(--sage)" }} />polling every 2s
+        </span>
+      </div>
+      <div style={{ padding: 14 }}>
+        <div className="wb-sans" style={{ fontSize: 13, color: "var(--muted)", marginBottom: 12 }}>
+          Paste in Claude Code to start work on this entity:
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <div className="wb-code" style={{ flex: 1, fontSize: 13, display: "flex", alignItems: "center", padding: "12px 14px" }}>
+            {cmd}
+          </div>
+          <button onClick={copy} className="wb-btn" style={{ padding: "0 16px" }}>
+            {copied ? "✓ copied" : "copy"}
+          </button>
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            padding: "8px 12px",
+            borderLeft: "2px solid var(--sage)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--muted)",
+            lineHeight: 1.6,
+            background: "var(--bg)",
+          }}
+        >
+          // run claude code inside the claudepanion repo<br />
+          // `claudepanion plugin install` must have been run first<br />
+          // build writes to companions/ and skills/ from claude's cwd
+        </div>
+      </div>
     </div>
   );
 }
 
-function StepList({ steps }: { steps: DerivedStep[] }) {
+function SlashCollapsed({ entity }: { entity: Entity }) {
+  const cmd = `/${entity.companion}-companion ${entity.id}`;
   return (
-    <ol style={{ listStyle: "none", padding: 0, margin: 0, display: "flex", flexDirection: "column", gap: 8 }}>
-      {steps.map((s) => (
-        <li key={s.label} style={{ display: "flex", alignItems: "center", gap: 10 }}>
-          <StepIcon status={s.status} />
-          <span style={{ color: s.status === "pending" ? "var(--muted)" : "var(--ink)" }}>{s.label}</span>
-        </li>
-      ))}
-    </ol>
+    <div className="wb-card" style={{ marginBottom: 12, fontSize: 11 }}>
+      <div style={{ padding: "8px 14px", display: "flex", gap: 14, alignItems: "center", fontFamily: "var(--font-mono)" }}>
+        <span style={{ color: "var(--muted)" }}>slash command</span>
+        <code className="wb-code" style={{ padding: "3px 10px", fontSize: 12 }}>{cmd}</code>
+      </div>
+    </div>
+  );
+}
+
+function RunningStatus({ entity, steps }: { entity: Entity; steps: DerivedStep[] | null }) {
+  const latest = entity.logs?.at(-1)?.message;
+  const activeStep = steps?.find((s) => s.status === "active");
+  return (
+    <div
+      className="wb-card"
+      style={{
+        marginBottom: 12,
+        borderColor: "color-mix(in srgb, var(--accent) 55%, transparent)",
+        background: "color-mix(in srgb, var(--accent) 6%, transparent)",
+      }}
+    >
+      <div
+        className="wb-card-header wb-section-label"
+        style={{
+          display: "flex",
+          gap: 8,
+          alignItems: "center",
+          color: "var(--accent)",
+          background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+          borderBottomColor: "color-mix(in srgb, var(--accent) 30%, transparent)",
+        }}
+      >
+        <span className="wb-pulse" style={{ background: "var(--accent)" }} />
+        claude is running
+      </div>
+      <div style={{ padding: "12px 14px" }}>
+        <div className="wb-sans" style={{ fontSize: 14, color: "var(--ink)" }}>
+          {activeStep ? activeStep.label : latest ?? "Working…"}
+        </div>
+        <div style={{ marginTop: 8, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+          elapsed: {durationNow(entity.createdAt)}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function LogsCard({ entity, pending = false }: { entity: Entity; pending?: boolean }) {
+  const lines = (entity.logs ?? []).map((l) => l.message);
+  const polling = entity.status === "running" || entity.status === "pending";
+  if (pending && lines.length === 0) {
+    return (
+      <div className="wb-card" style={{ marginBottom: 12 }}>
+        <div
+          className="wb-card-header wb-section-label"
+          style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+        >
+          <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+            <span className="wb-pulse" style={{ background: "var(--sage)" }} />logs
+          </span>
+          <span>0 entries</span>
+        </div>
+        <div
+          style={{
+            padding: "28px 14px",
+            textAlign: "center",
+            color: "var(--muted)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 12,
+            lineHeight: 1.6,
+          }}
+        >
+          <div>// waiting for claude to start…</div>
+          <div>// logs stream here once the slash command is run</div>
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="wb-card" style={{ marginBottom: 12 }}>
+      <div
+        className="wb-card-header wb-section-label"
+        style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}
+      >
+        <span style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          {polling && <span className="wb-pulse" style={{ background: "var(--accent)" }} />}
+          logs{polling ? " · polling" : ""}
+        </span>
+        <span>{lines.length} {lines.length === 1 ? "entry" : "entries"}</span>
+      </div>
+      <pre
+        className="wb-code"
+        style={{
+          margin: 0,
+          padding: "10px 14px",
+          maxHeight: 280,
+          overflow: "auto",
+          fontSize: 11,
+          whiteSpace: "pre-wrap",
+        }}
+      >
+        {lines.length === 0 ? "// no logs yet" : lines.join("\n")}
+      </pre>
+    </div>
+  );
+}
+
+function StepsCard({ steps }: { steps: DerivedStep[] }) {
+  return (
+    <div className="wb-card" style={{ marginBottom: 12 }}>
+      <div className="wb-card-header wb-section-label">steps</div>
+      <ol style={{ listStyle: "none", padding: "10px 14px", margin: 0, display: "flex", flexDirection: "column", gap: 6 }}>
+        {steps.map((s) => (
+          <li key={s.label} style={{ display: "flex", alignItems: "center", gap: 10, fontFamily: "var(--font-mono)", fontSize: 12 }}>
+            <StepIcon status={s.status} />
+            <span style={{ color: s.status === "pending" ? "var(--muted)" : "var(--ink)" }}>{s.label}</span>
+          </li>
+        ))}
+      </ol>
+    </div>
   );
 }
 
 function StepIcon({ status }: { status: DerivedStep["status"] }) {
-  if (status === "done") return <span style={{ color: "var(--status-success)" }}>✓</span>;
+  if (status === "done") return <span style={{ color: "var(--sage)" }}>✓</span>;
   if (status === "failed") return <span style={{ color: "var(--status-error)" }}>×</span>;
-  if (status === "active") return <span style={{ display: "inline-block", width: 10, height: 10, borderRadius: "50%", background: "var(--status-info)", animation: "pulse 1.2s ease-in-out infinite" }} />;
+  if (status === "active") return <span style={{ display: "inline-block", width: 8, height: 8, borderRadius: "50%", background: "var(--accent)", animation: "wb-pulse 1.2s infinite" }} />;
   return <span style={{ color: "var(--muted)" }}>○</span>;
 }
 
-function LogPane({ logs, polling }: { logs: string[]; polling: boolean }) {
+function CompletedArtifact({ entity, manifest }: { entity: Entity; manifest: Manifest | null }) {
+  const Renderer = getArtifactRenderer(entity.companion);
+  const targetSlug = (entity.input as Record<string, unknown>).name as string | undefined;
+  const canOpen = entity.companion === "build" && targetSlug;
+  const filesCreated = filesFromArtifact(entity);
   return (
-    <section className="panel-mono" style={{ background: "var(--ink)", borderRadius: 8 }}>
-      <header style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "6px 12px", borderBottom: "1px solid color-mix(in srgb, var(--bg) 12%, transparent)" }}>
-        <span className="t-eyebrow" style={{ color: "var(--bg)" }}>Logs</span>
-        {polling && <span className="t-caption" style={{ color: "var(--bg)", opacity: 0.6 }}>· polling every 2s</span>}
-      </header>
-      <pre style={{ margin: 0, padding: 12, fontSize: 12, color: "var(--bg)", whiteSpace: "pre-wrap", maxHeight: 320, overflow: "auto" }}>
-        {logs.length === 0 ? "Waiting for agent…" : logs.join("\n")}
-      </pre>
-    </section>
+    <div className="wb-card" style={{ marginBottom: 12, borderColor: "var(--sage)" }}>
+      <div
+        className="wb-card-header"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "color-mix(in srgb, var(--sage) 12%, transparent)",
+          borderBottomColor: "var(--sage)",
+        }}
+      >
+        <span className="wb-section-label" style={{ color: "var(--sage)" }}>artifact · build complete</span>
+        {canOpen && (
+          <Link to={`/c/${targetSlug}`} className="wb-btn wb-btn-sm" style={{ textDecoration: "none" }}>
+            open companion →
+          </Link>
+        )}
+      </div>
+      <div style={{ padding: 14 }}>
+        {filesCreated && (
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 16, fontFamily: "var(--font-mono)", fontSize: 11, marginBottom: 14 }}>
+            <div>
+              <div className="wb-section-label" style={{ marginBottom: 6 }}>files created</div>
+              {filesCreated.created.map((f) => (
+                <div key={f} style={{ color: "var(--sage)", lineHeight: 1.85 }}>+ {f}</div>
+              ))}
+            </div>
+            <div>
+              <div className="wb-section-label" style={{ marginBottom: 6 }}>files modified</div>
+              {filesCreated.modified.map((f) => (
+                <div key={f} style={{ color: "var(--muted)", lineHeight: 1.85 }}>~ {f}</div>
+              ))}
+              <div className="wb-section-label" style={{ marginTop: 14, marginBottom: 6 }}>next step</div>
+              <div className="wb-sans" style={{ color: "var(--muted)", lineHeight: 1.6 }}>
+                Companion mounted in sidebar → click to open → fill the form → run it.
+              </div>
+            </div>
+          </div>
+        )}
+        <div style={{ borderTop: "1px dashed color-mix(in srgb, var(--ink) 20%, transparent)", paddingTop: 14 }}>
+          {Renderer ? (
+            <Renderer entity={entity} />
+          ) : entity.artifact ? (
+            <MarkdownArtifactPanel artifact={entity.artifact as any} />
+          ) : (
+            <pre style={{ fontFamily: "var(--font-mono)", fontSize: 12 }}>{JSON.stringify(entity.artifact, null, 2)}</pre>
+          )}
+        </div>
+      </div>
+      {manifest && (
+        <div
+          style={{
+            borderTop: "var(--app-border)",
+            padding: "8px 14px",
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--muted)",
+          }}
+        >
+          // {manifest.displayName} · {manifest.kind} · v{manifest.version}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function filesFromArtifact(entity: Entity): { created: string[]; modified: string[] } | null {
+  const a = entity.artifact as { filesCreated?: string[]; filesModified?: string[] } | null;
+  if (!a) return null;
+  if (!a.filesCreated && !a.filesModified) return null;
+  return { created: a.filesCreated ?? [], modified: a.filesModified ?? [] };
+}
+
+function ErrorCard({ entity }: { entity: Entity }) {
+  return (
+    <div className="wb-card" style={{ marginBottom: 12, borderColor: "var(--status-error)" }}>
+      <div
+        className="wb-card-header wb-section-label"
+        style={{
+          color: "var(--status-error)",
+          background: "color-mix(in srgb, var(--status-error) 10%, transparent)",
+          borderBottomColor: "color-mix(in srgb, var(--status-error) 40%, transparent)",
+        }}
+      >
+        error
+      </div>
+      <div style={{ padding: "12px 14px" }}>
+        <div className="wb-sans" style={{ fontSize: 14, color: "var(--ink)", fontWeight: 500, marginBottom: 10 }}>
+          {entity.errorMessage ?? "Unknown error"}
+        </div>
+        {entity.errorStack && (
+          <pre
+            className="wb-code"
+            style={{ color: "#FCA5A5", padding: "10px 12px", fontSize: 11, lineHeight: 1.7, whiteSpace: "pre-wrap", maxHeight: 280, overflow: "auto" }}
+          >
+            {entity.errorStack}
+          </pre>
+        )}
+        <div
+          className="wb-sans"
+          style={{
+            marginTop: 10,
+            padding: "8px 12px",
+            borderLeft: "2px solid var(--status-error)",
+            fontFamily: "var(--font-mono)",
+            fontSize: 11,
+            color: "var(--muted)",
+            lineHeight: 1.6,
+            background: "var(--bg)",
+          }}
+        >
+          // if this started failing after a rebuild,<br />
+          // the claudepanion server may need a restart —<br />
+          // stop `claudepanion serve` and run it again.
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function ContinueCard({ entity }: { entity: Entity }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  if (entity.status !== "completed") return null;
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!text.trim() || busy) return;
+    setBusy(true);
+    try {
+      await continueEntity(entity.companion, entity.id, text.trim());
+      setText("");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="wb-card" style={{ marginBottom: 12 }}>
+      <div className="wb-card-header wb-section-label">not right? continue</div>
+      <div style={{ padding: "12px 14px", display: "flex", gap: 8 }}>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="// describe what to change…"
+          className="wb-input"
+          style={{ flex: 1 }}
+        />
+        <button type="submit" disabled={!text.trim() || busy} className="wb-btn">
+          {busy ? "…" : "continue"}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+function RetryCard({ entity }: { entity: Entity }) {
+  const [text, setText] = useState("");
+  const [busy, setBusy] = useState(false);
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (busy) return;
+    setBusy(true);
+    try {
+      await continueEntity(entity.companion, entity.id, text.trim() || "retry");
+      setText("");
+    } finally {
+      setBusy(false);
+    }
+  };
+  return (
+    <form onSubmit={submit} className="wb-card" style={{ marginBottom: 12 }}>
+      <div className="wb-card-header wb-section-label">retry with a hint</div>
+      <div style={{ padding: "12px 14px", display: "flex", gap: 8 }}>
+        <input
+          value={text}
+          onChange={(e) => setText(e.target.value)}
+          placeholder="// e.g. 'add contractVersion: 1 to the manifest'"
+          className="wb-input"
+          style={{ flex: 1 }}
+        />
+        <button type="submit" disabled={busy} className="wb-btn" style={{ background: "var(--accent)", borderColor: "var(--accent)" }}>
+          {busy ? "…" : "retry"}
+        </button>
+      </div>
+    </form>
   );
 }
 
@@ -164,94 +506,28 @@ function PendingBanner({ entity }: { entity: Entity }) {
   const stuck = !mcp.loading && mcp.firstRequestAt === null && ageMs > MCP_GRACE_MS;
   if (!stuck) return null;
   return (
-    <div role="alert" className="card-hairline" style={{ borderColor: "var(--status-warning)", background: "color-mix(in srgb, var(--status-warning) 8%, transparent)" }}>
-      <strong>⚠ claudepanion hasn't seen any MCP connection.</strong>
-      <ol style={{ marginTop: 8, marginBottom: 0, paddingLeft: 20 }}>
-        <li>Run <code>/mcp</code> in your Claude Code session.</li>
-        <li><code>claudepanion plugin install</code> in your repo.</li>
-        <li>Restart your Claude Code session.</li>
-      </ol>
-      <p className="t-caption" style={{ margin: "8px 0 0", color: "var(--muted)" }}>
-        Still stuck? The claudepanion server itself may have died — stop <code>claudepanion serve</code> and run it again.
-      </p>
+    <div role="alert" className="wb-card" style={{ marginBottom: 12, borderColor: "var(--status-warning)", background: "color-mix(in srgb, var(--status-warning) 8%, transparent)" }}>
+      <div className="wb-card-header wb-section-label" style={{ color: "var(--status-warning)", borderBottomColor: "color-mix(in srgb, var(--status-warning) 40%, transparent)", background: "color-mix(in srgb, var(--status-warning) 10%, transparent)" }}>
+        claudepanion hasn't seen any MCP connection
+      </div>
+      <div style={{ padding: "12px 14px", fontFamily: "var(--font-mono)", fontSize: 12, lineHeight: 1.7 }}>
+        <ol style={{ margin: 0, paddingLeft: 20 }}>
+          <li>Run <code>/mcp</code> in your Claude Code session.</li>
+          <li><code>claudepanion plugin install</code> in your repo.</li>
+          <li>Restart your Claude Code session.</li>
+        </ol>
+        <div style={{ marginTop: 8, color: "var(--muted)" }}>
+          // still stuck? the claudepanion server itself may have died — stop `claudepanion serve` and run it again.
+        </div>
+      </div>
     </div>
   );
-}
-
-function CompletedArtifact({ entity }: { entity: Entity }) {
-  const Renderer = getArtifactRenderer(entity.companion);
-  return (
-    <section className="card-hairline">
-      <span className="t-eyebrow">Artifact</span>
-      <BaseArtifactPanel entity={entity}>
-        {Renderer ? <Renderer entity={entity} /> : entity.artifact ? <MarkdownArtifactPanel artifact={entity.artifact as any} /> : <pre>{JSON.stringify(entity.artifact, null, 2)}</pre>}
-      </BaseArtifactPanel>
-    </section>
-  );
-}
-
-function ErrorPanel({ entity }: { entity: Entity }) {
-  return (
-    <section className="card-hairline" style={{ borderColor: "var(--status-error)" }}>
-      <span className="t-eyebrow" style={{ color: "var(--status-error)" }}>Error</span>
-      <p style={{ marginTop: 4 }}>{entity.errorMessage ?? "Unknown error"}</p>
-      {entity.errorStack && <pre className="t-mono" style={{ fontSize: 12, maxHeight: 200, overflow: "auto", marginTop: 8 }}>{entity.errorStack}</pre>}
-      <p className="t-caption" style={{ margin: "8px 0 0", color: "var(--muted)" }}>
-        If this started failing after a rebuild or new companion, the claudepanion server may need a restart — stop <code>claudepanion serve</code> and run it again.
-      </p>
-      <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
-        <button type="button" className="btn-ink" onClick={() => void continueEntity(entity.companion, entity.id, "retry")}>Retry build</button>
-        <Link to={`/c/build/iterate/${entity.companion}`} className="btn-ghost">Edit prompt</Link>
-      </div>
-    </section>
-  );
-}
-
-function FooterBar({ entity }: { entity: Entity }) {
-  const targetSlug = (entity.input as Record<string, unknown>).name as string | undefined;
-  const enabled = entity.status === "completed" && entity.companion === "build" && targetSlug;
-  return (
-    <footer style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: 16, borderTop: "1px solid color-mix(in srgb, var(--ink) 8%, transparent)" }}>
-      <Link to={`/c/${entity.companion}`} className="t-caption" style={{ color: "var(--muted)" }}>← Back</Link>
-      <Link
-        to={enabled ? `/c/${targetSlug}` : "#"}
-        className="btn-ink"
-        aria-disabled={enabled ? undefined : "true"}
-        tabIndex={enabled ? undefined : -1}
-        style={{ pointerEvents: enabled ? "auto" : "none", opacity: enabled ? 1 : 0.4 }}
-      >
-        Open companion →
-      </Link>
-    </footer>
-  );
-}
-
-function ContinuationFormSection({ entity }: { entity: Entity }) {
-  if (entity.status === "completed") {
-    return (
-      <ContinuationForm
-        title="Not quite right? Ask Claude to revise."
-        hint="Describe what to change and get a new slash command. The artifact above is kept as context."
-        cta="Continue"
-        placeholder="e.g. 'redo with a tighter summary'"
-        onSubmit={async (text) => { await continueEntity(entity.companion, entity.id, text); }}
-      />
-    );
-  }
-  return null;
 }
 
 function titleOf(e: Entity): string {
   const input = e.input as Record<string, unknown>;
   const raw = (input.title ?? input.name ?? input.target ?? input.description ?? e.companion) as string;
   return raw.length > 60 ? raw.slice(0, 57) + "…" : raw;
-}
-
-function subtitleOf(e: Entity): string {
-  if (e.status === "pending") return `Created ${timeAgo(e.createdAt)}`;
-  if (e.status === "running") return `Started ${timeAgo(e.createdAt)}`;
-  if (e.status === "completed") return `Completed · took ${duration(e.createdAt, e.updatedAt)}`;
-  return `Failed · ran for ${duration(e.createdAt, e.updatedAt)}`;
 }
 
 function timeAgo(iso: string): string {
@@ -267,9 +543,6 @@ function duration(from: string, to: string): string {
   return `${Math.floor(ms / 60_000)}m ${Math.floor((ms % 60_000) / 1000)}s`;
 }
 
-function statusColor(status: Entity["status"]): string {
-  if (status === "completed") return "var(--status-success)";
-  if (status === "running") return "var(--status-info)";
-  if (status === "error") return "var(--status-error)";
-  return "var(--status-warning)";
+function durationNow(from: string): string {
+  return duration(from, new Date().toISOString());
 }

@@ -28,35 +28,34 @@ function renderAt(path: string) {
 }
 
 describe("EntityDetail (facelift)", () => {
-  it("renders the 6 build step labels for a Build entity", () => {
+  it("renders the build step labels for a Build entity in running state", () => {
     mockEntity.mockReturnValue({
       id: "build-1", companion: "build", status: "running", logs: [{ message: "reading prompt", at: "x", level: "info" }],
       input: {}, createdAt: "2026-05-12T10:00:00Z", updatedAt: "2026-05-12T10:00:00Z",
     });
     renderAt("/c/build/build-1");
-    expect(screen.getByText("Reading prompt")).toBeInTheDocument();
+    // Active step "Reading prompt" appears in both the running status card and the steps list.
+    expect(screen.getAllByText("Reading prompt").length).toBeGreaterThan(0);
     expect(screen.getByText("First boot")).toBeInTheDocument();
   });
 
-  it("disables 'Open companion' until status is completed", () => {
-    mockEntity.mockReturnValue({
-      id: "build-1", companion: "build", status: "running", logs: [],
-      input: {}, createdAt: "2026-05-12T10:00:00Z", updatedAt: "2026-05-12T10:00:00Z",
-    });
-    renderAt("/c/build/build-1");
-    const cta = screen.getByRole("link", { name: /open companion/i });
-    expect(cta).toHaveAttribute("aria-disabled", "true");
-  });
-
-  it("enables 'Open companion' when completed", () => {
+  it("renders an 'open companion' link inside the completed artifact card", () => {
     mockEntity.mockReturnValue({
       id: "build-1", companion: "build", status: "completed", logs: [],
       input: { name: "pr-reviewer" }, createdAt: "2026-05-12T10:00:00Z", updatedAt: "2026-05-12T10:00:00Z",
-      artifact: null,
+      artifact: { markdown: "Done.", filesCreated: [], filesModified: [] },
     });
     renderAt("/c/build/build-1");
-    const cta = screen.getByRole("link", { name: /open companion/i });
-    expect(cta).not.toHaveAttribute("aria-disabled", "true");
+    expect(screen.getByRole("link", { name: /open companion/i })).toBeInTheDocument();
+  });
+
+  it("does NOT render an 'open companion' link before status is completed", () => {
+    mockEntity.mockReturnValue({
+      id: "build-1", companion: "build", status: "running", logs: [],
+      input: { name: "pr-reviewer" }, createdAt: "2026-05-12T10:00:00Z", updatedAt: "2026-05-12T10:00:00Z",
+    });
+    renderAt("/c/build/build-1");
+    expect(screen.queryByRole("link", { name: /open companion/i })).toBeNull();
   });
 
   it("shows error panel only when status is error", () => {
@@ -67,7 +66,7 @@ describe("EntityDetail (facelift)", () => {
     });
     renderAt("/c/build/build-1");
     expect(screen.getByText(/boom/i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /retry build/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
   });
 
   it("does NOT render the step list for non-Build companions", () => {
