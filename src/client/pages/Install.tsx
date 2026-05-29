@@ -3,10 +3,10 @@ import { Link } from "react-router-dom";
 import type { Manifest } from "@shared/types";
 
 const COMMUNITY_PACKAGES = [
-  { name: "claudepanion-pr-reviewer", author: "claudepanion-community", version: "1.2.3", downloads: "1.2k" },
-  { name: "claudepanion-oncall", author: "claudepanion-community", version: "0.8.0", downloads: "640" },
-  { name: "claudepanion-linear-grooming", author: "claudepanion-community", version: "0.4.1", downloads: "230" },
-  { name: "claudepanion-rss-summarizer", author: "claudepanion-community", version: "0.2.0", downloads: "89" },
+  { name: "claudepanion-pr-reviewer", icon: "🔎", desc: "Review GitHub pull requests, flag risky diffs." },
+  { name: "claudepanion-oncall", icon: "🚨", desc: "Investigate alarms across AWS / GitHub / Linear." },
+  { name: "claudepanion-linear-grooming", icon: "📋", desc: "Triage Linear backlogs, suggest priority changes." },
+  { name: "claudepanion-rss-summarizer", icon: "📰", desc: "Summarize new RSS posts, surface what to read." },
 ];
 
 export default function Install() {
@@ -43,99 +43,211 @@ export default function Install() {
   };
 
   return (
-    <div style={{ maxWidth: 1100, display: "flex", flexDirection: "column", gap: 32 }}>
-      {/* Breadcrumb */}
-      <div className="t-mono" style={{ color: "var(--muted)" }}>
-        <Link to="/" style={{ color: "var(--muted)", textDecoration: "none" }}>claudepanion</Link>
-        {" › "}
-        <span>Install</span>
-      </div>
-
-      {/* Eyebrow + hero */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-        <span className="pill pill-eyebrow" style={{ alignSelf: "flex-start" }}>INSTALL FROM NPM</span>
-        <h1 className="t-display-sm" style={{ margin: 0 }}>What would you like to <em className="t-accent-italic">install</em>?</h1>
-        <p className="t-body" style={{ color: "var(--muted)", margin: 0, maxWidth: "62ch" }}>
-          claudepanion uses npm as its package registry. Anything published as <code>claudepanion-&lt;name&gt;</code> works.
+    <div style={{ padding: "22px 28px 60px", maxWidth: 1100 }}>
+      {/* Header */}
+      <div style={{ marginBottom: 24 }}>
+        <div
+          style={{
+            fontFamily: "var(--font-mono)",
+            fontSize: 10,
+            color: "var(--accent)",
+            letterSpacing: "0.15em",
+            textTransform: "uppercase",
+            marginBottom: 8,
+          }}
+        >
+          $ claudepanion install &lt;package&gt;
+        </div>
+        <h1 className="wb-serif" style={{ fontSize: 44, lineHeight: 1.0, margin: "0 0 10px" }}>
+          Install from <em>npm</em>.
+        </h1>
+        <p className="wb-sans" style={{ fontSize: 13, color: "var(--muted)", margin: 0, maxWidth: 600, lineHeight: 1.55 }}>
+          Any <code style={{ background: "var(--soft)", padding: "1px 6px", fontSize: 12, fontFamily: "var(--font-mono)" }}>claudepanion-*</code> npm package. The host installs, validates the companion contract, and hot-mounts it — no restart.
         </p>
       </div>
 
-      {/* Two-column: input + state on left, community-packages aside on right */}
-      <div style={{ display: "grid", gridTemplateColumns: "minmax(0, 1fr) 340px", gap: 32, alignItems: "start" }}>
-        <form onSubmit={submit} style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-          <div className="t-mono" style={{ color: "var(--muted)", fontSize: 12 }}>$ npx claudepanion install</div>
-          <input
-            className="editorial-input t-mono"
-            value={pkg}
-            onChange={(e) => setPkg(e.target.value)}
-            placeholder="claudepanion-pr-reviewer"
-            disabled={state === "installing"}
-            style={{ fontFamily: "var(--font-mono)" }}
-          />
-          {!valid && pkg.length > 0 && (
-            <span className="t-caption" style={{ color: "var(--status-warning)" }}>
-              Must start with <code>claudepanion-</code> and use lowercase / digits / hyphens.
-            </span>
-          )}
-          <div>
-            <button type="submit" className="btn-ink" disabled={!valid || state === "installing"}>
-              {state === "installing" ? "Installing…" : "Install"}
-            </button>
-          </div>
-
-          {state === "installing" && (
-            <div className="panel-mono">
-              <span className="t-eyebrow" style={{ color: "var(--bg)" }}>Running</span>
-              <pre style={{ margin: "6px 0 0", fontSize: 12, color: "var(--bg)", whiteSpace: "pre-wrap" }}>
-                $ npx claudepanion install {pkg}
-              </pre>
-            </div>
-          )}
-
-          {state === "success" && installed && (
-            <div className="card-hairline" style={{ borderColor: "var(--status-success)", background: "color-mix(in srgb, var(--status-success) 6%, transparent)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ color: "var(--status-success)" }}>✓</span>
-                <span><strong>Installed {installed.icon} {installed.displayName}</strong> v{installed.version}</span>
-              </div>
-              <Link to={`/c/${installed.name}`} className="btn-ink">Open companion →</Link>
-            </div>
-          )}
-
-          {state === "error" && error && (
-            <div role="alert" className="card-hairline" style={{ borderColor: "var(--status-error)", background: "color-mix(in srgb, var(--status-error) 6%, transparent)" }}>
-              <div style={{ display: "flex", alignItems: "center", gap: 10, marginBottom: 8 }}>
-                <span style={{ color: "var(--status-error)" }}>×</span>
-                <span><strong>Install failed</strong></span>
-              </div>
-              <pre className="t-mono" style={{ margin: 0, fontSize: 12, whiteSpace: "pre-wrap", color: "var(--ink)" }}>{error}</pre>
-            </div>
-          )}
-
-          <p className="t-caption" style={{ marginTop: 8 }}>
-            Browse all on <a href="https://npmjs.com/search?q=claudepanion-" target="_blank" rel="noopener noreferrer" style={{ color: "var(--accent)" }}>npmjs.com →</a>
-          </p>
-        </form>
-
-        {/* Community packages aside */}
-        <aside className="card-soft" style={{ position: "sticky", top: 24 }}>
-          <div className="t-h3" style={{ marginBottom: 12 }}>Community packages</div>
-          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-            {COMMUNITY_PACKAGES.map((p) => (
-              <div key={p.name} style={{ display: "flex", flexDirection: "column", gap: 4, padding: "10px 12px", background: "var(--bg)", borderRadius: 6, border: "1px solid color-mix(in srgb, var(--ink) 6%, transparent)" }}>
-                <code className="t-mono" style={{ fontSize: 13, color: "var(--ink)" }}>{p.name}</code>
-                <span className="t-caption" style={{ fontSize: 11 }}>{p.author} · v{p.version} · {p.downloads} downloads</span>
-                <button
-                  type="button"
-                  className="btn-chip"
-                  onClick={() => setPkg(p.name)}
+      <div style={{ display: "grid", gridTemplateColumns: "1fr 280px", gap: 28, alignItems: "start" }}>
+        {/* Form column */}
+        <div>
+          <form onSubmit={submit} className="wb-card" style={{ marginBottom: 12 }}>
+            <div className="wb-card-header wb-section-label">package name</div>
+            <div style={{ padding: 14 }}>
+              <div style={{ display: "flex", gap: 8, marginBottom: 8 }}>
+                <input
+                  className="wb-input"
+                  value={pkg}
+                  onChange={(e) => setPkg(e.target.value)}
+                  placeholder="claudepanion-pr-reviewer"
                   disabled={state === "installing"}
-                  style={{ alignSelf: "flex-start", marginTop: 4 }}
+                  style={{
+                    flex: 1,
+                    borderColor:
+                      state === "error" ? "var(--status-error)"
+                      : state === "success" ? "var(--sage)"
+                      : "var(--ink)",
+                  }}
+                  aria-label="Package name"
+                />
+                <button
+                  type="submit"
+                  disabled={!valid || state === "installing"}
+                  className="wb-btn"
+                  style={{ minWidth: 100, justifyContent: "center" }}
                 >
-                  Install
+                  {state === "installing" ? "installing…" : "install"}
                 </button>
               </div>
+              <div style={{ fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>
+                // must start with claudepanion-
+              </div>
+              {!valid && pkg.length > 0 && (
+                <div style={{ marginTop: 6, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--status-warning)" }}>
+                  // lowercase / digits / hyphens only
+                </div>
+              )}
+
+              {state === "installing" && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 12px",
+                    background: "var(--bg)",
+                    border: "1px dashed color-mix(in srgb, var(--ink) 30%, transparent)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                    color: "var(--muted)",
+                    display: "flex",
+                    gap: 8,
+                    alignItems: "center",
+                  }}
+                >
+                  <span className="wb-pulse" style={{ background: "var(--accent)" }} />
+                  <span>running npm install {pkg}…</span>
+                </div>
+              )}
+
+              {state === "success" && installed && (
+                <div
+                  style={{
+                    marginTop: 12,
+                    padding: 12,
+                    background: "color-mix(in srgb, var(--sage) 14%, transparent)",
+                    border: "1px solid var(--sage)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 12,
+                  }}
+                >
+                  <div style={{ color: "var(--sage)", marginBottom: 4 }}>
+                    ✓ installed <span aria-hidden>{installed.icon}</span> {installed.displayName} v{installed.version}
+                  </div>
+                  <div style={{ color: "var(--muted)", marginBottom: 10, fontSize: 11 }}>
+                    // mounted in sidebar · no restart needed
+                  </div>
+                  <Link to={`/c/${installed.name}`} className="wb-btn wb-btn-sm" style={{ textDecoration: "none" }}>
+                    open companion →
+                  </Link>
+                </div>
+              )}
+
+              {state === "error" && error && (
+                <div
+                  role="alert"
+                  style={{
+                    marginTop: 12,
+                    padding: "10px 12px",
+                    background: "color-mix(in srgb, var(--status-error) 8%, transparent)",
+                    border: "1px solid var(--status-error)",
+                    fontFamily: "var(--font-mono)",
+                    fontSize: 11,
+                  }}
+                >
+                  <div style={{ color: "var(--status-error)", marginBottom: 6 }}>install failed</div>
+                  <pre style={{ margin: 0, color: "var(--muted)", lineHeight: 1.65, whiteSpace: "pre-wrap", fontFamily: "inherit" }}>
+                    {error}
+                  </pre>
+                </div>
+              )}
+            </div>
+          </form>
+
+          {/* How it works */}
+          <div className="wb-card">
+            <div className="wb-card-header wb-section-label">how it works</div>
+            <div
+              style={{
+                padding: "12px 14px",
+                fontFamily: "var(--font-mono)",
+                fontSize: 11,
+                color: "var(--muted)",
+                lineHeight: 1.9,
+              }}
+            >
+              <div>1. type any <code>claudepanion-*</code> package name</div>
+              <div>2. host runs <code>npm install</code> + dynamic import</div>
+              <div>3. companion contract is validated (manifest, form, tools)</div>
+              <div>4. hot-mounted in sidebar · no restart</div>
+              <div>5. persisted to <code>companions/index.ts</code></div>
+            </div>
+          </div>
+
+          <p style={{ marginTop: 16, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+            // browse all on{" "}
+            <a
+              href="https://npmjs.com/search?q=claudepanion-"
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: "var(--accent)" }}
+            >
+              npmjs.com →
+            </a>
+          </p>
+        </div>
+
+        {/* Community packages aside */}
+        <aside>
+          <div style={{ marginBottom: 10 }}>
+            <span className="wb-section-label">community packages</span>
+          </div>
+          <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+            {COMMUNITY_PACKAGES.map((p) => (
+              <button
+                key={p.name}
+                type="button"
+                className="wb-chip"
+                onClick={() => setPkg(p.name)}
+                disabled={state === "installing"}
+                style={{
+                  padding: "12px 14px",
+                  textAlign: "left",
+                  display: "grid",
+                  gridTemplateColumns: "28px 1fr",
+                  gap: 10,
+                  fontFamily: "var(--font-mono)",
+                }}
+              >
+                <span style={{ fontSize: 18 }} aria-hidden>{p.icon}</span>
+                <div>
+                  <div className="wb-sans" style={{ fontWeight: 600, fontSize: 12, color: "var(--ink)", marginBottom: 2 }}>
+                    {p.name}
+                  </div>
+                  <div className="wb-sans" style={{ fontSize: 11, color: "var(--muted)", lineHeight: 1.45 }}>
+                    {p.desc}
+                  </div>
+                </div>
+              </button>
             ))}
+          </div>
+          <div
+            style={{
+              marginTop: 10,
+              fontFamily: "var(--font-mono)",
+              fontSize: 10,
+              color: "var(--muted)",
+              lineHeight: 1.6,
+            }}
+          >
+            // registry is npm<br />
+            // search claudepanion on npmjs.com
           </div>
         </aside>
       </div>

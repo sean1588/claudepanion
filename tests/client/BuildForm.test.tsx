@@ -69,7 +69,7 @@ describe("BuildForm ?example= prefill", () => {
         </Routes>
       </MemoryRouter>
     );
-    const btn = await screen.findByRole("button", { name: /build companion/i });
+    const btn = await screen.findByRole("button", { name: /submit/i });
     fireEvent.click(btn);
     await waitFor(() => expect(submitted).not.toBeNull());
     // Chips are form-prefill sugar only — example slug must NOT leak into the entity input.
@@ -106,7 +106,7 @@ describe("BuildForm ?example= prefill", () => {
     await waitFor(() => {
       expect(screen.getByText(/already exists/i)).toBeInTheDocument();
     });
-    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
     expect(submitted).toBeNull();
   });
 
@@ -123,7 +123,7 @@ describe("BuildForm ?example= prefill", () => {
     const goalInput = await screen.findByLabelText(/^goal$/i) as HTMLTextAreaElement;
     fireEvent.change(nameInput, { target: { value: "totally-new-thing" } });
     fireEvent.change(goalInput, { target: { value: "fresh companion" } });
-    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
     await waitFor(() => expect(submitted).not.toBeNull());
     expect(submitted!).toMatchObject({ mode: "new-companion", name: "totally-new-thing" });
     expect(submitted!.description).toMatch(/fresh companion/);
@@ -142,7 +142,7 @@ describe("BuildForm ?example= prefill", () => {
     const goalInput = await screen.findByLabelText(/^goal$/i) as HTMLTextAreaElement;
     fireEvent.change(nameInput, { target: { value: "handwritten" } });
     fireEvent.change(goalInput, { target: { value: "no example" } });
-    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
     await waitFor(() => expect(submitted).not.toBeNull());
     expect(submitted!).toMatchObject({ mode: "new-companion", name: "handwritten" });
     expect((submitted as { example?: string }).example).toBeUndefined();
@@ -175,7 +175,7 @@ describe("BuildForm ?example= prefill", () => {
     fireEvent.change(firstToolName, { target: { value: "fetch_url" } });
     fireEvent.change(firstToolDesc, { target: { value: "Fetch a URL and return its body as UTF-8 text." } });
     fireEvent.change(firstToolArgs, { target: { value: "url: string (required) — URL to fetch" } });
-    fireEvent.click(screen.getByRole("button", { name: /build companion/i }));
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
     await waitFor(() => expect(submitted).not.toBeNull());
     expect(submitted!).toMatchObject({ mode: "new-companion", name: "url-fetcher", kind: "tool" });
     expect(submitted!.description).toMatch(/Tools to expose:/);

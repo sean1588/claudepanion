@@ -15,18 +15,18 @@ export default function SystemRail() {
   const plugin: Dot = pluginDot(health);
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
-      <Row dot={host} label="host running" />
-      <Row dot={mcp} label="MCP /mcp open" title={mcpTitle(mcp)} />
-      <Row dot={plugin} label="plugin installed" title={pluginTitle(plugin, health)} />
+    <div style={{ display: "flex", gap: 12, alignItems: "center" }}>
+      <Row dot={host} label="host" title="host running" />
+      <Row dot={mcp} label="mcp" title={mcpTitle(mcp)} />
+      <Row dot={plugin} label="plugin" title={pluginTitle(plugin, health)} />
     </div>
   );
 }
 
 function Row({ dot, label, title }: { dot: Dot; label: string; title?: string }) {
   return (
-    <div title={title} style={{ display: "flex", alignItems: "center", gap: 8, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink)" }}>
-      <span style={{ width: 8, height: 8, borderRadius: "50%", background: dotColor(dot), flex: "0 0 8px" }} />
+    <div title={title} style={{ display: "flex", alignItems: "center", gap: 6, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+      <span style={{ width: 7, height: 7, borderRadius: "50%", background: dotColor(dot), flex: "0 0 7px" }} />
       <span>{label}</span>
     </div>
   );

@@ -143,9 +143,7 @@ describe("EntityDetail", () => {
     expect(screen.getByRole("button", { name: /continue/i })).toBeInTheDocument();
   });
 
-  it("falls back to a placeholder for legacy non-markdown artifacts", () => {
-    // Retargeted: "completed" now appears multiple times (subtitle + inline
-    // status); use getAllByText and assert at least one match.
+  it("renders something for legacy non-markdown artifacts", () => {
     mockEntityFn.mockReturnValue(baseEntity({
       status: "completed",
       artifact: { total: 42 },
@@ -153,6 +151,7 @@ describe("EntityDetail", () => {
     mockMcpFn.mockReturnValue({ loading: false, firstRequestAt: null, lastRequestAt: null });
     renderAt("/c/x/x-1");
     expect(screen.getAllByText(/completed/i).length).toBeGreaterThan(0);
+    // No markdown → MarkdownArtifactPanel renders the "no markdown report" hint.
     expect(screen.getByText(/no markdown report/i)).toBeInTheDocument();
   });
 
@@ -188,7 +187,8 @@ describe("EntityDetail", () => {
     mockMcpFn.mockReturnValue({ loading: false, firstRequestAt: null, lastRequestAt: null });
     renderAt("/c/x/x-1");
     expect(screen.getByText(/hasn't seen any MCP connection/i)).toBeInTheDocument();
-    expect(screen.getByText(/claudepanion plugin install/i)).toBeInTheDocument();
+    // "claudepanion plugin install" appears in both the slash hero and the banner — assert at least one.
+    expect(screen.getAllByText(/claudepanion plugin install/i).length).toBeGreaterThan(0);
   });
 
   it("renders error message and stack in error state", () => {
@@ -202,17 +202,15 @@ describe("EntityDetail", () => {
     renderAt("/c/x/x-1");
     expect(screen.getByText("boom")).toBeInTheDocument();
     expect(screen.getByText(/at foo/)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /retry build/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^retry$/i })).toBeInTheDocument();
   });
 
-  it("renders summary banner from artifact", () => {
-    // Retargeted: mock useEntityPolling directly instead of stubbing fetch.
-    // BaseArtifactPanel "Notes during this run" text is unchanged.
+  it("renders the completed artifact card for a Build entity with files lists", () => {
     mockEntityFn.mockReturnValue({
       id: "build-abc", companion: "build", status: "completed",
       statusMessage: null, createdAt: "2026-04-25T00:00:00Z", updatedAt: "2026-04-25T00:00:01Z",
       input: { mode: "new-companion", name: "x", kind: "ui", description: "" },
-      artifact: { summary: "Scaffolded x.", errors: ["minor warning"], filesCreated: [], filesModified: [], validatorPassed: true, smokeTestPassed: true },
+      artifact: { summary: "Scaffolded x.", markdown: "Done.", filesCreated: ["companions/x/manifest.ts"], filesModified: ["companions/index.ts"], validatorPassed: true, smokeTestPassed: true },
       errorMessage: null, errorStack: null, logs: [],
     } as Entity);
     mockMcpFn.mockReturnValue({ loading: false, firstRequestAt: null, lastRequestAt: null });
@@ -223,8 +221,8 @@ describe("EntityDetail", () => {
         </Routes>
       </MemoryRouter>
     );
-    expect(screen.getByText("Notes during this run")).toBeInTheDocument();
-    expect(screen.getByText("Scaffolded x.")).toBeInTheDocument();
-    expect(screen.getByText("minor warning")).toBeInTheDocument();
+    expect(screen.getByText(/artifact · build complete/i)).toBeInTheDocument();
+    expect(screen.getByText(/companions\/x\/manifest\.ts/)).toBeInTheDocument();
+    expect(screen.getByText(/companions\/index\.ts/)).toBeInTheDocument();
   });
 });

@@ -32,31 +32,33 @@ function MountFailurePanel({ slug, failure }: { slug: string; failure: MountFail
   const accent =
     failure.remedy === "fix-code" ? "var(--status-error)" : "var(--status-warning)";
   return (
-    <div style={{ maxWidth: 720, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div className="t-mono" style={{ color: "var(--muted)" }}>
-        claudepanion › <span>{slug}</span>
+    <div style={{ padding: "22px 28px 60px", maxWidth: 720 }}>
+      <div className="wb-card" style={{ borderColor: accent, marginBottom: 12 }}>
+        <div
+          className="wb-card-header wb-section-label"
+          style={{ color: accent, background: `color-mix(in srgb, ${accent} 10%, transparent)`, borderBottomColor: `color-mix(in srgb, ${accent} 40%, transparent)` }}
+        >
+          // {failure.remedy === "fix-code" ? "load error" : "needs restart"}
+        </div>
+        <div style={{ padding: "14px" }}>
+          <h1 className="wb-serif" style={{ fontSize: 28, margin: "0 0 12px" }}>{headline}</h1>
+          <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6, fontFamily: "var(--font-mono)", fontSize: 12, color: "var(--ink)" }}>
+            {steps.map((s) => (
+              <li key={s} style={{ lineHeight: 1.55 }}>{s}</li>
+            ))}
+          </ol>
+          <details style={{ marginTop: 10 }}>
+            <summary style={{ cursor: "pointer", color: "var(--muted)", fontFamily: "var(--font-mono)", fontSize: 12 }}>
+              // why it didn't load
+            </summary>
+            <pre className="wb-code" style={{ marginTop: 8, padding: "8px 12px", fontSize: 11, whiteSpace: "pre-wrap" }}>
+              {failure.stage}: {failure.message}
+            </pre>
+          </details>
+        </div>
       </div>
-      <div
-        className="card-hairline"
-        style={{ borderColor: accent, background: `color-mix(in srgb, ${accent} 8%, transparent)`, display: "flex", flexDirection: "column", gap: 12 }}
-      >
-        <h1 className="t-h2" style={{ margin: 0 }}>{headline}</h1>
-        <ol style={{ margin: 0, paddingLeft: 20, display: "flex", flexDirection: "column", gap: 6 }}>
-          {steps.map((s) => (
-            <li key={s} className="t-body">{s}</li>
-          ))}
-        </ol>
-        <details>
-          <summary className="t-caption" style={{ cursor: "pointer", color: "var(--muted)" }}>
-            Why it didn't load
-          </summary>
-          <pre className="t-mono" style={{ fontSize: 12, marginTop: 8, whiteSpace: "pre-wrap", color: "var(--muted)" }}>
-            {failure.stage}: {failure.message}
-          </pre>
-        </details>
-      </div>
-      <p className="t-caption" style={{ color: "var(--muted)", margin: 0 }}>
-        This page refreshes on its own once <code>{slug}</code> loads.
+      <p style={{ fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)", margin: 0 }}>
+        // this page refreshes on its own once <code>{slug}</code> loads.
       </p>
     </div>
   );

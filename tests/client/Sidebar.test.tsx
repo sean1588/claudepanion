@@ -13,31 +13,22 @@ vi.mock("../../src/client/hooks/useCompanions", () => ({
   }),
 }));
 
-vi.mock("../../src/client/hooks/useHealth", () => ({
-  useHealth: () => ({
-    host: "running",
-    pluginInstalled: true,
-    mcp: { firstRequestAt: new Date(Date.now() - 60_000).toISOString(), lastRequestAt: new Date().toISOString() },
-  }),
-}));
-
 describe("Sidebar", () => {
-  it("renders CORE / COMPANIONS / SYSTEM section labels", () => {
+  it("renders CORE / COMPANIONS / TOOLS section labels", () => {
     render(<MemoryRouter><Sidebar /></MemoryRouter>);
     expect(screen.getByText("Core")).toBeInTheDocument();
     expect(screen.getByText("Companions")).toBeInTheDocument();
-    expect(screen.getByText("System")).toBeInTheDocument();
+    expect(screen.getByText("Tools")).toBeInTheDocument();
   });
 
-  it("renders SystemRail rows with status labels", () => {
-    render(<MemoryRouter><Sidebar /></MemoryRouter>);
-    expect(screen.getByText("host running")).toBeInTheDocument();
-    expect(screen.getByText("MCP /mcp open")).toBeInTheDocument();
-    expect(screen.getByText("plugin installed")).toBeInTheDocument();
-  });
-
-  it("keeps Install companion as the footer link", () => {
+  it("keeps install companion as the footer link", () => {
     render(<MemoryRouter><Sidebar /></MemoryRouter>);
     expect(screen.getByRole("link", { name: /install companion/i })).toBeInTheDocument();
+  });
+
+  it("lists installed ui companions and the build companion", () => {
+    render(<MemoryRouter><Sidebar /></MemoryRouter>);
+    expect(screen.getByRole("link", { name: /Build/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /PR reviewer/i })).toBeInTheDocument();
   });
 });

@@ -1,7 +1,6 @@
 import { useEffect, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import type { Manifest } from "@shared/types";
-import Breadcrumb from "../components/Breadcrumb";
 
 interface ToolParam {
   name: string;
@@ -25,7 +24,6 @@ interface AboutPayload {
 
 export default function ToolAbout() {
   const { companion } = useParams<{ companion: string }>();
-  const navigate = useNavigate();
   const [payload, setPayload] = useState<AboutPayload | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -44,40 +42,73 @@ export default function ToolAbout() {
     return () => { cancelled = true; };
   }, [companion]);
 
-  if (error) return <div style={{ color: "#dc2626" }}>Failed to load: {error}</div>;
-  if (!payload) return <div style={{ color: "var(--muted)" }}>Loading…</div>;
+  if (error) return <div style={{ padding: 24, color: "var(--status-error)" }}>Failed to load: {error}</div>;
+  if (!payload) return <div style={{ padding: 24, color: "var(--muted)" }}>Loading…</div>;
 
   const { manifest, tools } = payload;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 24 }}>
-      <Breadcrumb manifest={manifest} />
-      <header style={{ display: "flex", gap: 16, alignItems: "flex-start", flexWrap: "wrap" }}>
-        <span style={{ fontSize: 40 }} aria-hidden="true">{manifest.icon}</span>
-        <div style={{ flex: 1, minWidth: 220 }}>
-          <h1 style={{ margin: 0 }}>{manifest.displayName}</h1>
-          <div style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
-            claudepanion-{manifest.name} · v{manifest.version}
-          </div>
-          <p style={{ marginTop: 8, marginBottom: 0 }}>{manifest.description}</p>
-        </div>
-        <button
-          type="button"
-          className="btn-outline"
-          onClick={() => navigate(`/c/build/iterate/${manifest.name}`)}
-          style={{ whiteSpace: "nowrap" }}
+    <div style={{ padding: "24px 28px 60px", maxWidth: 1100 }}>
+      {/* Header */}
+      <div
+        style={{
+          display: "flex",
+          gap: 16,
+          alignItems: "flex-start",
+          marginBottom: 24,
+          paddingBottom: 20,
+          borderBottom: "1px dashed color-mix(in srgb, var(--ink) 20%, transparent)",
+        }}
+      >
+        <div
+          style={{
+            width: 48,
+            height: 48,
+            background: "var(--soft)",
+            border: "var(--app-border)",
+            display: "grid",
+            placeItems: "center",
+            fontSize: 22,
+            flexShrink: 0,
+          }}
+          aria-hidden
         >
-          🔨 Iterate with Build
-        </button>
-      </header>
+          {manifest.icon}
+        </div>
+        <div style={{ flex: 1, minWidth: 220 }}>
+          <h1 className="wb-serif" style={{ fontSize: 38, lineHeight: 1.0, margin: "0 0 6px" }}>
+            {manifest.displayName}
+          </h1>
+          <p className="wb-sans" style={{ margin: "0 0 8px", fontSize: 13, color: "var(--muted)", lineHeight: 1.55, maxWidth: 640 }}>
+            {manifest.description}
+          </p>
+          <div style={{ display: "flex", gap: 14, fontFamily: "var(--font-mono)", fontSize: 10, color: "var(--muted)" }}>
+            <span>claudepanion-{manifest.name}</span>
+            <span>·</span>
+            <span>v{manifest.version}</span>
+            <span>·</span>
+            <span>tool</span>
+          </div>
+        </div>
+        <Link to={`/c/build/iterate/${manifest.name}`} className="wb-btn wb-btn-ghost wb-btn-sm" style={{ textDecoration: "none", flexShrink: 0 }}>
+          🔨 iterate with build
+        </Link>
+      </div>
 
-      <section>
-        <h2 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>MCP tools</h2>
+      {/* MCP tools list */}
+      <section style={{ marginBottom: 24 }}>
+        <div style={{ marginBottom: 10 }}>
+          <span className="wb-section-label">mcp tools</span>
+        </div>
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
           {tools.map((t) => (
-            <div key={t.name} style={{ border: "1px solid #e2e8f0", borderRadius: 8, padding: 12 }}>
-              <code style={{ fontSize: 13, fontWeight: 600 }}>{t.signature}</code>
-              {t.description && <div style={{ fontSize: 13, color: "var(--muted)", marginTop: 4 }}>{t.description}</div>}
+            <div key={t.name} className="wb-card" style={{ padding: "10px 14px" }}>
+              <code style={{ fontSize: 13, fontWeight: 600, fontFamily: "var(--font-mono)" }}>{t.signature}</code>
+              {t.description && (
+                <div className="wb-sans" style={{ fontSize: 12, color: "var(--muted)", marginTop: 4 }}>
+                  {t.description}
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -122,20 +153,24 @@ function TryIt({ companion, tools }: { companion: string; tools: ToolDescriptor[
   };
 
   return (
-    <section>
-      <h2 style={{ marginTop: 0, marginBottom: 12, fontSize: 18 }}>Try it</h2>
-      <div style={{ display: "flex", flexDirection: "column", gap: 12, maxWidth: 560 }}>
-        <select value={selected} onChange={(e) => { setSelected(e.target.value); setArgsState({}); setResult(null); }} style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }}>
+    <section className="wb-card">
+      <div className="wb-card-header wb-section-label">try it</div>
+      <div style={{ padding: 14, display: "flex", flexDirection: "column", gap: 12, maxWidth: 640 }}>
+        <select
+          value={selected}
+          onChange={(e) => { setSelected(e.target.value); setArgsState({}); setResult(null); }}
+          className="wb-input"
+        >
           {tools.map((t) => <option key={t.name} value={t.name}>{t.name}</option>)}
         </select>
         {tool.params.map((p) => (
-          <label key={p.name} style={{ display: "flex", flexDirection: "column", gap: 4, fontSize: 13 }}>
-            {p.name}{p.required ? " *" : ""}
+          <label key={p.name} style={{ display: "flex", flexDirection: "column", gap: 4, fontFamily: "var(--font-mono)", fontSize: 11, color: "var(--muted)" }}>
+            // {p.name}{p.required ? " · required" : " · optional"}
             {p.type === "enum" ? (
               <select
                 value={argsState[p.name] ?? ""}
                 onChange={(e) => setArgsState((s) => ({ ...s, [p.name]: e.target.value }))}
-                style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }}
+                className="wb-input"
               >
                 <option value="">—</option>
                 {(p.enum ?? []).map((v) => <option key={v} value={v}>{v}</option>)}
@@ -144,7 +179,7 @@ function TryIt({ companion, tools }: { companion: string; tools: ToolDescriptor[
               <select
                 value={argsState[p.name] ?? ""}
                 onChange={(e) => setArgsState((s) => ({ ...s, [p.name]: e.target.value }))}
-                style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }}
+                className="wb-input"
               >
                 <option value="">—</option>
                 <option value="true">true</option>
@@ -155,16 +190,16 @@ function TryIt({ companion, tools }: { companion: string; tools: ToolDescriptor[
                 type={p.type === "number" ? "number" : "text"}
                 value={argsState[p.name] ?? ""}
                 onChange={(e) => setArgsState((s) => ({ ...s, [p.name]: e.target.value }))}
-                style={{ padding: 8, border: "1px solid #cbd5e1", borderRadius: 6 }}
+                className="wb-input"
               />
             )}
           </label>
         ))}
-        <button className="btn" onClick={invoke} disabled={running} style={{ alignSelf: "flex-start" }}>
-          {running ? "Invoking…" : "Invoke"}
+        <button onClick={invoke} disabled={running} className="wb-btn" style={{ alignSelf: "flex-start" }}>
+          {running ? "invoking…" : "$ invoke"}
         </button>
         {result && (
-          <pre style={{ background: "#0f172a", color: "#e2e8f0", padding: 12, borderRadius: 8, overflow: "auto", fontSize: 12 }}>
+          <pre className="wb-code" style={{ margin: 0, padding: 12, overflow: "auto", maxHeight: 320 }}>
             {JSON.stringify(result, null, 2)}
           </pre>
         )}
