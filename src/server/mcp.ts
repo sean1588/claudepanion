@@ -24,6 +24,26 @@ export interface McpHandle {
 const STATUS_SCHEMA = z.enum(["pending", "running", "completed", "error"]);
 const LOG_LEVEL_SCHEMA = z.enum(["info", "warn", "error"]);
 
+/**
+ * Suffixes of the lifecycle MCP tools every ui-kind companion gets. The single
+ * source of truth for these names — `buildEntityTools` below and the headless
+ * runner's allowlist both derive from it, so they can't drift. A guard test in
+ * tests/server/mcp.test.ts asserts the registered names match `entityToolNames`.
+ */
+export const ENTITY_TOOL_SUFFIXES = [
+  "get",
+  "list",
+  "update_status",
+  "append_log",
+  "save_artifact",
+  "fail",
+] as const;
+
+/** The fully-qualified lifecycle tool names for a ui companion (e.g. `build_get`). */
+export function entityToolNames(companionName: string): string[] {
+  return ENTITY_TOOL_SUFFIXES.map((s) => `${companionName}_${s}`);
+}
+
 function buildEntityTools(store: EntityStore, c: RegisteredCompanion): CompanionToolDefinition[] {
   const n = c.manifest.name;
   const label = c.manifest.displayName;

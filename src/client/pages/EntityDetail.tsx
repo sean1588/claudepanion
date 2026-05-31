@@ -22,23 +22,31 @@ export default function EntityDetail() {
 
   const isBuild = entity.companion === "build";
   const steps = isBuild ? deriveSteps(entity) : null;
+  // Headless companions are driven by the host — no slash command to hand off.
+  const headless = manifest?.execution === "headless";
 
   return (
     <div style={{ padding: "22px 28px 60px", maxWidth: 1100 }}>
-      <Title entity={entity} />
+      <Title entity={entity} headless={headless} />
 
       {entity.status === "pending" && (
         <>
-          <PendingBanner entity={entity} />
-          <SlashHero entity={entity} />
-          <LogsCard entity={entity} pending />
+          {headless ? (
+            <HeadlessHero />
+          ) : (
+            <>
+              <PendingBanner entity={entity} />
+              <SlashHero entity={entity} />
+            </>
+          )}
+          <LogsCard entity={entity} pending headless={headless} />
         </>
       )}
 
       {entity.status === "running" && (
         <>
           <RunningStatus entity={entity} steps={steps} />
-          <SlashCollapsed entity={entity} />
+          {!headless && <SlashCollapsed entity={entity} />}
           <LogsCard entity={entity} />
           {steps && <StepsCard steps={steps} />}
         </>
@@ -62,9 +70,9 @@ export default function EntityDetail() {
   );
 }
 
-function Title({ entity }: { entity: Entity }) {
+function Title({ entity, headless = false }: { entity: Entity; headless?: boolean }) {
   const subline = (() => {
-    if (entity.status === "pending") return `waiting for handoff`;
+    if (entity.status === "pending") return headless ? `starting headless run` : `waiting for handoff`;
     if (entity.status === "running") return `claude is working`;
     if (entity.status === "completed") return `scaffold complete`;
     return `build failed`;
@@ -174,6 +182,35 @@ function SlashHero({ entity }: { entity: Entity }) {
   );
 }
 
+function HeadlessHero() {
+  return (
+    <div className="wb-card" style={{ marginBottom: 12, borderColor: "var(--accent)" }}>
+      <div
+        className="wb-card-header wb-section-label"
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          color: "var(--accent)",
+          background: "color-mix(in srgb, var(--accent) 10%, transparent)",
+          borderBottomColor: "color-mix(in srgb, var(--accent) 30%, transparent)",
+        }}
+      >
+        <span>running headlessly</span>
+        <span style={{ display: "flex", alignItems: "center", gap: 6 }}>
+          <span className="wb-pulse" style={{ background: "var(--accent)" }} />polling every 2s
+        </span>
+      </div>
+      <div style={{ padding: 14 }}>
+        <div className="wb-sans" style={{ fontSize: 13, color: "var(--muted)", lineHeight: 1.6 }}>
+          claudepanion is running this companion for you — no terminal step. Claude works through this
+          companion's tools and the result appears here when it's done.
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SlashCollapsed({ entity }: { entity: Entity }) {
   const cmd = `/${entity.companion}-companion ${entity.id}`;
   return (
@@ -224,7 +261,7 @@ function RunningStatus({ entity, steps }: { entity: Entity; steps: DerivedStep[]
   );
 }
 
-function LogsCard({ entity, pending = false }: { entity: Entity; pending?: boolean }) {
+function LogsCard({ entity, pending = false, headless = false }: { entity: Entity; pending?: boolean; headless?: boolean }) {
   const lines = (entity.logs ?? []).map((l) => l.message);
   const polling = entity.status === "running" || entity.status === "pending";
   if (pending && lines.length === 0) {
@@ -250,7 +287,7 @@ function LogsCard({ entity, pending = false }: { entity: Entity; pending?: boole
           }}
         >
           <div>// waiting for claude to start…</div>
-          <div>// logs stream here once the slash command is run</div>
+          <div>{headless ? "// claude is starting — logs stream here as it works" : "// logs stream here once the slash command is run"}</div>
         </div>
       </div>
     );

@@ -128,6 +128,31 @@ describe("api routes", () => {
     expect(res.status).toBe(404);
   });
 
+  it("POST /api/entities does NOT launch a headless run for an interactive companion", async () => {
+    const launched: string[] = [];
+    const store = createEntityStore(tmp);
+    const registry = createRegistry([{ manifest: manifest("x"), tools: [] }]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, runHeadless: (e) => launched.push(e.id) });
+    await request(app2).post("/api/entities").send({ companion: "x", input: {} });
+    expect(launched).toEqual([]);
+  });
+
+  it("POST /api/entities launches a headless run for a headless companion", async () => {
+    const launched: string[] = [];
+    const store = createEntityStore(tmp);
+    const registry = createRegistry([
+      { manifest: { ...manifest("hx"), execution: "headless" }, tools: [] },
+    ]);
+    const app2 = express();
+    app2.use(express.json());
+    mountApiRoutes(app2, { store, registry, runHeadless: (e) => launched.push(e.id) });
+    const res = await request(app2).post("/api/entities").send({ companion: "hx", input: {} });
+    expect(res.status).toBe(201);
+    expect(launched).toEqual([res.body.id]);
+  });
+
   it("GET /api/entities/:id round-trips a created entity", async () => {
     const create = await request(app)
       .post("/api/entities")

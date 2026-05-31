@@ -186,6 +186,42 @@ describe("BuildForm ?example= prefill", () => {
     expect(submitted!.description).not.toMatch(/artifact follows a fixed template/i);
   });
 
+  it("defaults to interactive execution (no headless instruction in the description)", async () => {
+    let submitted: BuildInput | null = null;
+    render(
+      <MemoryRouter initialEntries={["/c/build/new"]}>
+        <Routes>
+          <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.change(await screen.findByLabelText(/companion name/i), { target: { value: "plain-thing" } });
+    fireEvent.change(screen.getByLabelText(/^goal$/i), { target: { value: "do a plain thing" } });
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+    await waitFor(() => expect(submitted).not.toBeNull());
+    expect(submitted!.description).not.toMatch(/HEADLESS/);
+    expect(submitted!.description).not.toMatch(/execution:/);
+  });
+
+  it("emits a headless manifest instruction when headless execution is selected", async () => {
+    let submitted: BuildInput | null = null;
+    render(
+      <MemoryRouter initialEntries={["/c/build/new"]}>
+        <Routes>
+          <Route path="*" element={<BuildForm onSubmit={(i) => { submitted = i; }} />} />
+        </Routes>
+      </MemoryRouter>
+    );
+    fireEvent.change(await screen.findByLabelText(/companion name/i), { target: { value: "auto-thing" } });
+    fireEvent.change(screen.getByLabelText(/^goal$/i), { target: { value: "do it unattended" } });
+    fireEvent.click(screen.getByRole("radio", { name: /headless/i }));
+    // The honest caveat is surfaced once headless is chosen.
+    expect(screen.getByText(/no human approves each step/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /submit/i }));
+    await waitFor(() => expect(submitted).not.toBeNull());
+    expect(submitted!.description).toMatch(/execution: "headless"/);
+  });
+
   it("lets the user add and remove field rows", async () => {
     renderAt("/c/build/new");
     // Default: one empty field row.

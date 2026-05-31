@@ -3,7 +3,7 @@ import type { EntityStore } from "./entity-store.js";
 import type { Registry } from "./companion-registry.js";
 import type { ReliabilitySnapshot, MountFailure } from "./reliability/watcher.js";
 import { generateEntityId } from "./id.js";
-import type { CompanionToolDefinition } from "../shared/types.js";
+import type { CompanionToolDefinition, Entity } from "../shared/types.js";
 import { spawn } from "node:child_process";
 import { validateCompanion } from "./reliability/validator.js";
 import type { RegisteredCompanion } from "./companion-registry.js";
@@ -53,9 +53,11 @@ export interface ApiDeps {
   deleteCompanionFiles?: (slug: string) => Promise<{ ok: true } | { ok: false; error: string }>;
   /** Triggers a fresh re-import of the companion module. Wired to the watcher in production. */
   triggerRemount?: (slug: string) => Promise<{ ok: true; version?: string } | { ok: false; error: string }>;
+  /** Launches a headless run for a just-created entity. Wired to the headless runner in production; absent in tests. */
+  runHeadless?: (entity: Entity) => void;
 }
 
-export function mountApiRoutes(app: Express, { store, registry, reliability, mountFailures, deleteCompanionFiles, triggerRemount }: ApiDeps): void {
+export function mountApiRoutes(app: Express, { store, registry, reliability, mountFailures, deleteCompanionFiles, triggerRemount, runHeadless }: ApiDeps): void {
   const runDelete = deleteCompanionFiles ?? defaultDeleteCompanionFiles;
 
   // Works even when the companion is NOT registered — that's the whole point:
@@ -154,11 +156,17 @@ export function mountApiRoutes(app: Express, { store, registry, reliability, mou
     if (!companion || typeof companion !== "string") {
       return res.status(400).json({ error: "companion required" });
     }
-    if (!registry.get(companion)) {
+    const c = registry.get(companion);
+    if (!c) {
       return res.status(404).json({ error: `unknown companion: ${companion}` });
     }
     const id = generateEntityId(companion);
     const entity = await store.create({ id, companion, input: input ?? {} });
+    // Headless ui companions are driven by the host, not a slash command: kick
+    // off the run now. Fire-and-forget — the client polls the entity as usual.
+    if (c.manifest.kind === "ui" && c.manifest.execution === "headless") {
+      runHeadless?.(entity);
+    }
     res.status(201).json(entity);
   });
 

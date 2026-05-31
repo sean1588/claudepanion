@@ -126,6 +126,13 @@ Notes for Build:
   },
 ];
 
+/**
+ * How a ui companion's entity is driven once submitted.
+ * - "interactive": host shows a `/<slug>-companion <id>` slash command (default).
+ * - "headless": host runs `claude -p` itself, bounded to the companion's tools.
+ */
+export type ExecutionMode = "interactive" | "headless";
+
 export type BuildPromptParts =
   | {
       kind: "ui";
@@ -133,6 +140,7 @@ export type BuildPromptParts =
       formFields: BuildFormField[];
       artifactTemplate: string;
       behavior: string;
+      execution: ExecutionMode;
     }
   | {
       kind: "tool";
@@ -184,6 +192,17 @@ export function serializeBuildPrompt(parts: BuildPromptParts): string {
 
   const behavior = parts.behavior.trim();
   if (behavior) sections.push(`Behavior & constraints:\n${behavior}`);
+
+  if (parts.kind === "ui" && parts.execution === "headless") {
+    sections.push(
+      `Execution mode: HEADLESS. Set \`execution: "headless"\` in the companion's manifest.ts. ` +
+        `This companion runs WITHOUT a slash command — when the form is submitted, the host launches ` +
+        `\`claude -p\` automatically, bounded to this companion's own MCP tools. Because there is no human ` +
+        `in the loop, the skill must never pause for confirmation: any step that would normally ask the ` +
+        `user to confirm should proceed with the safest default and note what it did (and anything skipped) ` +
+        `in the artifact.`
+    );
+  }
 
   return sections.join("\n\n");
 }
