@@ -8,7 +8,7 @@ Build small single-user web apps — *companions* — whose backend work is perf
 
 Packaged as a Claude Code plugin — once installed, Claude automatically discovers claudepanion's MCP tools and skills in every session (global install) or per repo (`--repo`).
 
-<img width="3814" height="1854" alt="image" src="https://github.com/user-attachments/assets/ea64ad66-0e0b-4e4b-8fe0-a605390c2179" />
+<img width="3814" height="1854" alt="The Build companion home page — scaffold a new companion from a plain-English description, or evolve an existing one." src="docs/assets/build-home.png" />
 
 
 ---
