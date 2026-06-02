@@ -5,7 +5,7 @@ import { join } from "node:path";
 import { z } from "zod";
 import { createEntityStore } from "../../src/server/entity-store";
 import { createRegistry } from "../../src/server/companion-registry";
-import { buildMcpServer } from "../../src/server/mcp";
+import { buildMcpServer, entityToolNames } from "../../src/server/mcp";
 import type { Manifest, CompanionToolDefinition } from "../../src/shared/types.js";
 import { successResult } from "../../src/shared/types.js";
 
@@ -37,6 +37,18 @@ describe("mcp server", () => {
     expect(names).toContain("x_append_log");
     expect(names).toContain("x_save_artifact");
     expect(names).toContain("x_fail");
+  });
+
+  // Drift guard: the headless runner's allowlist derives from entityToolNames(),
+  // so the lifecycle tools actually registered here MUST match it exactly.
+  it("registered lifecycle tools match entityToolNames()", () => {
+    const store = createEntityStore(tmp);
+    const registry = createRegistry([{ manifest: manifest("x"), tools: [] }]);
+    const names = new Set(buildMcpServer({ store, registry, companionsDir: tmp, snapshots: new Map() }).listToolNames());
+    for (const name of entityToolNames("x")) expect(names.has(name)).toBe(true);
+    // No extra `x_`-prefixed lifecycle-looking tool escaped the helper.
+    const lifecycle = [...names].filter((n) => n.startsWith("x_"));
+    expect(lifecycle.sort()).toEqual(entityToolNames("x").sort());
   });
 
   it("does not register generic tools for tool-kind companions", () => {

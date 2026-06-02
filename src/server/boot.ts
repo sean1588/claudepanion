@@ -13,6 +13,7 @@ import { mountApiRoutes } from "./api-routes.js";
 import { buildMcpServer } from "./mcp.js";
 import { createMcpHttp } from "./mcp-http.js";
 import { createWatcher, type ReliabilitySnapshot, type MountFailure } from "./reliability/watcher.js";
+import { createHeadlessRunner } from "./headless-runner.js";
 import { dataPath, ensureClaudepanionDirs } from "./paths.js";
 import { writeMcpConfig, DEFAULT_MCP_PORT } from "./mcp-config.js";
 
@@ -82,6 +83,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
     snapshots,
     mountFailures,
   });
+  const headlessRunner = createHeadlessRunner({ store, registry, homeRoot: repoRoot });
 
   const app = express();
   app.use(express.json({ limit: "10mb" }));
@@ -91,6 +93,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
     registry,
     reliability: snapshots,
     mountFailures,
+    runHeadless: (entity) => headlessRunner.run(entity),
     triggerRemount: async (slug) => {
       try {
         await watcher.triggerRemount(slug);
@@ -121,6 +124,7 @@ export async function bootServer(opts: BootOptions): Promise<void> {
   });
 
   const shutdown = async () => {
+    headlessRunner.cancelAll();
     await mcpHttp.closeAll();
     await watcher.close();
     process.exit(0);

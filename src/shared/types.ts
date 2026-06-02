@@ -45,6 +45,15 @@ export interface Manifest {
   description: string;
   contractVersion: string;
   version: string;
+  /**
+   * How a ui-kind entity is driven once its form is submitted.
+   * - "interactive" (default): the host shows a `/<slug>-companion <id>` slash
+   *   command; the user drives the entity from their Claude Code session.
+   * - "headless": the host runs `claude -p` itself, bounded to this companion's
+   *   MCP tools, and the entity completes without a terminal step.
+   * Undefined ⇒ "interactive". Meaningless for kind: "tool".
+   */
+  execution?: "interactive" | "headless";
   /** Env vars the companion requires. Preflight surfaces missing values; form blocks submission. */
   requiredEnv?: string[];
   /** Env vars that enable extra features but aren't required. Preflight surfaces as soft warning. */

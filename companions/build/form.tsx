@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useSearchParams, useNavigate, Link } from "react-router-dom";
 import type { BuildInput } from "./types";
-import { buildExamples, serializeBuildPrompt, type BuildFormField, type BuildToolSpec } from "./examples";
+import { buildExamples, serializeBuildPrompt, type BuildFormField, type BuildToolSpec, type ExecutionMode } from "./examples";
 import { useCompanions } from "../../src/client/hooks/useCompanions";
 
 interface Props {
@@ -37,6 +37,7 @@ export default function BuildForm({ onSubmit }: Props) {
     asideExample?.kind === "tool" ? asideExample.tools.map((t) => ({ ...t })) : [{ ...EMPTY_TOOL }]
   );
   const [behavior, setBehavior] = useState(asideExample?.behavior ?? "");
+  const [execution, setExecution] = useState<ExecutionMode>("interactive");
 
   useEffect(() => {
     if (asideExample) {
@@ -47,6 +48,7 @@ export default function BuildForm({ onSubmit }: Props) {
       if (asideExample.kind === "ui") {
         setFormFields(asideExample.formFields.map((f) => ({ ...f })));
         setArtifactTemplate(asideExample.artifactTemplate);
+        setExecution("interactive");
       } else {
         setTools(asideExample.tools.map((t) => ({ ...t })));
       }
@@ -70,7 +72,7 @@ export default function BuildForm({ onSubmit }: Props) {
   const removeTool = (i: number) => setTools((prev) => prev.filter((_, idx) => idx !== i));
 
   const description = kind === "ui"
-    ? serializeBuildPrompt({ kind: "ui", goal, formFields, artifactTemplate, behavior })
+    ? serializeBuildPrompt({ kind: "ui", goal, formFields, artifactTemplate, behavior, execution })
     : serializeBuildPrompt({ kind: "tool", goal, tools, behavior });
 
   const [error, setError] = useState<string | null>(null);
@@ -266,6 +268,48 @@ export default function BuildForm({ onSubmit }: Props) {
                 style={{ minHeight: 160 }}
               />
             </Field>
+          )}
+
+          {/* UI mode: Execution */}
+          {kind === "ui" && (
+            <div>
+              <FieldLabel>execution · how this companion runs once the form is submitted</FieldLabel>
+              <div role="radiogroup" aria-label="Execution mode" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 8 }}>
+                {[
+                  { value: "interactive" as const, label: "interactive", hint: "shows a slash command — drive it in your terminal; steer it, ask follow-ups" },
+                  { value: "headless" as const, label: "headless", hint: "runs from the UI — host runs claude itself, bounded to this companion's tools" },
+                ].map((opt) => {
+                  const selected = execution === opt.value;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="radio"
+                      aria-checked={selected}
+                      onClick={() => setExecution(opt.value)}
+                      style={{
+                        padding: "10px 12px",
+                        textAlign: "left",
+                        cursor: "pointer",
+                        fontFamily: "var(--font-mono)",
+                        border: "var(--app-border)",
+                        borderColor: selected ? "var(--sage)" : "color-mix(in srgb, var(--ink) 30%, transparent)",
+                        background: selected ? "color-mix(in srgb, var(--sage) 10%, transparent)" : "transparent",
+                        color: "var(--ink)",
+                      }}
+                    >
+                      <div style={{ fontSize: 13, fontWeight: 600 }}>{opt.label}</div>
+                      <div style={{ fontSize: 10, color: "var(--muted)", marginTop: 2 }}>{opt.hint}</div>
+                    </button>
+                  );
+                })}
+              </div>
+              {execution === "headless" && (
+                <Caption>
+                  Headless runs unattended, on your Claude Code auth, using only this companion's tools — no human approves each step.
+                </Caption>
+              )}
+            </div>
           )}
 
           {/* Tool mode: Tools */}

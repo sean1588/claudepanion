@@ -77,6 +77,7 @@ vi.mock("../../src/client/api", () => ({
   fetchCompanions: vi.fn().mockResolvedValue([
     { name: "x", kind: "ui", displayName: "X", icon: "x", description: "x", contractVersion: "2", version: "0.1.0" },
     { name: "build", kind: "ui", displayName: "Build", icon: "🔨", description: "", contractVersion: "2", version: "0.1.0" },
+    { name: "hx", kind: "ui", displayName: "HX", icon: "h", description: "headless one", contractVersion: "2", version: "0.1.0", execution: "headless" },
   ]),
   continueEntity: vi.fn().mockResolvedValue({}),
 }));
@@ -107,6 +108,15 @@ describe("EntityDetail", () => {
     renderAt("/c/x/x-1");
     expect(screen.getByText("/x-companion x-1")).toBeInTheDocument();
     expect(screen.getByText(/pending/i)).toBeInTheDocument();
+  });
+
+  it("shows the headless hero (no slash command) for a pending headless companion", async () => {
+    mockEntityFn.mockReturnValue(baseEntity({ companion: "hx", id: "hx-1", status: "pending" }));
+    mockMcpFn.mockReturnValue({ loading: false, firstRequestAt: null, lastRequestAt: null });
+    renderAt("/c/hx/hx-1");
+    expect(await screen.findByText(/running headlessly/i)).toBeInTheDocument();
+    expect(screen.queryByText("/hx-companion hx-1")).not.toBeInTheDocument();
+    expect(screen.queryByText(/hand off to claude/i)).not.toBeInTheDocument();
   });
 
   it("renders logs in running state", () => {

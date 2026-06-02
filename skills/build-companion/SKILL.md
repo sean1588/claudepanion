@@ -68,6 +68,7 @@ Read `entity.input.description` and decide all of:
 4. **Artifact extras** — typed fields beyond `summary`/`markdown`, only if a list-row override needs them. Otherwise `Artifact = BaseArtifact;`.
 5. **Proxy tools** — one per API call, named `<slug_with_underscores>_<verb>`.
 6. **SDK + credential helper** — see the table below.
+7. **Execution mode** — if the description includes `Execution mode: HEADLESS`, this companion runs without a slash command (the host launches `claude -p` on submit). Set `execution: "headless"` in the manifest, and write the skill so it never pauses for user confirmation — any normally-confirmed step proceeds with the safest default and is noted in the artifact. Otherwise it's interactive (the default) and the skill may converse as usual.
 
 ## Step 3 — Echo the interpretation, pause
 
@@ -96,7 +97,7 @@ Author real domain content for each file based on Step 2's interpretation. No to
 
 | File | Contents |
 |---|---|
-| `companions/<slug>/manifest.ts` | `name`, `kind: "ui"`, `displayName`, `icon`, `description`, `contractVersion: "2"`, `version: "0.1.0"`, `requiredEnv`. |
+| `companions/<slug>/manifest.ts` | `name`, `kind: "ui"`, `displayName`, `icon`, `description`, `contractVersion: "2"`, `version: "0.1.0"`, `requiredEnv`. **If the description says `Execution mode: HEADLESS`, also add `execution: "headless"`** — otherwise omit it (the field defaults to interactive). |
 | `companions/<slug>/types.ts` | `InputSchema = z.object({...})` with `.describe()` and `.meta({ ui: ... })`. Optional `ArtifactExtras`. Default `Artifact = BaseArtifact;`. |
 | `companions/<slug>/server/tools.ts` | One `defineTool({...})` per proxy tool. Inline error classifier mapping the SDK's errors onto `[config]` / `[input]` / `[transient]`. `sideEffect: "write"` on write tools with explicit consequence in the description. |
 | `skills/<slug>-companion/SKILL.md` | Frontmatter + CRITICAL block + **Step 0 (verify MCP)** + Steps 1–6. Step 4 is a sequenced playbook of `mcp__claudepanion__<slug>_*` tool calls + log lines — one sub-step per tool. Write tools get the user-permission stanza. |
